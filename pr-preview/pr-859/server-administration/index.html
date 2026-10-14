@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -27,7 +27,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1469,26 +1469,26 @@ cache entry will contain the following information:</p>
 </ul>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>system<span class="w"> </span>caches<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span>myserver
 <span class="c1"># {</span>
-<span class="c1">#   &quot;caches&quot;: [</span>
+<span class="c1">#   "caches": [</span>
 <span class="c1">#     {</span>
-<span class="c1">#       &quot;language&quot;: &quot;R&quot;,</span>
-<span class="c1">#       &quot;version&quot;: &quot;3.6.3&quot;,</span>
-<span class="c1">#       &quot;image_name&quot;: &quot;Local&quot;</span>
+<span class="c1">#       "language": "R",</span>
+<span class="c1">#       "version": "3.6.3",</span>
+<span class="c1">#       "image_name": "Local"</span>
 <span class="c1">#     },</span>
 <span class="c1">#     {</span>
-<span class="c1">#       &quot;language&quot;: &quot;Python&quot;,</span>
-<span class="c1">#       &quot;version&quot;: &quot;3.9.5&quot;,</span>
-<span class="c1">#       &quot;image_name&quot;: &quot;Local&quot;</span>
+<span class="c1">#       "language": "Python",</span>
+<span class="c1">#       "version": "3.9.5",</span>
+<span class="c1">#       "image_name": "Local"</span>
 <span class="c1">#     },</span>
 <span class="c1">#         {</span>
-<span class="c1">#       &quot;language&quot;: &quot;R&quot;,</span>
-<span class="c1">#       &quot;version&quot;: &quot;3.6.3&quot;,</span>
-<span class="c1">#       &quot;image_name&quot;: &quot;rstudio/content-base:r3.6.3-py3.9.5-bionic&quot;</span>
+<span class="c1">#       "language": "R",</span>
+<span class="c1">#       "version": "3.6.3",</span>
+<span class="c1">#       "image_name": "rstudio/content-base:r3.6.3-py3.9.5-bionic"</span>
 <span class="c1">#     },</span>
 <span class="c1">#     {</span>
-<span class="c1">#       &quot;language&quot;: &quot;Python&quot;,</span>
-<span class="c1">#       &quot;version&quot;: &quot;3.9.5&quot;,</span>
-<span class="c1">#       &quot;image_name&quot;: &quot;rstudio/content-base:r3.6.3-py3.9.5-bionic&quot;</span>
+<span class="c1">#       "language": "Python",</span>
+<span class="c1">#       "version": "3.9.5",</span>
+<span class="c1">#       "image_name": "rstudio/content-base:r3.6.3-py3.9.5-bionic"</span>
 <span class="c1">#     }</span>
 <span class="c1">#   ]</span>
 <span class="c1"># }</span>
@@ -1557,7 +1557,7 @@ other command line utilities like <a href="https://stedolan.github.io/jq/"><code
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>--help
 <span class="c1"># Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...</span>
 
-<span class="c1">#   Interact with Posit Connect&#39;s content API.</span>
+<span class="c1">#   Interact with Posit Connect's content API.</span>
 
 <span class="c1"># Options:</span>
 <span class="c1">#   --help  Show this message and exit.</span>
@@ -1565,7 +1565,7 @@ other command line utilities like <a href="https://stedolan.github.io/jq/"><code
 <span class="c1"># Commands:</span>
 <span class="c1">#   build            Build content on Posit Connect.</span>
 <span class="c1">#   describe         Describe a content item on Posit Connect.</span>
-<span class="c1">#   download-bundle  Download a content item&#39;s source bundle.</span>
+<span class="c1">#   download-bundle  Download a content item's source bundle.</span>
 <span class="c1">#   search           Search for content on Posit Connect.</span>
 </code></pre></div>
 <h3 id="content-search">Content Search<a class="headerlink" href="#content-search" title="Permanent link">#</a></h3>
@@ -1600,37 +1600,37 @@ metadata for each content item that meets the search criteria.</p>
 rsconnect<span class="w"> </span>content<span class="w"> </span>search
 <span class="c1"># [</span>
 <span class="c1">#   {</span>
-<span class="c1">#     &quot;max_conns_per_process&quot;: null,</span>
-<span class="c1">#     &quot;content_category&quot;: &quot;&quot;,</span>
-<span class="c1">#     &quot;load_factor&quot;: null,</span>
-<span class="c1">#     &quot;cluster_name&quot;: &quot;Local&quot;,</span>
-<span class="c1">#     &quot;description&quot;: &quot;&quot;,</span>
-<span class="c1">#     &quot;bundle_id&quot;: &quot;142&quot;,</span>
-<span class="c1">#     &quot;image_name&quot;: null,</span>
-<span class="c1">#     &quot;r_version&quot;: null,</span>
-<span class="c1">#     &quot;content_url&quot;: &quot;https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/&quot;,</span>
-<span class="c1">#     &quot;connection_timeout&quot;: null,</span>
-<span class="c1">#     &quot;min_processes&quot;: null,</span>
-<span class="c1">#     &quot;last_deployed_time&quot;: &quot;2021-12-02T18:09:11Z&quot;,</span>
-<span class="c1">#     &quot;name&quot;: &quot;logs-api-python&quot;,</span>
-<span class="c1">#     &quot;title&quot;: &quot;logs-api-python&quot;,</span>
-<span class="c1">#     &quot;created_time&quot;: &quot;2021-07-19T19:17:32Z&quot;,</span>
-<span class="c1">#     &quot;read_timeout&quot;: null,</span>
-<span class="c1">#     &quot;guid&quot;: &quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
-<span class="c1">#     &quot;parameterized&quot;: false,</span>
-<span class="c1">#     &quot;run_as&quot;: null,</span>
-<span class="c1">#     &quot;py_version&quot;: &quot;3.8.2&quot;,</span>
-<span class="c1">#     &quot;idle_timeout&quot;: null,</span>
-<span class="c1">#     &quot;app_role&quot;: &quot;owner&quot;,</span>
-<span class="c1">#     &quot;access_type&quot;: &quot;acl&quot;,</span>
-<span class="c1">#     &quot;app_mode&quot;: &quot;python-api&quot;,</span>
-<span class="c1">#     &quot;init_timeout&quot;: null,</span>
-<span class="c1">#     &quot;id&quot;: &quot;18&quot;,</span>
-<span class="c1">#     &quot;quarto_version&quot;: null,</span>
-<span class="c1">#     &quot;dashboard_url&quot;: &quot;https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
-<span class="c1">#     &quot;run_as_current_user&quot;: false,</span>
-<span class="c1">#     &quot;owner_guid&quot;: &quot;edf26318-0027-4d9d-bbbb-54703ebb1855&quot;,</span>
-<span class="c1">#     &quot;max_processes&quot;: null</span>
+<span class="c1">#     "max_conns_per_process": null,</span>
+<span class="c1">#     "content_category": "",</span>
+<span class="c1">#     "load_factor": null,</span>
+<span class="c1">#     "cluster_name": "Local",</span>
+<span class="c1">#     "description": "",</span>
+<span class="c1">#     "bundle_id": "142",</span>
+<span class="c1">#     "image_name": null,</span>
+<span class="c1">#     "r_version": null,</span>
+<span class="c1">#     "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",</span>
+<span class="c1">#     "connection_timeout": null,</span>
+<span class="c1">#     "min_processes": null,</span>
+<span class="c1">#     "last_deployed_time": "2021-12-02T18:09:11Z",</span>
+<span class="c1">#     "name": "logs-api-python",</span>
+<span class="c1">#     "title": "logs-api-python",</span>
+<span class="c1">#     "created_time": "2021-07-19T19:17:32Z",</span>
+<span class="c1">#     "read_timeout": null,</span>
+<span class="c1">#     "guid": "4ffc819c-065c-420c-88eb-332db1133317",</span>
+<span class="c1">#     "parameterized": false,</span>
+<span class="c1">#     "run_as": null,</span>
+<span class="c1">#     "py_version": "3.8.2",</span>
+<span class="c1">#     "idle_timeout": null,</span>
+<span class="c1">#     "app_role": "owner",</span>
+<span class="c1">#     "access_type": "acl",</span>
+<span class="c1">#     "app_mode": "python-api",</span>
+<span class="c1">#     "init_timeout": null,</span>
+<span class="c1">#     "id": "18",</span>
+<span class="c1">#     "quarto_version": null,</span>
+<span class="c1">#     "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",</span>
+<span class="c1">#     "run_as_current_user": false,</span>
+<span class="c1">#     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",</span>
+<span class="c1">#     "max_processes": null</span>
 <span class="c1">#   },</span>
 <span class="c1">#   ...</span>
 <span class="c1"># ]</span>
@@ -1697,13 +1697,13 @@ Metadata for "tracked" content items is stored in a local directory called
 <code>rsconnect-build</code> which will be automatically created in your current working directory.
 You may set the environment variable <code>CONNECT_CONTENT_BUILD_DIR</code> to override this directory location.</p>
 </blockquote>
-<div class="highlight"><pre><span></span><code><span class="c1"># `add` the content to mark it as &quot;tracked&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># `add` the content to mark it as "tracked"</span>
 rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
 
 <span class="c1"># run the build which kicks off a cache rebuild on the server</span>
 rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>run
 
-<span class="c1"># once the build is complete, the content can be &quot;untracked&quot;</span>
+<span class="c1"># once the build is complete, the content can be "untracked"</span>
 <span class="c1"># this does not remove the content from the Connect server</span>
 <span class="c1"># the entry is only removed from the local state file</span>
 rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>rm<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
@@ -1748,30 +1748,30 @@ and inspect the build logs with the <code>rsconnect content build logs</code> su
 <span class="c1"># [INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939</span>
 <span class="c1"># [</span>
 <span class="c1">#   {</span>
-<span class="c1">#     &quot;rsconnect_build_status&quot;: &quot;ERROR&quot;,</span>
-<span class="c1">#     &quot;last_deployed_time&quot;: &quot;2021-12-02T18:09:11Z&quot;,</span>
-<span class="c1">#     &quot;owner_guid&quot;: &quot;edf26318-0027-4d9d-bbbb-54703ebb1855&quot;,</span>
-<span class="c1">#     &quot;rsconnect_last_build_log&quot;: &quot;/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log&quot;,</span>
-<span class="c1">#     &quot;guid&quot;: &quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
-<span class="c1">#     &quot;rsconnect_build_task_result&quot;: {</span>
-<span class="c1">#       &quot;user_id&quot;: 1,</span>
-<span class="c1">#       &quot;error&quot;: &quot;Cannot find compatible environment: no compatible Local environment with Python version 3.9.5&quot;,</span>
-<span class="c1">#       &quot;code&quot;: 1,</span>
-<span class="c1">#       &quot;finished&quot;: true,</span>
-<span class="c1">#       &quot;result&quot;: {</span>
-<span class="c1">#         &quot;data&quot;: &quot;An error occurred while building the content&quot;,</span>
-<span class="c1">#         &quot;type&quot;: &quot;build-failed-error&quot;</span>
+<span class="c1">#     "rsconnect_build_status": "ERROR",</span>
+<span class="c1">#     "last_deployed_time": "2021-12-02T18:09:11Z",</span>
+<span class="c1">#     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",</span>
+<span class="c1">#     "rsconnect_last_build_log": "/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",</span>
+<span class="c1">#     "guid": "4ffc819c-065c-420c-88eb-332db1133317",</span>
+<span class="c1">#     "rsconnect_build_task_result": {</span>
+<span class="c1">#       "user_id": 1,</span>
+<span class="c1">#       "error": "Cannot find compatible environment: no compatible Local environment with Python version 3.9.5",</span>
+<span class="c1">#       "code": 1,</span>
+<span class="c1">#       "finished": true,</span>
+<span class="c1">#       "result": {</span>
+<span class="c1">#         "data": "An error occurred while building the content",</span>
+<span class="c1">#         "type": "build-failed-error"</span>
 <span class="c1">#       },</span>
-<span class="c1">#       &quot;id&quot;: &quot;pZoqfBoi6BgpKde5&quot;</span>
+<span class="c1">#       "id": "pZoqfBoi6BgpKde5"</span>
 <span class="c1">#     },</span>
-<span class="c1">#     &quot;dashboard_url&quot;: &quot;https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
-<span class="c1">#     &quot;name&quot;: &quot;logs-api-python&quot;,</span>
-<span class="c1">#     &quot;title&quot;: &quot;logs-api-python&quot;,</span>
-<span class="c1">#     &quot;content_url&quot;: &quot;https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/&quot;,</span>
-<span class="c1">#     &quot;bundle_id&quot;: &quot;141&quot;,</span>
-<span class="c1">#     &quot;rsconnect_last_build_time&quot;: &quot;2021-12-14T18:07:16Z&quot;,</span>
-<span class="c1">#     &quot;created_time&quot;: &quot;2021-07-19T19:17:32Z&quot;,</span>
-<span class="c1">#     &quot;app_mode&quot;: &quot;python-api&quot;</span>
+<span class="c1">#     "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",</span>
+<span class="c1">#     "name": "logs-api-python",</span>
+<span class="c1">#     "title": "logs-api-python",</span>
+<span class="c1">#     "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",</span>
+<span class="c1">#     "bundle_id": "141",</span>
+<span class="c1">#     "rsconnect_last_build_time": "2021-12-14T18:07:16Z",</span>
+<span class="c1">#     "created_time": "2021-07-19T19:17:32Z",</span>
+<span class="c1">#     "app_mode": "python-api"</span>
 <span class="c1">#   }</span>
 <span class="c1"># ]</span>
 
@@ -1820,10 +1820,10 @@ rsconnect<span class="w"> </span>content<span class="w"> </span>search<span clas
 rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--unpublished
 
 <span class="c1"># return published content where the python version is at least 3.9.0</span>
-rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--py-version<span class="w"> </span><span class="s2">&quot;&gt;=3.9.0&quot;</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--py-version<span class="w"> </span><span class="s2">"&gt;=3.9.0"</span>
 
 <span class="c1"># return published content where the R version is exactly 3.6.3</span>
-rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--r-version<span class="w"> </span><span class="s2">&quot;==3.6.3&quot;</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--r-version<span class="w"> </span><span class="s2">"==3.6.3"</span>
 
 <span class="c1"># return published content where the content type is a static RMD</span>
 rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--content-type<span class="w"> </span>rmd-static
@@ -1832,8 +1832,8 @@ rsconnect<span class="w"> </span>content<span class="w"> </span>search<span clas
 rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--content-type<span class="w"> </span>shiny<span class="w"> </span>--content-type<span class="w"> </span>python-fastapi
 
 <span class="c1"># return all content, published or unpublished, where the title contains the</span>
-<span class="c1"># text &quot;Stock Report&quot;</span>
-rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--title-contains<span class="w"> </span><span class="s2">&quot;Stock Report&quot;</span>
+<span class="c1"># text "Stock Report"</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--title-contains<span class="w"> </span><span class="s2">"Stock Report"</span>
 
 <span class="c1"># return published content, results are ordered by when the content was last</span>
 <span class="c1"># deployed</span>
@@ -1848,40 +1848,40 @@ rsconnect<span class="w"> </span>content<span class="w"> </span>search<span clas
 R and python that are currently in use on your Posit Connect server before a migration.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># search for all published content and print the unique r and python version</span>
 <span class="c1"># combinations</span>
-rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;.[] | {py_version,r_version}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">'.[] | {py_version,r_version}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span>
 uniq
-<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:&quot;3.5.3&quot;}</span>
-<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:&quot;3.6.3&quot;}</span>
-<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:null}</span>
-<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:&quot;3.5.3&quot;}</span>
-<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:&quot;3.6.3&quot;}</span>
-<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:null}</span>
+<span class="c1"># {"py_version":"3.8.2","r_version":"3.5.3"}</span>
+<span class="c1"># {"py_version":"3.8.2","r_version":"3.6.3"}</span>
+<span class="c1"># {"py_version":"3.8.2","r_version":null}</span>
+<span class="c1"># {"py_version":null,"r_version":"3.5.3"}</span>
+<span class="c1"># {"py_version":null,"r_version":"3.6.3"}</span>
+<span class="c1"># {"py_version":null,"r_version":null}</span>
 </code></pre></div>
 <h4 id="finding-recently-deployed-content">Finding recently deployed content<a class="headerlink" href="#finding-recently-deployed-content" title="Permanent link">#</a></h4>
 <div class="highlight"><pre><span></span><code><span class="c1"># return only the 10 most recently deployed content items</span>
 rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--order-by<span class="w"> </span>last_deployed<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;limit(10; .[]) | { guid, last_deployed_time }&#39;</span>
-<span class="c1"># {&quot;guid&quot;:&quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-02T18:09:11Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;aa2603f8-1988-484f-a335-193f2c57e6c4&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-01T20:56:07Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;051252f0-4f70-438f-9be1-d818a3b5f8d9&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-01T20:37:01Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;015143da-b75f-407c-81b1-99c4a724341e&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-30T16:56:21Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;bcc74209-3a81-4b9c-acd5-d24a597c256c&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-30T15:51:07Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T18:46:28Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;da4f709c-c383-4fbc-89e2-f032b2d7e91d&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T18:46:28Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;9180809d-38fd-4730-a0e0-8568c45d87b7&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T15:16:19Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;2b1d2ab8-927d-4956-bbf9-29798d039bc5&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-22T18:33:17Z&quot;}</span>
-<span class="c1"># {&quot;guid&quot;:&quot;c96db3f3-87a1-4df5-9f58-eb109c397718&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-19T20:25:33Z&quot;}</span>
+<span class="w">    </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">'limit(10; .[]) | { guid, last_deployed_time }'</span>
+<span class="c1"># {"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed_time":"2021-12-02T18:09:11Z"}</span>
+<span class="c1"># {"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed_time":"2021-12-01T20:56:07Z"}</span>
+<span class="c1"># {"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed_time":"2021-12-01T20:37:01Z"}</span>
+<span class="c1"># {"guid":"015143da-b75f-407c-81b1-99c4a724341e","last_deployed_time":"2021-11-30T16:56:21Z"}</span>
+<span class="c1"># {"guid":"bcc74209-3a81-4b9c-acd5-d24a597c256c","last_deployed_time":"2021-11-30T15:51:07Z"}</span>
+<span class="c1"># {"guid":"f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53","last_deployed_time":"2021-11-23T18:46:28Z"}</span>
+<span class="c1"># {"guid":"da4f709c-c383-4fbc-89e2-f032b2d7e91d","last_deployed_time":"2021-11-23T18:46:28Z"}</span>
+<span class="c1"># {"guid":"9180809d-38fd-4730-a0e0-8568c45d87b7","last_deployed_time":"2021-11-23T15:16:19Z"}</span>
+<span class="c1"># {"guid":"2b1d2ab8-927d-4956-bbf9-29798d039bc5","last_deployed_time":"2021-11-22T18:33:17Z"}</span>
+<span class="c1"># {"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed_time":"2021-11-19T20:25:33Z"}</span>
 </code></pre></div>
 <h4 id="add-to-build-from-search-results">Add to build from search results<a class="headerlink" href="#add-to-build-from-search-results" title="Permanent link">#</a></h4>
 <p>One common use case might be to <code>rsconnect content build add</code> content for build
 based on the results of a <code>rsconnect content search</code>. For example:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># search for all API type content, then</span>
-<span class="c1"># for each guid, add it to the &quot;tracked&quot; content items</span>
+<span class="c1"># for each guid, add it to the "tracked" content items</span>
 <span class="k">for</span><span class="w"> </span>guid<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span><span class="se">\</span>
 <span class="w">        </span>--published<span class="w"> </span><span class="se">\</span>
 <span class="w">        </span>--content-type<span class="w"> </span>python-api<span class="w"> </span><span class="se">\</span>
-<span class="w">        </span>--content-type<span class="w"> </span>api<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[].guid&#39;</span><span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">        </span>--content-type<span class="w"> </span>api<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.[].guid'</span><span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">    </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add<span class="w"> </span>--guid<span class="w"> </span><span class="nv">$guid</span>
 <span class="k">done</span>
 </code></pre></div>
@@ -1891,10 +1891,10 @@ is added to the "tracked" content items. By providing multiple <code>--guid</cod
 to the <code>rsconnect content build add</code> subcommand, we can fetch metadata for multiple content items
 in a single api call, which speeds up the operation significantly.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># write the guid of every published content item to a file called guids.txt</span>
-rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[].guid&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>guids.txt
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.[].guid'</span><span class="w"> </span>&gt;<span class="w"> </span>guids.txt
 
 <span class="c1"># bulk-add from the guids.txt with a single `rsconnect content build add` command</span>
-xargs<span class="w"> </span><span class="nb">printf</span><span class="w"> </span>--<span class="w"> </span><span class="s1">&#39;-g %s\n&#39;</span><span class="w"> </span>&lt;<span class="w"> </span>guids.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add
+xargs<span class="w"> </span><span class="nb">printf</span><span class="w"> </span>--<span class="w"> </span><span class="s1">'-g %s\n'</span><span class="w"> </span>&lt;<span class="w"> </span>guids.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add
 </code></pre></div>
 
 
@@ -2014,7 +2014,7 @@ xargs<span class="w"> </span><span class="nb">printf</span><span class="w"> </sp
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
