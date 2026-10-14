@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the manifest checksum. On Windows, the file had CRLF line endings and the checksum did
   not match. An existing requirements file with CRLF line endings also has the correct
   checksum now.
+- `rsconnect quickstart` without `--python` now creates the project's virtual environment
+  with the Python that runs `rsconnect`. Before, uv picked the newest installed Python
+  that satisfied `requires-python`. Dependencies could then fail to install on a
+  Python version so new that they had no wheels for it yet.
 
 ## [1.31.1] - 2026-09-10
 

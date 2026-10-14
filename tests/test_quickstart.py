@@ -317,7 +317,7 @@ def test_quickstart_python_option_sets_requires_python(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
     """``--python`` overrides the detected interpreter version in ``requires-python``."""
-    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target, python=None: None)
     result = _invoke_quickstart(runner, "streamlit", "--python", ">=3.10", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -328,7 +328,7 @@ def test_quickstart_python_option_used_verbatim(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
     """A value starting with an operator (incl. a range) passes through unchanged."""
-    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target, python=None: None)
     result = _invoke_quickstart(runner, "streamlit", "--python", ">=3.11,<3.14", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -339,7 +339,7 @@ def test_quickstart_python_option_bare_version_means_any_patch(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
     """A bare ``major.minor`` becomes ``==3.10.*`` so any 3.10.x satisfies it."""
-    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target, python=None: None)
     result = _invoke_quickstart(runner, "streamlit", "--python", "3.10", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -350,7 +350,7 @@ def test_quickstart_python_option_full_version_is_exact(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
     """A full ``major.minor.patch`` becomes ``==3.11.14`` (exact, no trailing ``.*``)."""
-    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target, python=None: None)
     result = _invoke_quickstart(runner, "streamlit", "--python", "3.11.14", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -568,6 +568,48 @@ def test_install_venv_clears_virtual_env(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert len(captured_envs) == 2  # uv venv + uv sync
     for env in captured_envs:
         assert "VIRTUAL_ENV" not in env, env
+
+
+@pytest.mark.parametrize(
+    "extra_args, expected_python",
+    [
+        # Without ``--python``, the venv uses the interpreter running quickstart,
+        # not the newest one uv can find.
+        ([], sys.executable),
+        # With ``--python``, uv picks an interpreter from ``requires-python``.
+        (["--python", ">=3.11"], None),
+    ],
+)
+def test_quickstart_venv_interpreter(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extra_args: typing.List[str],
+    expected_python: typing.Optional[str],
+):
+    calls: typing.List[typing.Optional[str]] = []
+    monkeypatch.setattr(
+        "rsconnect.quickstart.quickstart._install_venv",
+        lambda target, python=None: calls.append(python),
+    )
+    result = _invoke_quickstart(runner, "streamlit", *extra_args, "hello_app")
+    assert result.exit_code == 0, result.output
+    assert calls == [expected_python]
+
+
+def test_install_venv_passes_python(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
+    commands: typing.List[typing.List[str]] = []
+
+    def fake_run(cmd, cwd, env):
+        commands.append(cmd)
+        return mock.Mock(returncode=0)
+
+    monkeypatch.setattr("rsconnect.quickstart.quickstart.subprocess.run", fake_run)
+    from rsconnect.quickstart.quickstart import _install_venv
+
+    _install_venv(tmp_path, python="/path/to/python")
+
+    assert commands == [["uv", "venv", "--python", "/path/to/python"], ["uv", "sync"]]
 
 
 def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathlib.Path):
