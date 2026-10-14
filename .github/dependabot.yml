@@ -9,11 +9,5 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    groups:
-      python:
-        patterns:
-          - "*"
+# Python deps are upgraded by .github/workflows/uv-lock-upgrade.yml instead:
+# dependabot can't update a uv.lock that forks by Python version.

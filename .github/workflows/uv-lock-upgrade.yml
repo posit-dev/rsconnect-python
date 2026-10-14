@@ -1,0 +1,46 @@
+name: uv-lock-upgrade
+on:
+  schedule:
+  - cron: "0 10 * * 1" # Mondays 10 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+    # Use an app token so the PR triggers CI (GITHUB_TOKEN-created PRs don't)
+    - uses: actions/create-github-app-token@v3
+      id: app-token
+      with:
+        client-id: ${{ secrets.POSIT_CONNECT_PROJECTS_CLIENT_ID }}
+        private-key: ${{ secrets.POSIT_CONNECT_PROJECTS_PEM }}
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - uses: astral-sh/setup-uv@v10.3.0
+    - name: Upgrade uv.lock
+      id: upgrade
+      run: |
+        {
+          echo 'summary<<EOF'
+          uv lock --upgrade 2>&1
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
+    - uses: peter-evans/create-pull-request@v8
+      with:
+        token: ${{ steps.app-token.outputs.token }}
+        branch: uv-lock-upgrade
+        delete-branch: true
+        commit-message: "chore(deps): upgrade uv.lock"
+        title: "chore(deps): upgrade uv.lock"
+        body: |
+          Automated `uv lock --upgrade`. Dependabot can't update this lockfile because it
+          resolves different versions per Python version (`requires-python = ">=3.8"`).
+
+          ```
+          ${{ steps.upgrade.outputs.summary }}
+          ```
+        add-paths: uv.lock
