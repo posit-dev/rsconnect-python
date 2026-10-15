@@ -213,6 +213,15 @@ class TestConnectCloudAuth(unittest.TestCase):
         self.assertEqual(kwargs["scope"], "vivid")
         self.assertEqual(kwargs["refresh_token"], "rt")
 
+    def test_refresh_preserves_logging_keyword_and_result(self):
+        with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
+            refresh.return_value = {"access_token": "new"}
+            for suppress in (False, True):
+                with self.subTest(suppress_response_logging=suppress):
+                    result = connect_cloud.refresh("rt", "production", suppress_response_logging=suppress)
+                    self.assertEqual(result, {"access_token": "new"})
+                    self.assertEqual(refresh.call_args.kwargs.get("suppress_response_logging", False), suppress)
+
     def test_refresh_can_limit_its_request_timeout(self):
         with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
             refresh.return_value = {"access_token": "new"}

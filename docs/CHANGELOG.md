@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
   the consent screen. Previously registered clients keep their existing name.
-- Credential files written through the default file backend now use private
-  temporary files and atomic replacement, requiring write access to the parent
-  directory. Unchanged regular files have their permissions repaired. Default
-  protected saves replace a destination symlink even when its bytes are unchanged; hard-linked
-  copies no longer share subsequent updates.
+- Credential files written through the default file backend are created with
+  private permissions, and existing files have their permissions repaired before
+  new credentials are written. Unchanged files also have their permissions repaired.
+  Saves retain existing symlinks and hardlinks and can update writable files
+  without write access to the parent directory.
 - Authentication errors and verbose HTTP diagnostics omit provider-supplied
   error descriptions, response reasons and redirect headers that could expose
   credentials. OAuth response bodies and redirect destinations are also omitted

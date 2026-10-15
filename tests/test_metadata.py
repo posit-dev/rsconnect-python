@@ -262,8 +262,8 @@ class TestServerMetadata(TestCase):
 
     def test_save_skips_rewrite_when_file_unchanged(self):
         with patch(
-            "rsconnect.metadata.tempfile.mkstemp",
-            side_effect=AssertionError("created a temporary file for unchanged data"),
+            "rsconnect.metadata.os.open",
+            side_effect=AssertionError("opened a descriptor for unchanged data"),
         ):
             self.server_store.save()
 
@@ -279,16 +279,45 @@ class TestServerMetadata(TestCase):
         base_dir = join(self.tempDir, "umask")
         path = join(base_dir, "servers.json")
         previous_umask = os.umask(0o022)
+        open_file = os.open
+        fchmod = os.fchmod
+        ftruncate = os.ftruncate
+
+        def check_open(path_to_open, flags, mode, *args, **kwargs):
+            self.assertEqual(path_to_open, path)
+            self.assertFalse(flags & os.O_TRUNC)
+            self.assertEqual(mode, 0o600)
+            descriptor = open_file(path_to_open, flags, mode, *args, **kwargs)
+            metadata = os.fstat(descriptor)
+            self.assertEqual(stat.S_IMODE(metadata.st_mode), 0o600)
+            self.assertEqual(metadata.st_size, 0)
+            return descriptor
+
+        def check_fchmod(descriptor, mode):
+            self.assertEqual(mode, 0o600)
+            self.assertEqual(os.fstat(descriptor).st_size, 0)
+            fchmod(descriptor, mode)
+
+        def check_ftruncate(descriptor, length):
+            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o600)
+            self.assertEqual(length, 0)
+            ftruncate(descriptor, length)
+
         try:
-            store = ServerStore(base_dir=base_dir)
-            store.set("private", "https://connect.example.test", api_key="new-secret")
+            with patch("rsconnect.metadata.os.open", side_effect=check_open), patch(
+                "rsconnect.metadata.os.fchmod", side_effect=check_fchmod
+            ), patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate):
+                store = ServerStore(base_dir=base_dir)
+                store.set("private", "https://connect.example.test", api_key="new-secret")
         finally:
             os.umask(previous_umask)
 
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
         self.assertEqual(store.get_path(), path)
+        with open(path, "rb") as metadata_file:
+            self.assertIn(b"new-secret", metadata_file.read())
 
-    def test_private_store_keeps_new_secret_off_existing_file_until_replace(self):
+    def test_private_store_chmods_existing_file_before_truncating(self):
         if os.name != "posix":
             self.skipTest("POSIX file permissions are unavailable")
 
@@ -296,72 +325,73 @@ class TestServerMetadata(TestCase):
         os.chmod(path, 0o644)
         with open(path, "rb") as metadata_file:
             previous_data = metadata_file.read()
+        previous_inode = os.stat(path).st_ino
         new_secret = b"rotated-secret"
         self.server_store._data["foo"]["api_key"] = new_secret.decode("ascii")
-        fdopen = os.fdopen
+        open_file = os.open
         fchmod = os.fchmod
-        replace = os.replace
 
-        def check_private_fd(descriptor, mode):
-            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o600)
-            return fdopen(descriptor, mode)
+        ftruncate = os.ftruncate
+
+        def check_open(path_to_open, flags, mode, *args, **kwargs):
+            self.assertFalse(flags & os.O_TRUNC)
+            descriptor = open_file(path_to_open, flags, mode, *args, **kwargs)
+            with open(path, "rb") as metadata_file:
+                self.assertEqual(metadata_file.read(), previous_data)
+            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o644)
+            return descriptor
 
         def check_fchmod(descriptor, mode):
             self.assertEqual(mode, 0o600)
-            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o600)
+            with open(path, "rb") as metadata_file:
+                self.assertEqual(metadata_file.read(), previous_data)
             fchmod(descriptor, mode)
+            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o600)
 
-        def check_atomic_replace(source, destination):
-            self.assertEqual(destination, path)
-            self.assertEqual(stat.S_IMODE(os.stat(source).st_mode), 0o600)
-            with open(source, "rb") as temporary_file:
-                self.assertIn(new_secret, temporary_file.read())
-            with open(destination, "rb") as existing_file:
-                self.assertEqual(existing_file.read(), previous_data)
-            replace(source, destination)
+        def check_ftruncate(descriptor, length):
+            self.assertEqual(length, 0)
+            self.assertEqual(stat.S_IMODE(os.fstat(descriptor).st_mode), 0o600)
+            with open(path, "rb") as metadata_file:
+                self.assertEqual(metadata_file.read(), previous_data)
+            ftruncate(descriptor, length)
 
-        with patch("rsconnect.metadata.os.fdopen", side_effect=check_private_fd) as fdopen_mock, patch(
+        with patch("rsconnect.metadata.os.open", side_effect=check_open), patch(
             "rsconnect.metadata.os.fchmod", side_effect=check_fchmod
-        ) as fchmod_mock, patch("rsconnect.metadata.os.replace", side_effect=check_atomic_replace) as replace_mock:
+        ), patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate):
             self.server_store.save()
 
-        fdopen_mock.assert_called_once()
-        fchmod_mock.assert_called_once()
-        replace_mock.assert_called_once()
-        self.assertEqual(fchmod_mock.call_args[0][0], fdopen_mock.call_args[0][0])
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+        self.assertEqual(os.stat(path).st_ino, previous_inode)
         with open(path, "rb") as metadata_file:
             self.assertIn(new_secret, metadata_file.read())
 
-    def test_fdopen_failure_closes_descriptor_removes_temp_and_preserves_file(self):
+    def test_fdopen_failure_closes_descriptor_and_preserves_file(self):
         path = join(self.tempDir, "existing.json")
         with open(path, "wb") as metadata_file:
             metadata_file.write(b"old credentials")
-        previous_mode = stat.S_IMODE(os.stat(path).st_mode)
         store = DataStore(path, chmod=True, autoload=False)
         store._data = {"server": {"api_key": "new-secret"}}
         files_before = set(os.listdir(self.tempDir))
-        mkstemp = tempfile.mkstemp
-        temporary = {}
+        open_file = os.open
+        descriptor = None
 
-        def record_temp(*args, **kwargs):
-            descriptor, temporary_path = mkstemp(*args, **kwargs)
-            temporary.update(descriptor=descriptor, path=temporary_path)
-            return descriptor, temporary_path
+        def record_open(*args, **kwargs):
+            nonlocal descriptor
+            descriptor = open_file(*args, **kwargs)
+            return descriptor
 
-        with patch("rsconnect.metadata.tempfile.mkstemp", side_effect=record_temp), patch(
+        with patch("rsconnect.metadata.os.open", side_effect=record_open), patch(
             "rsconnect.metadata.os.fdopen", side_effect=OSError("fdopen failed")
         ):
             with self.assertRaisesRegex(OSError, "fdopen failed"):
                 store.save()
 
+        self.assertIsNotNone(descriptor)
         with self.assertRaises(OSError):
-            os.fstat(temporary["descriptor"])
-        self.assertFalse(os.path.exists(temporary["path"]))
+            os.fstat(descriptor)
         self.assertEqual(set(os.listdir(self.tempDir)), files_before)
         with open(path, "rb") as metadata_file:
             self.assertEqual(metadata_file.read(), b"old credentials")
-        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), previous_mode)
         self.assertIsNone(store._real_path)
 
     def test_unchanged_private_store_repairs_mode_without_rewriting(self):
@@ -375,8 +405,8 @@ class TestServerMetadata(TestCase):
             previous_data = metadata_file.read()
 
         with patch(
-            "rsconnect.metadata.tempfile.mkstemp",
-            side_effect=AssertionError("rewrote unchanged credentials"),
+            "rsconnect.metadata.os.open",
+            side_effect=AssertionError("opened a descriptor for unchanged credentials"),
         ):
             self.server_store.save()
 
@@ -386,38 +416,46 @@ class TestServerMetadata(TestCase):
         with open(path, "rb") as metadata_file:
             self.assertEqual(metadata_file.read(), previous_data)
 
-    def test_private_store_failure_preserves_file_and_real_path(self):
+    def test_private_store_truncate_failure_closes_descriptor_and_preserves_file(self):
         path = join(self.tempDir, "existing.json")
         with open(path, "wb") as metadata_file:
             metadata_file.write(b"old credentials")
-        previous_mode = stat.S_IMODE(os.stat(path).st_mode)
         store = DataStore(path, chmod=True, autoload=False)
         store._data = {"server": {"api_key": "new-secret"}}
-        files_before = set(os.listdir(self.tempDir))
+        open_file = os.open
+        descriptor = None
 
-        with patch("rsconnect.metadata.os.fsync", side_effect=OSError("sync failed")):
-            with self.assertRaisesRegex(OSError, "sync failed"):
+        def record_open(*args, **kwargs):
+            nonlocal descriptor
+            descriptor = open_file(*args, **kwargs)
+            return descriptor
+
+        with patch("rsconnect.metadata.os.open", side_effect=record_open), patch(
+            "rsconnect.metadata.os.ftruncate", side_effect=OSError("truncate failed")
+        ):
+            with self.assertRaisesRegex(OSError, "truncate failed"):
                 store.save()
 
+        self.assertIsNotNone(descriptor)
+        with self.assertRaises(OSError):
+            os.fstat(descriptor)
         with open(path, "rb") as metadata_file:
             self.assertEqual(metadata_file.read(), b"old credentials")
-        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), previous_mode)
         self.assertIsNone(store._real_path)
-        self.assertEqual(set(os.listdir(self.tempDir)), files_before)
 
-    def test_private_store_falls_back_after_atomic_replace_failure(self):
+    def test_private_store_falls_back_after_primary_open_failure(self):
         primary = join(self.tempDir, "local", "servers.json")
         secondary = join(self.tempDir, "config", "servers.json")
         store = DataStore(primary, secondary, chmod=True, autoload=False)
         store._data = {"server": {"api_key": "fallback-secret"}}
-        replace = os.replace
+        open_file = os.open
 
-        def fail_primary(source, destination):
-            if destination == primary:
+        def fail_primary(path, flags, mode, *args, **kwargs):
+            if path == primary:
                 raise OSError("primary unavailable")
-            replace(source, destination)
+            return open_file(path, flags, mode, *args, **kwargs)
 
-        with patch("rsconnect.metadata.os.replace", side_effect=fail_primary):
+        with patch("rsconnect.metadata.os.open", side_effect=fail_primary):
             store.save()
 
         self.assertEqual(store.get_path(), secondary)
@@ -426,50 +464,49 @@ class TestServerMetadata(TestCase):
         with open(secondary, "r", encoding="utf-8") as metadata_file:
             self.assertEqual(json.load(metadata_file), store._data)
 
-    def test_private_store_replaces_symlink_without_writing_through(self):
+    def test_private_store_updates_symlink_target_in_place(self):
         if os.name != "posix":
             self.skipTest("POSIX symlinks are unavailable")
 
         path = self.server_store_path
         target = join(self.tempDir, "servers-target.json")
-        os.replace(path, target)
+        os.rename(path, target)
         os.chmod(target, 0o644)
         with open(target, "rb") as metadata_file:
             previous_data = metadata_file.read()
+        before = os.stat(target)
         try:
             os.symlink(target, path)
         except OSError:
             self.skipTest("symlinks are unavailable")
 
-        def fail_open(path_to_open, mode, *args, **kw):
+        self.server_store.save()
+        self.assertTrue(os.path.islink(path))
+        self.assertEqual(os.readlink(path), target)
+        self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o600)
+        after = os.stat(target)
+        self.assertEqual(after.st_ino, before.st_ino)
+        self.assertEqual(after.st_mtime_ns, before.st_mtime_ns)
+        with open(target, "rb") as metadata_file:
+            self.assertEqual(metadata_file.read(), previous_data)
+
+        def fail_open(*args, **kwargs):
             self.fail("custom opener was called for unchanged symlink data")
 
         self.server_store.save(fail_open)
-        self.assertTrue(os.path.islink(path))
-        with open(target, "rb") as metadata_file:
-            self.assertEqual(metadata_file.read(), previous_data)
-        self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o644)
-
-        self.server_store.save()
-
-        self.assertFalse(os.path.islink(path))
-        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
-        with open(path, "rb") as metadata_file:
-            self.assertEqual(metadata_file.read(), previous_data)
-        with open(target, "rb") as metadata_file:
-            self.assertEqual(metadata_file.read(), previous_data)
-        self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o644)
 
         self.server_store._data["foo"]["api_key"] = "symlink-secret"
         self.server_store.save()
 
-        self.assertFalse(os.path.islink(path))
+        self.assertTrue(os.path.islink(path))
         with open(target, "rb") as metadata_file:
-            self.assertEqual(metadata_file.read(), previous_data)
-        self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o644)
-        self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            target_data = metadata_file.read()
+        self.assertIn(b"symlink-secret", target_data)
+        self.assertEqual(os.stat(path).st_ino, before.st_ino)
+        self.assertEqual(os.stat(target).st_ino, before.st_ino)
+        self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o600)
 
-    def test_private_store_does_not_update_other_hardlinks(self):
+    def test_private_store_updates_other_hardlinks_in_place(self):
         if os.name != "posix":
             self.skipTest("POSIX hard links are unavailable")
 
@@ -480,20 +517,50 @@ class TestServerMetadata(TestCase):
         except OSError:
             self.skipTest("hard links are unavailable")
         os.chmod(path, 0o644)
-        with open(path, "rb") as metadata_file:
-            previous_data = metadata_file.read()
-        self.server_store.save()
-        self.assertEqual(stat.S_IMODE(os.stat(alias).st_mode), 0o600)
+        previous_inode = os.stat(path).st_ino
 
         self.server_store._data["foo"]["api_key"] = "hardlink-secret"
         self.server_store.save()
 
         with open(alias, "rb") as metadata_file:
             alias_data = metadata_file.read()
-        self.assertEqual(alias_data, previous_data)
-        self.assertNotIn(b"hardlink-secret", alias_data)
+        with open(path, "rb") as metadata_file:
+            path_data = metadata_file.read()
+        self.assertEqual(alias_data, path_data)
+        self.assertIn(b"hardlink-secret", alias_data)
+        self.assertEqual(os.stat(path).st_ino, previous_inode)
+        self.assertEqual(os.stat(alias).st_ino, previous_inode)
         self.assertEqual(stat.S_IMODE(os.stat(alias).st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+
+    def test_private_store_updates_existing_file_in_read_only_parent(self):
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions are unavailable")
+        if os.geteuid() == 0:
+            self.skipTest("root can write in read-only directories")
+
+        parent = join(self.tempDir, "read-only")
+        os.makedirs(parent)
+        path = join(parent, "servers.json")
+        store = DataStore(path, chmod=True, autoload=False)
+        store._data = {"server": {"api_key": "read-only-parent-secret"}}
+        with open(path, "wb") as metadata_file:
+            metadata_file.write(b"old credentials")
+        os.chmod(path, 0o600)
+        previous_inode = os.stat(path).st_ino
+        files_before = set(os.listdir(parent))
+
+        os.chmod(parent, 0o555)
+        try:
+            store.save()
+            self.assertEqual(stat.S_IMODE(os.stat(parent).st_mode), 0o555)
+        finally:
+            os.chmod(parent, 0o700)
+
+        self.assertEqual(os.stat(path).st_ino, previous_inode)
+        self.assertEqual(set(os.listdir(parent)), files_before)
+        with open(path, "r", encoding="utf-8") as metadata_file:
+            self.assertEqual(json.load(metadata_file), store._data)
 
     def test_save_rewrites_when_data_changed(self):
         writes = []

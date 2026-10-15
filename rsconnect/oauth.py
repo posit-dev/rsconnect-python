@@ -129,8 +129,13 @@ def _post_oauth_form_request(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> Any:
-    """POST a form and return the raw response so device polling can inspect pending errors."""
+    """POST a form and return the raw response so device polling can inspect pending errors.
+
+    OAuth responses are always private; the suppression keyword remains for compatibility.
+    """
     server = HTTPServer(base_url, disable_tls_check=insecure, ca_data=ca_data)
     server._suppress_oauth_response_logging = True
     if request_timeout is not None:
@@ -152,6 +157,8 @@ def discover_oauth_metadata(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Fetch OAuth 2.0 Authorization Server Metadata (RFC 8414).
 
@@ -189,6 +196,8 @@ def register_client(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> str:
     """Register an OAuth client via Dynamic Client Registration (RFC 7591).
 
@@ -499,6 +508,8 @@ def refresh_access_token(
     scope: Optional[str] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
@@ -519,6 +530,8 @@ def refresh_access_token(
         request_options["request_timeout"] = request_timeout
     if request_deadline is not None:
         request_options["request_deadline"] = request_deadline
+    if suppress_response_logging:
+        request_options["suppress_response_logging"] = True
     data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data, **request_options)
     if "access_token" not in data:
         raise RSConnectException("Token refresh returned an unexpected response.")
@@ -562,11 +575,14 @@ def _post_token_request(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
 
+    logging_options = {"suppress_response_logging": True} if suppress_response_logging else {}
     response = _post_oauth_form_request(
         base,
         parsed.path,
@@ -575,6 +591,7 @@ def _post_token_request(
         ca_data,
         request_timeout,
         request_deadline,
+        **logging_options,
     )
 
     return _unwrap_json_response(response)

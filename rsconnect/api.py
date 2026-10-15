@@ -3413,6 +3413,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             request_options["request_deadline"] = self.request_deadline
         if self._server.oauth_client_id is not None:
             request_options["client_id_override"] = self._server.oauth_client_id
+        if self._suppress_oauth_response_logging:
+            request_options["suppress_response_logging"] = True
         return connect_cloud.refresh(cast(str, self._server.refresh_token), self._server.environment, **request_options)
 
     def _attempt_token_refresh(self) -> bool:

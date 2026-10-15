@@ -60,6 +60,48 @@ def mock_http_server():
         yield mock_server
 
 
+@pytest.mark.parametrize("suppress_response_logging", [False, True])
+@pytest.mark.parametrize(
+    ("function_name", "args", "data", "expected"),
+    [
+        ("discover_oauth_metadata", (FAKE_URL,), FAKE_METADATA, FAKE_METADATA),
+        ("register_client", (FAKE_METADATA, FAKE_URL), {"client_id": "client"}, "client"),
+        ("_post_oauth_form_request", (FAKE_URL, "/token", {}), {"access_token": "token"}, None),
+        (
+            "_post_token_request",
+            (FAKE_METADATA["token_endpoint"], {}),
+            {"access_token": "token"},
+            {"access_token": "token"},
+        ),
+        (
+            "refresh_access_token",
+            (FAKE_METADATA, "client", "refresh"),
+            {"access_token": "token"},
+            {"access_token": "token"},
+        ),
+    ],
+)
+def test_logging_keyword_remains_accepted_and_oauth_responses_stay_private(
+    mock_http_server: MagicMock,
+    suppress_response_logging: bool,
+    function_name: str,
+    args: tuple[Any, ...],
+    data: dict[str, Any],
+    expected: Any,
+):
+    from rsconnect import oauth
+
+    response = _make_response(200, data)
+    mock_http_server.get.return_value = response
+    mock_http_server.post.return_value = response
+    mock_http_server.request.return_value = response
+
+    result = getattr(oauth, function_name)(*args, suppress_response_logging=suppress_response_logging)
+
+    assert result == (response if expected is None else expected)
+    assert mock_http_server._suppress_oauth_response_logging is True
+
+
 class TestPKCE:
     def test_generates_valid_pair(self):
         verifier, challenge = generate_pkce_pair()

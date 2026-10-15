@@ -634,6 +634,7 @@ def _post_form(
         ca_data,
         request_timeout,
         request_deadline,
+        suppress_response_logging=True,
     )
 
 
@@ -653,20 +654,22 @@ def _register_device_client(
     ca_data: Optional[str | bytes],
     deadline: float,
 ) -> str:
+    request_timeout = _remaining(deadline)
     try:
         client_id = register_client(
             metadata,
             server,
             insecure,
             ca_data,
-            request_timeout=_remaining(deadline),
+            request_timeout=request_timeout,
             request_deadline=deadline,
+            suppress_response_logging=True,
         )
-        return _identifier(client_id, "OAuth client ID")
     except InvalidClientError:
         raise
     except RSConnectException:
         raise RSConnectException("OAuth client registration failed.") from None
+    return _identifier(client_id, "OAuth client ID")
 
 
 def _start_device_request(
@@ -821,21 +824,12 @@ def _start_connect_login(
             ca_data,
             request_timeout=_remaining(deadline),
             request_deadline=deadline,
+            suppress_response_logging=True,
         ),
         server,
     )
     if not client_id:
-        client_id = _identifier(
-            register_client(
-                metadata,
-                server,
-                insecure,
-                ca_data,
-                request_timeout=_remaining(deadline),
-                request_deadline=deadline,
-            ),
-            "OAuth client ID",
-        )
+        client_id = _register_device_client(metadata, server, insecure, ca_data, deadline)
     client_id, response = _start_device_request(metadata, server, client_id, None, insecure, ca_data, deadline)
     _remaining(deadline)
     state = _make_state(
@@ -1091,9 +1085,10 @@ def _lookup_cloud_account(
             raise InvalidGrantError() from exc
         if deadline <= time.monotonic():
             raise _FinishDeadline() from exc
-        if isinstance(exc, RSConnectException) and exc.status is not None:
+        if isinstance(exc, RSConnectException):
+            status_detail = " (HTTP %s)" % exc.status if exc.status is not None else ""
             safe_error = RSConnectException(
-                "Posit Connect Cloud account lookup failed (HTTP %s)." % exc.status,
+                "Posit Connect Cloud account lookup failed%s." % status_detail,
                 cause=exc.cause,
                 status=exc.status,
             )

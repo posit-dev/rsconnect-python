@@ -12,7 +12,6 @@ import os
 import shutil
 import stat
 import sys
-import tempfile
 from contextlib import suppress
 from datetime import datetime, timezone
 from io import BufferedWriter
@@ -302,26 +301,25 @@ class DataStore(Generic[T]):
     # noinspection PyShadowingBuiltins
     def save_to(self, path: str, data: bytes, open: Callable[..., BufferedWriter] = open):
         """
-        Save our data to the specified file. Protected stores use an atomic write
-        with the default opener; supplied openers keep the direct destination-path
-        write behavior.
+        Save our data to the specified file. Protected stores set permissions on
+        the open file before writing; supplied openers keep direct write behavior.
         """
         if self._chmod and open is _DEFAULT_OPEN:
-            descriptor, temporary_path = tempfile.mkstemp(prefix=".%s." % basename(path), dir=dirname(path) or ".")
+            # shortcut: writes remain non-atomic to preserve links; revisit when compatibility permits replacement.
+            flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_BINARY", 0)
+            descriptor = os.open(path, flags, 0o600)
             try:
-                with os.fdopen(descriptor, "wb") as stream:
-                    descriptor = -1
-                    _chmod_private_file(stream.fileno(), temporary_path)
+                stream = os.fdopen(descriptor, "wb")
+                descriptor = -1
+                with stream:
+                    _chmod_private_file(stream.fileno(), path)
+                    os.ftruncate(stream.fileno(), 0)
                     stream.write(data)
                     stream.flush()
                     os.fsync(stream.fileno())
-                os.replace(temporary_path, path)
-                temporary_path = ""
             finally:
                 with suppress(OSError):
                     os.close(descriptor)
-                with suppress(OSError):
-                    os.unlink(temporary_path)
         else:
             with open(path, "wb") as f:
                 f.write(data)
@@ -337,9 +335,6 @@ class DataStore(Generic[T]):
         location still migrates to the primary one on the next save.
         """
         if self._real_path != path or not exists(path):
-            return False
-        # Default protected writes must replace symlinks even when their target matches.
-        if self._chmod and opener is _DEFAULT_OPEN and os.path.islink(path):
             return False
         try:
             with open(path, "rb") as f:
@@ -360,8 +355,7 @@ class DataStore(Generic[T]):
         data = json.dumps(self._data, indent=4).encode("utf-8")
         if self._already_holds(self._primary_path, data, open):
             if self._chmod and open is _DEFAULT_OPEN:
-                metadata = os.lstat(self._primary_path)
-                # Avoid chmod following a symlink to an unrelated target.
+                metadata = os.stat(self._primary_path)
                 if stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) != 0o600:
                     os.chmod(self._primary_path, 0o600)
             return

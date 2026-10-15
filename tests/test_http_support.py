@@ -316,6 +316,18 @@ class FakeSetCookieResponse(object):
 
 
 class TestCookieJar(TestCase):
+    def test_suppressed_logs_preserve_cookie_storage_and_header(self):
+        from unittest.mock import patch
+
+        jar = CookieJar()
+        with patch("rsconnect.http_support.logger.debug") as debug:
+            jar.store_cookies(FakeSetCookieResponse(["session=secret"]), suppress_logs=True)
+            header = jar.get_cookie_header_value(suppress_logs=True)
+
+        self.assertEqual(header, "session=secret")
+        self.assertEqual(jar.as_dict(), {"keys": ["session"], "content": {"session": "secret"}})
+        debug.assert_not_called()
+
     def test_basic_stuff(self):
         jar = CookieJar()
         jar.store_cookies(FakeSetCookieResponse(["my-cookie=my-value", "my-2nd-cookie=my-other-value"]))
@@ -373,6 +385,31 @@ class TestCookieJar(TestCase):
 
 class TestDebugLogRedaction(TestCase):
     """Credential material must not reach the debug (-vv) log."""
+
+    def test_initial_oauth_request_uri_is_private_without_changing_request(self):
+        from unittest.mock import Mock, patch
+
+        target = "/oauth/opaque-secret?resume=another-secret"
+        reply = Mock()
+        reply.status = 200
+        reply.reason = "OK"
+        reply.read.return_value = b"{}"
+        reply.getheaders.return_value = []
+        reply.getheader.return_value = "application/json"
+        with HTTPServer("http://example.com") as server:
+            server._suppress_oauth_response_logging = True
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request") as send:
+                    with patch.object(transport, "getresponse", return_value=reply):
+                        response = cast(HTTPResponse, server.get(target))
+
+        log_text = "\n".join(captured.output)
+        self.assertNotIn("opaque-secret", log_text)
+        self.assertNotIn("another-secret", log_text)
+        self.assertIn("Request: GET <OAuth endpoint>", log_text)
+        self.assertEqual(send.call_args.args[:2], ("GET", target))
+        self.assertEqual(response.full_uri, target)
 
     def test_form_encoded_credentials_are_redacted(self):
         from rsconnect.http_support import _redacted_body_for_log

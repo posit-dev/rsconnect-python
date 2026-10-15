@@ -661,7 +661,8 @@ class HTTPServer(object):
     ) -> None:
         if not logger.is_debugging():
             return
-        logged_uri = "<OAuth redirect>" if suppress_uri_logging else _redacted_uri_for_log(full_uri)
+        private_uri = suppress_uri_logging or self._suppress_oauth_response_logging
+        logged_uri = "<OAuth endpoint>" if private_uri else _redacted_uri_for_log(full_uri)
         logger.debug(f"Request: {method} {logged_uri}")
         logger.debug("Headers:")
         for key, value in headers.items():
@@ -804,12 +805,19 @@ class HTTPServer(object):
         return response
 
     def _handle_set_cookie(self, response: http.HTTPResponse):
-        self._cookies.store_cookies(response)
+        if self._suppress_oauth_response_logging:
+            self._cookies.store_cookies(response, suppress_logs=True)
+        else:
+            self._cookies.store_cookies(response)
         self._inject_cookies()
 
     def _inject_cookies(self):
         if len(self._cookies) > 0:
-            self._headers["Cookie"] = self._cookies.get_cookie_header_value()
+            self._headers["Cookie"] = (
+                self._cookies.get_cookie_header_value(suppress_logs=True)
+                if self._suppress_oauth_response_logging
+                else self._cookies.get_cookie_header_value()
+            )
         elif "Cookie" in self._headers:
             del self._headers["Cookie"]
 
@@ -887,7 +895,7 @@ class CookieJar(object):
         self._content: dict[str, str] = {}
         self._reference = SimpleCookie()
 
-    def store_cookies(self, response: http.HTTPResponse):
+    def store_cookies(self, response: http.HTTPResponse, *, suppress_logs: bool = False):
         headers = filter(lambda h: h[0].lower() == "set-cookie", response.getheaders())
 
         for header in headers:
@@ -897,11 +905,13 @@ class CookieJar(object):
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
 
-        logger.debug("CookieJar contains %d cookie(s).", len(self._keys))
+        if not suppress_logs:
+            logger.debug("CookieJar contains %d cookie(s).", len(self._keys))
 
-    def get_cookie_header_value(self):
+    def get_cookie_header_value(self, *, suppress_logs: bool = False):
         result = "; ".join([f"{key}={self._reference.value_encode(self._content[key])[1]}" for key in self._keys])
-        logger.debug("Sending Cookie header with %d cookie(s).", len(self._keys))
+        if not suppress_logs:
+            logger.debug("Sending Cookie header with %d cookie(s).", len(self._keys))
         return result
 
     def as_dict(self):
