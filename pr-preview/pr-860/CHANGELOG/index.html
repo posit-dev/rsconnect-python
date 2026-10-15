@@ -15,7 +15,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -23,7 +23,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2934,11 +2934,11 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
-<li>Credential files written through the default file backend now use private
-  temporary files and atomic replacement, requiring write access to the parent
-  directory. Unchanged regular files have their permissions repaired. Default
-  protected saves replace a destination symlink even when its bytes are unchanged; hard-linked
-  copies no longer share subsequent updates.</li>
+<li>Credential files written through the default file backend are created with
+  private permissions, and existing files have their permissions repaired before
+  new credentials are written. Unchanged files also have their permissions repaired.
+  Saves retain existing symlinks and hardlinks and can update writable files
+  without write access to the parent directory.</li>
 <li>Authentication errors and verbose HTTP diagnostics omit provider-supplied
   error descriptions, response reasons and redirect headers that could expose
   credentials. OAuth response bodies and redirect destinations are also omitted
@@ -2969,6 +2969,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   the manifest checksum. On Windows, the file had CRLF line endings and the checksum did
   not match. An existing requirements file with CRLF line endings also has the correct
   checksum now.</li>
+<li><code>rsconnect quickstart</code> without <code>--python</code> now creates the project's virtual environment
+  with the Python that runs <code>rsconnect</code>. Before, uv picked the newest installed Python
+  that satisfied <code>requires-python</code>. Dependencies could then fail to install on a
+  Python version so new that they had no wheels for it yet.</li>
+<li>On Python 3.9 and later, rsconnect-python now requires PyJWT 2.15.0 or later, which
+  fixes several security advisories. Python 3.8 keeps the old minimum, because no fixed
+  PyJWT release supports it.</li>
 </ul>
 <h2 id="1311-2026-09-10">[1.31.1] - 2026-09-10<a class="headerlink" href="#1311-2026-09-10" title="Permanent link">#</a></h2>
 <ul>
@@ -3888,7 +3895,7 @@ rsconnect deploy html -n local ./ -e second.html
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

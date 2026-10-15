@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -27,7 +27,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1991,7 +1991,7 @@ deployment (i.e., extra files take precedence).</p>
 while "<code>*</code>" only matches files. The "<code>**</code>" pattern is useful with complicated
 project hierarchies where enumerating the <em>included</em> files is simpler than
 listing the <em>exclusions</em>.</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>quarto<span class="w"> </span>.<span class="w"> </span>_quarto.yml<span class="w"> </span>index.qmd<span class="w"> </span>requirements.txt<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;**&quot;</span>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>quarto<span class="w"> </span>.<span class="w"> </span>_quarto.yml<span class="w"> </span>index.qmd<span class="w"> </span>requirements.txt<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">"**"</span>
 </code></pre></div>
 <p>Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:</p>
 <div class="highlight"><pre><span></span><code>.Rproj.user
@@ -2098,7 +2098,7 @@ and represented in the manifest.</p>
 contains a <code>manifest.json</code> file.</p>
 <p>If you have R content but don't have a <code>manifest.json</code> file, you can use the RStudio
 IDE to create the manifest. See the help for the <code>rsconnect::writeManifest</code> R function:</p>
-<div class="highlight"><pre><span></span><code><span class="nf">install.packages</span><span class="p">(</span><span class="s">&#39;rsconnect&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="nf">install.packages</span><span class="p">(</span><span class="s">'rsconnect'</span><span class="p">)</span>
 <span class="nf">library</span><span class="p">(</span><span class="n">rsconnect</span><span class="p">)</span>
 <span class="o">?</span><span class="n">rsconnect</span><span class="o">::</span><span class="n">writeManifest</span>
 </code></pre></div>
@@ -2137,14 +2137,14 @@ contains the required keys.</p>
 </ul>
 <p>A minimal Streamlit project looks like this:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[project]</span>
-<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_app&quot;</span>
-<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
-<span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&gt;=3.9&quot;</span>
-<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;streamlit&quot;</span><span class="p">]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"my_app"</span>
+<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"0.1.0"</span>
+<span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.9"</span>
+<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"streamlit"</span><span class="p">]</span>
 
 <span class="k">[tool.rsconnect]</span>
-<span class="n">app_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;python-streamlit&quot;</span>
-<span class="n">entrypoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;app.py&quot;</span>
+<span class="n">app_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"python-streamlit"</span>
+<span class="n">entrypoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"app.py"</span>
 </code></pre></div>
 <p>Projects scaffolded by <code>rsconnect quickstart</code> already contain this table.
 From the parent directory of the project, deploy it with:</p>
@@ -2161,7 +2161,7 @@ snapshot, and <code>uv.lock</code> or <code>requirements.txt</code> may be suppl
 <p>The title of the deployed content is, by default, derived from the filename. For
 example, if you deploy <code>my-notebook.ipynb</code>, the title will be <code>my-notebook</code>. To change
 this, use the <code>--title</code> option:</p>
-<div class="highlight"><pre><span></span><code>rsconnect deploy notebook --title &quot;My Notebook&quot; my-notebook.ipynb
+<div class="highlight"><pre><span></span><code>rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 </code></pre></div>
 <p>When using <code>rsconnect deploy api</code>, <code>rsconnect deploy fastapi</code>, <code>rsconnect deploy dash</code>,
 <code>rsconnect deploy streamlit</code>, <code>rsconnect deploy bokeh</code>, <code>rsconnect deploy gradio</code>, or <code>rsconnect deploy panel</code>,
@@ -2180,7 +2180,7 @@ For cases where this is not desired, use the <code>--no-verify</code> flag on th
 log. Pass <code>--quiet</code> to suppress all of that and print only the deployed content
 URL to standard output.</p>
 <div class="highlight"><pre><span></span><code><span class="nv">URL</span><span class="o">=</span><span class="k">$(</span>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--quiet<span class="w"> </span>-n<span class="w"> </span>myserver<span class="w"> </span>notebook.ipynb<span class="k">)</span>
-<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Deployed to </span><span class="nv">$URL</span><span class="s2">&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">"Deployed to </span><span class="nv">$URL</span><span class="s2">"</span>
 </code></pre></div>
 <p>Warnings and errors are still written to standard error, and if a deploy fails
 the server task log is emitted to standard error so the failure can be
@@ -2191,11 +2191,11 @@ passed to Posit Connect during deployment so you can use them in your code. Note
 if you are using <code>rsconnect</code> to deploy to shinyapps.io, environment variable management
 is not supported on that platform.</p>
 <p>For example, if <code>notebook.ipynb</code> contains</p>
-<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;MYVAR&quot;</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"MYVAR"</span><span class="p">])</span>
 </code></pre></div>
 <p>You can set the value of <code>MYVAR</code> that will be set when your code runs in Posit Connect
 using the <code>-E/--environment</code> option:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--environment<span class="w"> </span><span class="nv">MYVAR</span><span class="o">=</span><span class="s1">&#39;hello world&#39;</span><span class="w"> </span>notebook.ipynb
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--environment<span class="w"> </span><span class="nv">MYVAR</span><span class="o">=</span><span class="s1">'hello world'</span><span class="w"> </span>notebook.ipynb
 </code></pre></div>
 <p>To avoid exposing sensitive values on the command line, you can specify
 a variable without a value. In this case, it will use the value from the
@@ -2478,7 +2478,7 @@ nbconvert&gt;=5.6.1
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
