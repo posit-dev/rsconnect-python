@@ -2934,6 +2934,10 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
+<li>Resumable device login stores approved tokens in a separate system keyring
+  entry when available, keeping only a reference in pending state. Protected-file
+  fallback and retries from existing plaintext checkpoints remain supported.
+  Cloud retries preserve rotated tokens without replacing a saved login before account lookup completes.</li>
 <li>Credential files written through the default file backend are created with
   private permissions, and existing files have their permissions repaired before
   new credentials are written. Unchanged files also have their permissions repaired.
