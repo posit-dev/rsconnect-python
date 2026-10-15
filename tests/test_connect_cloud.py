@@ -95,10 +95,10 @@ class TestConnectCloudEnvironments(unittest.TestCase):
         with mock.patch.dict(os.environ, {connect_cloud.OAUTH_CLIENT_ID_ENV_VAR: "custom-client"}, clear=True):
             self.assertEqual(connect_cloud.client_id("production"), "custom-client")
 
-    def test_oauth_client_id_var_is_distinct_from_service_account_var(self):
-        # CONNECT_CLOUD_CLIENT_ID is a user's service account credential, passed
+    def test_oauth_client_id_var_is_distinct_from_client_credentials_var(self):
+        # CONNECT_CLOUD_CLIENT_ID is the client ID of a user's client credentials, passed
         # with --client-id. It must not change which OAuth client the CLI is.
-        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_CLIENT_ID": "service-account"}, clear=True):
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_CLIENT_ID": "user-client-id"}, clear=True):
             self.assertEqual(connect_cloud.client_id("production"), "rsconnect-python")
 
 
@@ -909,7 +909,7 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         # An interactively created entry has no client credentials. If the shell
         # happens to export CONNECT_CLOUD_CLIENT_ID/SECRET, a refresh may *use*
         # them, but persisting them would silently convert the entry into a
-        # service-account credential.
+        # client credentials entry.
         self._save_entry(connect_cloud_refresh_token="rt")
         server = ConnectCloudServer(
             "acme",
@@ -1027,7 +1027,7 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertIn("-n 'my cloud' -A acme", exception.message)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_a_rejected_service_account_secret_is_reported_and_the_entry_is_left_alone(self):
+    def test_rejected_client_credentials_are_reported_and_the_entry_is_left_alone(self):
         self._save_entry(
             connect_cloud_client_id="cid",
             connect_cloud_client_secret="csecret",
@@ -1038,7 +1038,7 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         )
         exception = self._get_user_with_refresh_failure(server, "login_client_credentials", InvalidClientError())
 
-        self.assertIn("service account credential was rejected", exception.message)
+        self.assertIn("client credentials were rejected", exception.message)
         self.assertIn("https://login.posit.cloud/identity/credentials", exception.message)
         self.assertIn(
             "rsconnect add --connect-cloud -n cloud -A acme --client-id <id> --client-secret <secret>",
@@ -1127,7 +1127,7 @@ class TestConnectCloudStreamBodyRetry(unittest.TestCase):
         self.assertEqual(self._retry_bodies(io.BytesIO(b"payload")), [b"payload", b"payload"])
 
     def test_a_stream_is_left_alone_when_there_is_nothing_to_refresh_with(self):
-        # No refresh token and no service account credential: nothing can be minted,
+        # No refresh token and no client credentials: nothing can be minted,
         # so the request is sent once and its body is neither buffered nor rewound.
         stream = io.BytesIO(b"payload")
         seen = self._attempt_bodies(stream, server=ConnectCloudServer("acme", access_token="at"), read=False)
@@ -1319,7 +1319,7 @@ class TestConnectCloudAdd(CliTestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("may not be passed", result.output)
 
-    def test_add_rejects_half_a_service_account_credential(self):
+    def test_add_rejects_half_of_the_client_credentials(self):
         result = self.runner.invoke(
             cli,
             [
@@ -3617,9 +3617,9 @@ class TestConnectCloudCliPolish(CliTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("Posit Connect Cloud account: acme", result.output)
-        self.assertIn("Service account client ID: cid", result.output)
+        self.assertIn("Client ID: cid", result.output)
         self.assertIn("Credentials are saved", result.output)
-        self.assertNotIn("at", result.output.split("Credentials are saved")[0].split("client ID: cid")[1])
+        self.assertNotIn("at", result.output.split("Credentials are saved")[0].split("Client ID: cid")[1])
 
     def test_manifest_deploy_marks_a_defaulted_title(self):
         # deploy manifest computes a default title before building the executor;
@@ -3827,8 +3827,8 @@ class TestConnectCloudFlagAlias(CliTestCase):
 
 
 class TestConnectCloudSameAccountAmbiguity(unittest.TestCase):
-    """Several credentials may share a default account (an interactive login and a
-    service account, say), so the account cannot pick one of them."""
+    """Several credentials may share a default account (an interactive login and
+    client credentials, say), so the account cannot pick one of them."""
 
     def _store(self):
         store = ServerStore(base_dir=tempfile.mkdtemp())
@@ -4192,7 +4192,7 @@ class TestConnectCloudKeyringStorage(CliTestCase):
         self.assertNotIn("connect_cloud_refresh_token", entry)
         self.assertEqual(entry["connect_cloud_account_name"], "acme")
 
-    def test_add_stores_a_service_account_secret_in_the_keyring(self):
+    def test_add_stores_a_client_secret_in_the_keyring(self):
         with mock.patch(
             "rsconnect.connect_cloud.request_client_credentials_token", return_value={"access_token": "at"}
         ):

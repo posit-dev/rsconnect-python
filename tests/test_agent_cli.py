@@ -151,7 +151,7 @@ def test_finish_selected_login_and_pending_json(command, kind):
         (["login", "-n", "target", "--finish", "--timeout", "-1"], "Invalid value"),
         (["add", "-n", "target", "--no-wait"], "require --connect-cloud"),
         (["add", "--connect-cloud", "--no-wait"], "requires --account"),
-        (["add", "--connect-cloud", "-A", "team", "--client-id", "id", "--no-wait"], "service account"),
+        (["add", "--connect-cloud", "-A", "team", "--client-id", "id", "--no-wait"], "client credentials"),
         (["add", "--connect-cloud", "-A", "team", "-s", "https://other.example", "--no-wait"], "cannot be combined"),
         (["add", "--connect-cloud", "-A", "team", "--insecure", "--no-wait"], "Posit Connect options"),
         (["add", "--connect-cloud", "-A", "team", "--api-key", "synthetic", "--no-wait"], "Posit Connect options"),

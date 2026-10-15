@@ -495,8 +495,8 @@ class ServerStore(DataStore[ServerDataDict]):
         binding: the login behind it can publish to every account its user has rights
         on, so -A/--account selects the publish target and only the nickname selects
         the credential. With several saved the choice is reported rather than guessed
-        at, because they may hold different credentials (an interactive login and a
-        service account, or two identities) which refresh differently.
+        at, because they may hold different credentials (an interactive login and
+        client credentials, or two identities) which refresh differently.
         """
         candidates = self._connect_cloud_servers(url)
         if not candidates:
@@ -512,7 +512,7 @@ class ServerStore(DataStore[ServerDataDict]):
         raise RSConnectException(
             "Several Posit Connect Cloud credentials are saved: %s. Use -n/--name to choose one, adding "
             "-A/--account to publish to a different account, or pass --client-id and --client-secret to "
-            "use a service account credential directly." % saved
+            "use client credentials directly." % saved
         )
 
     def _connect_cloud_secrets(self, entry: ServerDataDict) -> tuple[Optional[str], Optional[str], Optional[str]]:
