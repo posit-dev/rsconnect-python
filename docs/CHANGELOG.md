@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Posit Connect Cloud help text, messages, and docs now call `--client-id` and
-  `--client-secret` "client credentials" instead of a "service account" credential. These
-  credentials act as the user who created them. `rsconnect list` shows `Client ID:` in
-  place of `Service account client ID:`.
 - `login` and `add --connect-cloud` can start device-code authentication and return
   approval details as JSON. Finish a pending login by nickname with `--finish`.
   Use `--timeout` to bound the entire finish invocation, including account lookup.
