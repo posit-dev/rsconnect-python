@@ -3667,7 +3667,9 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             ):
                 raise RSConnectException(
                     'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
-                    "Client credentials cannot publish to accounts that require SSO." % name
+                    "Client credentials cannot publish to accounts that require SSO. Log in interactively "
+                    "with SSO instead: run `rsconnect add --connect-cloud -n <nickname> -A %s` without "
+                    "client credentials." % (name, name)
                 )
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '

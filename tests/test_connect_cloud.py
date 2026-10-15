@@ -1925,6 +1925,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
             with self.assertRaises(RSConnectException) as viewer_context:
                 client.get_account_by_name("sso-viewer")
         self.assertIn("requires single sign-on (SSO)", str(sso_context.exception))
+        self.assertIn("rsconnect add --connect-cloud -n <nickname> -A sso-publisher", str(sso_context.exception))
         self.assertIn("do not have permission to publish to it", str(viewer_context.exception))
 
         with self.client:
