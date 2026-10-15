@@ -100,26 +100,26 @@ def _is_config_path(
     config_dir: Path | None = None,
 ) -> bool:
     candidate = Path(path)
+    if base_dir is not None and not candidate.is_absolute():
+        candidate = Path(base_dir) / candidate
     if _config_dir_names.intersection(candidate.parts):
         return True
     if config_dir is None:
         if base_dir is None and not candidate.is_absolute():
             return False
         config_dir = _resolved_config_dir()
-    if base_dir is not None and not candidate.is_absolute():
-        candidate = Path(base_dir) / candidate
-    return _path_is_within(candidate.resolve(), config_dir)
+    resolved = candidate.resolve()
+    return bool(_config_dir_names.intersection(resolved.parts)) or _path_is_within(resolved, config_dir)
 
 
 def _ensure_content_root_is_safe(path: str | Path, config_dir: Path) -> None:
     content_root = Path(path)
     if content_root.is_file():
         content_root = content_root.parent
-    content_root = content_root.resolve()
-    if _path_is_within(content_root, config_dir):
+    if _is_config_path(content_root, config_dir=config_dir):
         raise RSConnectException(
-            f"Cannot bundle content from '{content_root}' because it is inside the "
-            f"rsconnect-python configuration directory '{config_dir}'. "
+            f"Cannot bundle content from '{content_root.resolve()}' because it is inside the "
+            f"rsconnect-python configuration directory '{config_dir}' or a reserved '.rsconnect-python' directory. "
             "Choose a content directory outside the configuration directory."
         )
 
@@ -2119,8 +2119,12 @@ def write_notebook_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
-    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
     directory = dirname(entry_point_file)
+    config_dir = _resolved_config_dir()
+    _ensure_content_root_is_safe(directory, config_dir)
+    if _is_config_path(entry_point_file, config_dir=config_dir):
+        raise RSConnectException("A credential configuration file cannot be bundled as notebook content.")
+    extra_files = _filter_config_paths(validate_extra_files(directory, extra_files), directory, config_dir)
     file_name = basename(entry_point_file)
     manifest_path = join(directory, "manifest.json")
 

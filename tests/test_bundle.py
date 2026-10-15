@@ -52,6 +52,7 @@ from rsconnect.bundle import (
     write_api_manifest_json,
     write_environment_file,
     write_manifest,
+    write_notebook_manifest_json,
 )
 from rsconnect.shiny_express import escape_to_var_name
 from rsconnect.environment_node import NodeEnvironment
@@ -3329,6 +3330,42 @@ def test_node_bundle_excludes_config_paths_and_explicit_extras(tmp_path, monkeyp
     assert b"SECRET" not in b"".join(members.values())
 
 
+def test_node_bundle_filters_reserved_config_symlinks_and_keeps_safe_symlinks(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = tmp_path / "active-config"
+    config_dir.mkdir()
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    (project / "app.js").write_text("// app")
+    (project / "package.json").write_text("{}")
+    (project / "safe.txt").write_text("safe")
+    (project / ".rsconnect-python" / "data").mkdir(parents=True)
+    (project / ".rsconnect-python" / "data" / "servers.json").write_text("SECRET")
+
+    reserved_alias = project / "reserved-alias"
+    credential_alias = project / "credential-alias.json"
+    safe_alias = project / "safe-alias.txt"
+    try:
+        reserved_alias.symlink_to(project / ".rsconnect-python", target_is_directory=True)
+        credential_alias.symlink_to(project / ".rsconnect-python" / "data" / "servers.json")
+        safe_alias.symlink_to("safe.txt")
+    except (NotImplementedError, OSError):
+        pytest.skip("symlinks are unavailable")
+
+    with make_nodejs_bundle(
+        str(project), "app.js", _make_node_env(), ["reserved-alias/data/servers.json"], []
+    ) as bundle_file:
+        members, manifest = _bundle_snapshot(bundle_file)
+
+    expected_files = {"app.js", "package.json", "safe.txt", "safe-alias.txt"}
+    assert set(manifest["files"]) == expected_files
+    assert set(members) == expected_files | {"manifest.json"}
+    assert "credential-alias.json" not in manifest["files"]
+    assert "reserved-alias/data/servers.json" not in manifest["files"]
+    assert b"SECRET" not in b"".join(members.values())
+
+
 def test_manifest_bundle_removes_config_entries_only(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
@@ -3443,7 +3480,7 @@ def test_notebook_html_bundle_rejects_config_paths_before_conversion(tmp_path, m
     elif path_kind == "reserved_path":
         config_dir = tmp_path / "user-config"
         notebook = project / ".rsconnect-python" / "private.ipynb"
-        error_match = "credential configuration file"
+        error_match = "inside the rsconnect-python configuration directory"
     else:
         config_dir = tmp_path / "user-config"
         notebook = project / "private.ipynb"
@@ -3515,15 +3552,29 @@ def test_standalone_quarto_bundle_filters_config_extras(tmp_path, monkeypatch):
     assert b"SECRET" not in b"".join(members.values())
 
 
-def test_bundle_rejects_config_directory_as_content_root(tmp_path, monkeypatch):
+@pytest.mark.parametrize("root_kind", ["active_config", "active_alias", "reserved_directory", "reserved_alias"])
+def test_bundle_rejects_config_directory_as_content_root(tmp_path, monkeypatch, root_kind):
     config_dir = tmp_path / "custom-config"
     config_dir.mkdir()
     monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
-    content_root = tmp_path / "config-alias"
-    try:
-        content_root.symlink_to(config_dir, target_is_directory=True)
-    except (NotImplementedError, OSError):
+    if root_kind == "active_config":
         content_root = config_dir
+    elif root_kind == "active_alias":
+        content_root = tmp_path / "config-alias"
+        try:
+            content_root.symlink_to(config_dir, target_is_directory=True)
+        except (NotImplementedError, OSError):
+            pytest.skip("symlinks are unavailable")
+    else:
+        reserved_dir = tmp_path / "project" / ".rsconnect-python"
+        reserved_dir.mkdir(parents=True)
+        content_root = reserved_dir
+        if root_kind == "reserved_alias":
+            content_root = tmp_path / "config-alias"
+            try:
+                content_root.symlink_to(reserved_dir, target_is_directory=True)
+            except (NotImplementedError, OSError):
+                pytest.skip("symlinks are unavailable")
 
     with pytest.raises(RSConnectException, match="inside the rsconnect-python configuration directory"):
         make_nodejs_bundle(str(content_root), "app.js", _make_node_env(), [], [])
@@ -3570,6 +3621,108 @@ def test_write_api_manifest_excludes_current_home_config_extra(tmp_path, monkeyp
     for path in ("app.py", "data.csv", "requirements.txt"):
         assert bundled_manifest["files"][path]["checksum"] == file_checksum(project / path)
     assert b"SECRET" not in b"".join(members.values())
+
+
+def test_write_notebook_manifest_filters_protected_extras_before_hashing(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "custom-state"
+    config_dir.mkdir()
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    notebook = project / "notebook.ipynb"
+    notebook.write_text("{}")
+    safe_extra = project / "data.csv"
+    safe_extra.write_text("safe")
+    environment = _make_test_environment()
+    requirements_file = project / environment.filename
+    requirements_file.write_text(environment.contents)
+
+    (config_dir / "servers.json").write_text("ACTIVE SECRET")
+    reserved_file = project / ".rsconnect-python" / "data" / "servers.json"
+    reserved_file.parent.mkdir(parents=True)
+    reserved_file.write_text("RESERVED SECRET")
+    reserved_alias = project / "reserved-alias"
+    alias_extra = "reserved-alias/data/servers.json"
+    try:
+        reserved_alias.symlink_to(reserved_file.parents[1], target_is_directory=True)
+    except (NotImplementedError, OSError):
+        alias_extra = ""
+
+    original_checksum = rsconnect.bundle.file_checksum
+    hashed_paths = []
+
+    def record_checksum(path):
+        hashed_paths.append(Path(path).resolve())
+        return original_checksum(path)
+
+    monkeypatch.setattr(rsconnect.bundle, "file_checksum", record_checksum)
+    extra_files = [
+        str(config_dir / "servers.json"),
+        str(reserved_file),
+    ]
+    if alias_extra:
+        extra_files.append(str(project / alias_extra))
+    extra_files.append(str(safe_extra))
+
+    assert write_notebook_manifest_json(
+        str(notebook),
+        environment,
+        AppModes.JUPYTER_NOTEBOOK,
+        extra_files,
+        hide_all_input=False,
+        hide_tagged_input=False,
+    )
+
+    manifest = json.loads((project / "manifest.json").read_text())
+    expected_files = {
+        "notebook.ipynb": {"checksum": original_checksum(notebook)},
+        environment.filename: {"checksum": original_checksum(requirements_file)},
+        "data.csv": {"checksum": original_checksum(safe_extra)},
+    }
+    assert manifest["files"] == expected_files
+    assert hashed_paths == [notebook.resolve(), safe_extra.resolve()]
+
+
+@pytest.mark.parametrize("entrypoint_kind", ["reserved_root", "active_root", "symlink_alias"])
+def test_write_notebook_manifest_rejects_protected_entrypoint_before_io(tmp_path, monkeypatch, entrypoint_kind):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = tmp_path / "active-config"
+    config_dir.mkdir()
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    if entrypoint_kind in ("reserved_root", "active_root"):
+        entrypoint_root = project / ".rsconnect-python" if entrypoint_kind == "reserved_root" else config_dir
+        notebook = entrypoint_root / "notebook.ipynb"
+        notebook.parent.mkdir(parents=True, exist_ok=True)
+        notebook.write_text("{}")
+        error_match = "inside the rsconnect-python configuration directory"
+    else:
+        protected_notebook = project / ".rsconnect-python" / "notebook.ipynb"
+        protected_notebook.parent.mkdir()
+        protected_notebook.write_text("{}")
+        notebook = project / "notebook.ipynb"
+        try:
+            notebook.symlink_to(protected_notebook)
+        except (NotImplementedError, OSError):
+            pytest.skip("symlinks are unavailable")
+        error_match = "A credential configuration file cannot be bundled"
+
+    calls = []
+    monkeypatch.setattr(rsconnect.bundle, "file_checksum", lambda path: calls.append(("checksum", path)))
+    monkeypatch.setattr(rsconnect.bundle, "write_manifest_json", lambda *args: calls.append(("write", args)))
+
+    with pytest.raises(RSConnectException, match=error_match):
+        write_notebook_manifest_json(
+            str(notebook),
+            _make_test_environment(),
+            AppModes.JUPYTER_NOTEBOOK,
+            [],
+            hide_all_input=False,
+            hide_tagged_input=False,
+        )
+    assert calls == []
 
 
 class TestNodeJSManifest:
