@@ -1869,12 +1869,14 @@
   --connect-cloud       Target Posit Connect Cloud. Equivalent to `--server
                         connect.posit.cloud`, and takes precedence over a
                         CONNECT_SERVER environment variable.
-  --client-id TEXT      The Posit Connect Cloud service account client ID, for
-                        non-interactive authentication. (Also settable via
-                        CONNECT_CLOUD_CLIENT_ID environment variable.)
-  --client-secret TEXT  The Posit Connect Cloud service account client secret,
-                        for non-interactive authentication. (Also settable via
-                        CONNECT_CLOUD_CLIENT_SECRET environment variable.)
+  --client-id TEXT      The client ID of Posit Connect Cloud client
+                        credentials, for non-interactive authentication. (Also
+                        settable via CONNECT_CLOUD_CLIENT_ID environment
+                        variable.)
+  --client-secret TEXT  The client secret of Posit Connect Cloud client
+                        credentials, for non-interactive authentication. (Also
+                        settable via CONNECT_CLOUD_CLIENT_SECRET environment
+                        variable.)
   -A, --account TEXT    The Posit Connect Cloud account to deploy to. (Also
                         settable via the CONNECT_CLOUD_ACCOUNT environment
                         variable.) May accompany -n/--name to publish to an
