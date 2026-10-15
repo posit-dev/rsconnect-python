@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
   the consent screen. Previously registered clients keep their existing name.
+- Resumable device login stores approved tokens in a separate system keyring
+  entry when available, keeping only a reference in pending state. Protected-file
+  fallback and retries from existing plaintext checkpoints remain supported.
+  Cloud retries preserve rotated tokens without replacing a saved login before account lookup completes.
 - Credential files written through the default file backend are created with
   private permissions, and existing files have their permissions repaired before
   new credentials are written. Unchanged files also have their permissions repaired.

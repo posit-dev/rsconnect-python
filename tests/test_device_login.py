@@ -8,7 +8,7 @@ import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
@@ -130,6 +130,27 @@ def _queue_device(login_env: Any, response: dict[str, Any] | HTTPResponse | None
 
 def _state_path(kind: str, name: str) -> Path:
     return Path(device_login._state_path(kind, name))
+
+
+@pytest.fixture
+def memory_keyring(monkeypatch: pytest.MonkeyPatch) -> dict[tuple[str, str], str]:
+    values: dict[tuple[str, str], str] = {}
+    module = ModuleType("keyring")
+    errors = ModuleType("keyring.errors")
+    errors.PasswordDeleteError = type("PasswordDeleteError", (Exception,), {})
+    errors.NoKeyringError = type("NoKeyringError", (Exception,), {})
+
+    def delete(service: str, username: str) -> None:
+        if values.pop((service, username), None) is None:
+            raise errors.PasswordDeleteError()
+
+    module.errors = errors
+    module.set_password = lambda service, username, value: values.__setitem__((service, username), value)
+    module.get_password = lambda service, username: values.get((service, username))
+    module.delete_password = delete
+    monkeypatch.setitem(sys.modules, "keyring", module)
+    monkeypatch.setitem(sys.modules, "keyring.errors", errors)
+    return values
 
 
 def test_connect_start_uses_oauth_helpers_with_one_bounded_deadline(login_env: Any, monkeypatch: pytest.MonkeyPatch):
@@ -1025,6 +1046,171 @@ def test_connect_token_checkpoint_resumes_store_failure(login_env: Any, monkeypa
     assert not _state_path("connect", "work").exists()
 
 
+@pytest.mark.parametrize("interrupt_state_write", [False, True])
+def test_approved_keyring_tokens_resume_without_plaintext_checkpoint(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any, interrupt_state_write: bool
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    login_env.clock.advance(5)
+    login_env.http.responses.append({"access_token": "approved-secret", "expires_in": 3600})
+    post = device_login._post_oauth_form_request
+
+    def approve_at_deadline(*args: Any, **kwargs: Any) -> Any:
+        response = post(*args, **kwargs)
+        login_env.clock.advance(5)
+        return response
+
+    monkeypatch.setattr(device_login, "_post_oauth_form_request", approve_at_deadline)
+    replace = device_login.os.replace
+    if interrupt_state_write:
+        monkeypatch.setattr(device_login.os, "replace", Mock(side_effect=OSError("interrupted write")))
+        with pytest.raises(RSConnectException, match="safely write"):
+            device_login.finish_login("connect", "work", timeout=5)
+        monkeypatch.setattr(device_login.os, "replace", replace)
+    else:
+        assert device_login.finish_login("connect", "work", timeout=5)["status"] == "pending"
+    token_expiry = login_env.clock.time() + 3600
+    assert "approved-secret" not in _state_path("connect", "work").read_text()
+    assert stat.S_IMODE(_state_path("connect", "work").stat().st_mode) == 0o600
+
+    login_env.clock.advance(601)
+    device_login.start_connect_login(SERVER, "work")
+    assert device_login._read_state("connect", "work")["tokens"] == {"keyring": True}
+    assert device_login.finish_login("connect", "work")["status"] == "done"
+    assert oauth.keyring_get_tokens(SERVER) == ("approved-secret", None)
+    saved = device_login._store().get_by_name("work")
+    assert saved.get("oauth_access_token") is None
+    assert saved.get("oauth_refresh_token") is None
+    assert saved["oauth_token_expiry"] == token_expiry
+    assert len(login_env.http.instances) == 2
+    assert not _state_path("connect", "work").exists()
+    assert not any("device-login:" in username for _, username in memory_keyring)
+
+
+def test_failed_pending_keyring_write_uses_private_file_fallback(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    monkeypatch.setattr(sys.modules["keyring"], "set_password", Mock(side_effect=RuntimeError("locked")))
+    tokens = {"access_token": "approved-secret", "refresh_token": "refresh-secret", "expires_at": None}
+    device_login._store_checkpoint(state, tokens)
+    assert device_login._read_state("connect", "work")["tokens"] == tokens
+    assert stat.S_IMODE(_state_path("connect", "work").stat().st_mode) == 0o600
+    assert not memory_keyring
+    login_env.clock.advance(601)
+    assert device_login.finish_login("connect", "work")["status"] == "done"
+    assert device_login._store().get_by_name("work")["oauth_refresh_token"] == "refresh-secret"
+    assert len(login_env.http.instances) == 1
+
+
+@pytest.mark.parametrize("failure", ["missing", "locked", "invalid", "malformed"])
+def test_unreadable_pending_keyring_does_not_redeem_code_again(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any, failure: str
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    device_login._store_checkpoint(
+        state, {"access_token": "approved-secret", "refresh_token": None, "expires_at": None}
+    )
+    if failure == "missing":
+        memory_keyring.clear()
+    elif failure == "locked":
+        monkeypatch.setattr(sys.modules["keyring"], "get_password", Mock(side_effect=RuntimeError("locked")))
+    else:
+        memory_keyring[("rsconnect-python", device_login._checkpoint_key(state) + ":tokens")] = (
+            "not-json" if failure == "malformed" else "null"
+        )
+    with pytest.raises(RSConnectException, match="keyring"):
+        device_login.finish_login("connect", "work")
+    assert len(login_env.http.instances) == 1
+    assert _state_path("connect", "work").exists()
+    assert "approved-secret" not in _state_path("connect", "work").read_text()
+
+
+def test_pending_keyring_cleanup_failure_can_be_retried(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    tokens = {"access_token": "approved-secret", "refresh_token": "refresh-secret", "expires_at": None}
+    device_login._store_checkpoint(state, tokens)
+    module = sys.modules["keyring"]
+    delete = module.delete_password
+    monkeypatch.setattr(module, "delete_password", Mock(side_effect=RuntimeError("locked")))
+    with pytest.raises(RSConnectException, match="remove pending login tokens"):
+        device_login.finish_login("connect", "work")
+    assert _state_path("connect", "work").exists()
+    assert device_login._approved_tokens(device_login._read_state("connect", "work")) == tokens
+
+    monkeypatch.setattr(module, "delete_password", delete)
+    assert device_login.finish_login("connect", "work")["status"] == "done"
+    assert not _state_path("connect", "work").exists()
+    assert not any("device-login:" in username for _, username in memory_keyring)
+    assert oauth.keyring_get_tokens(SERVER) == ("approved-secret", "refresh-secret")
+    assert len(login_env.http.instances) == 1
+
+
+def test_legacy_file_checkpoint_keeps_its_backend_when_keyring_becomes_available(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    state["tokens"] = {"access_token": "old-access", "refresh_token": "old-refresh", "expires_at": None}
+    device_login._write_state(state)
+    rotated = {"access_token": "new-access", "refresh_token": "new-refresh", "expires_at": None}
+    device_login._store_checkpoint(state, rotated)
+    assert device_login._read_state("connect", "work")["tokens"] == rotated
+    assert not memory_keyring
+    assert device_login.finish_login("connect", "work")["status"] == "done"
+    assert oauth.keyring_get_tokens(SERVER) == ("new-access", "new-refresh")
+    assert not _state_path("connect", "work").exists()
+
+
+def test_failed_pending_file_removal_restores_keyring_checkpoint(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, memory_keyring: Any
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    tokens = {"access_token": "approved-secret", "refresh_token": "refresh-secret", "expires_at": None}
+    device_login._store_checkpoint(state, tokens)
+    unlink = device_login.os.unlink
+    monkeypatch.setattr(device_login.os, "unlink", Mock(side_effect=OSError("cannot remove state")))
+    with pytest.raises(OSError, match="cannot remove state"):
+        device_login._remove_state(state)
+    assert device_login._approved_tokens(device_login._read_state("connect", "work")) == tokens
+    assert "approved-secret" not in _state_path("connect", "work").read_text()
+    monkeypatch.setattr(device_login.os, "unlink", unlink)
+    assert device_login.finish_login("connect", "work")["status"] == "done"
+    assert not _state_path("connect", "work").exists()
+    assert not any("device-login:" in username for _, username in memory_keyring)
+
+
+@pytest.mark.parametrize("reference", [{"keyring": False}, {"keyring": 1}, {"keyring": True, "access_token": "secret"}])
+def test_pending_keyring_reference_is_validated(login_env: Any, monkeypatch: pytest.MonkeyPatch, reference: Any):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work")
+    state = device_login._read_state("connect", "work")
+    state["tokens"] = reference
+    device_login._write_state(state)
+    with pytest.raises(RSConnectException, match="invalid"):
+        device_login.finish_login("connect", "work")
+    assert len(login_env.http.instances) == 1
+
+
 @pytest.mark.parametrize(
     "expires_in",
     [float("inf"), float("-inf"), float("nan"), True, False, "invalid", 10**400],
@@ -1324,10 +1510,19 @@ def test_missing_cloud_account_removes_checkpoint_for_corrected_start(login_env:
     assert device_login._read_state("cloud", "cloud-login")["account"] == "correct-team"
 
 
+@pytest.mark.parametrize("use_keyring", [False, True])
 def test_cloud_account_deadline_returns_pending_and_checkpoints_rotated_tokens(
-    login_env: Any, monkeypatch: pytest.MonkeyPatch
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, request: Any, use_keyring: bool
 ):
     monkeypatch.setenv(connect_cloud.ENVIRONMENT_ENV_VAR, "production")
+    if use_keyring:
+        request.getfixturevalue("memory_keyring")
+    server_url = connect_cloud.urls().api
+    store = device_login._store()
+    store.set("cloud-login", server_url, connect_cloud_account_name="team", connect_cloud_account_id="old-team-id")
+    original_saved = store.get_by_name("cloud-login").copy()
+    if use_keyring:
+        connect_cloud.store_credentials_in_keyring(server_url, "cloud-login", "old-access", "old-refresh", None)
     _queue_device(login_env)
     device_login.start_cloud_login("team", "cloud-login")
     login_env.clock.advance(5)
@@ -1366,18 +1561,35 @@ def test_cloud_account_deadline_returns_pending_and_checkpoints_rotated_tokens(
 
     monkeypatch.setattr(device_login.api, "ConnectCloudServer", CloudServer)
     monkeypatch.setattr(device_login, "_DeviceLoginCloudClient", CloudClient)
-    monkeypatch.setattr(connect_cloud, "store_credentials_in_keyring", lambda *args: False)
+    if not use_keyring:
+        monkeypatch.setattr(connect_cloud, "store_credentials_in_keyring", lambda *args: False)
 
     result = device_login.finish_login("cloud", "cloud-login", timeout=5)
     checkpoint = device_login._read_state("cloud", "cloud-login")
 
     assert result == {"status": "pending", "name": "cloud-login", "server": connect_cloud.urls().api}
-    assert checkpoint["tokens"]["access_token"] == "rotated-access"
-    assert checkpoint["tokens"]["refresh_token"] == "rotated-refresh"
+    assert device_login._approved_tokens(checkpoint)["access_token"] == "rotated-access"
+    assert device_login._approved_tokens(checkpoint)["refresh_token"] == "rotated-refresh"
+    assert device_login._store().get_by_name("cloud-login") == original_saved
+    if use_keyring:
+        assert "rotated-access" not in _state_path("cloud", "cloud-login").read_text()
+        assert "initial-access" not in _state_path("cloud", "cloud-login").read_text()
+        assert oauth.keyring_get_tokens(connect_cloud.keyring_key(server_url, "cloud-login")) == (
+            "old-access",
+            "old-refresh",
+        )
     assert clients[0].request_deadline == 10.0
 
     completed = device_login.finish_login("cloud", "cloud-login", timeout=5)
     saved = device_login._store().get_by_name("cloud-login")
     assert completed["status"] == "done"
-    assert saved["connect_cloud_access_token"] == "rotated-access"
-    assert saved["connect_cloud_refresh_token"] == "rotated-refresh"
+    if use_keyring:
+        assert oauth.keyring_get_tokens(connect_cloud.keyring_key(server_url, "cloud-login")) == (
+            "rotated-access",
+            "rotated-refresh",
+        )
+        assert saved.get("connect_cloud_access_token") is None
+        assert not any("device-login:" in username for _, username in request.getfixturevalue("memory_keyring"))
+    else:
+        assert saved["connect_cloud_access_token"] == "rotated-access"
+        assert saved["connect_cloud_refresh_token"] == "rotated-refresh"
