@@ -3426,7 +3426,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
 
-        Uses the client credentials grant when a service account credential is
+        Uses the client credentials grant when client credentials are
         stored, and the refresh token otherwise. Returns whether a new token was
         obtained.
 
@@ -3453,8 +3453,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 self._warn_refresh_failure(exc)
                 return False
             raise RSConnectException(
-                "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
-                "rotated. Create a new one at %s/identity/credentials, then save it with `%s`."
+                "The Posit Connect Cloud client credentials were rejected — they have been revoked or "
+                "rotated. Create new ones at %s/identity/credentials, then save them with `%s`."
                 % (server.urls().auth, self._add_command(service_account=True))
             ) from exc
         except InvalidGrantError as exc:
@@ -3551,7 +3551,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         # A refresh persists the new tokens and nothing else. Every other field
         # is taken from the saved entry alone — never from this run, which may
         # be publishing to a different account on the same login, or carrying
-        # service-account credentials from the environment that must not be
+        # client credentials from the environment that must not be
         # grafted onto an interactively created entry. `rsconnect add` is what
         # changes those. This is how the R client's withTokenRefreshRetry()
         # writes back too. ServerStore.set writes the file itself, and omits

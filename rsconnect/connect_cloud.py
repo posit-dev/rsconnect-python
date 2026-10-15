@@ -38,7 +38,7 @@ SCOPE = "vivid"
 # deployments
 ENVIRONMENT_ENV_VAR = "CONNECT_CLOUD_ENVIRONMENT"
 # Overrides the OAuth client this CLI identifies itself as. Distinct from
-# CONNECT_CLOUD_CLIENT_ID, which is a user's service account credential.
+# CONNECT_CLOUD_CLIENT_ID, which is the client ID of a user's client credentials.
 OAUTH_CLIENT_ID_ENV_VAR = "CONNECT_CLOUD_OAUTH_CLIENT_ID"
 DEFAULT_ENVIRONMENT = "production"
 
@@ -311,7 +311,7 @@ def store_tokens_in_keyring(url: str, nickname: str, access_token: Optional[str]
 
 
 def client_secret_from_keyring(url: str, nickname: str) -> tuple[bool, Optional[str]]:
-    """The stored service account client secret, and whether the keyring could be read.
+    """The stored client secret, and whether the keyring could be read.
 
     A read failure is not the same as no secret: overwriting one that may be there
     with an older copy from servers.json would break the credential.
