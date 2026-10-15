@@ -1911,7 +1911,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         self.assertIn("do not have permission to publish to it", str(context.exception))
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_a_service_account_on_an_sso_account_is_told_sso_blocks_it(self):
+    def test_client_credentials_on_an_sso_account_are_told_sso_blocks_them(self):
         client = ConnectCloudClient(
             ConnectCloudServer("acme", access_token="at", client_id="cid", client_secret="csecret")
         )
@@ -1930,7 +1930,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         with self.client:
             with self.assertRaises(RSConnectException) as interactive_context:
                 self.client.get_account_by_name("sso-publisher")
-        self.assertNotIn("Service account credentials", str(interactive_context.exception))
+        self.assertNotIn("Client credentials", str(interactive_context.exception))
 
 
 class TestConnectCloudAddVerifiesAccount(CliTestCase):

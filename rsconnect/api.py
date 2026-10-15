@@ -3658,7 +3658,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         if not self._can_publish(account):
             server = self._server
             # The server does not grant content:create on SSO accounts to tokens without
-            # a recent SSO login, which service account credentials never have.
+            # a recent SSO login, which client credentials never have.
             if (
                 server.client_id
                 and server.client_secret
@@ -3667,7 +3667,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             ):
                 raise RSConnectException(
                     'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
-                    "Service account credentials cannot publish to accounts that require SSO." % name
+                    "Client credentials cannot publish to accounts that require SSO." % name
                 )
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '
