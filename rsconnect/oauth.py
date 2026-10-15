@@ -26,7 +26,8 @@ from .log import logger
 # pyright: reportMissingTypeStubs=false
 
 _KEYRING_SERVICE = "rsconnect-python"
-_CLIENT_NAME = "rsconnect-python"
+# Shown to users on the server's OAuth consent screen.
+_CLIENT_NAME = "Posit CLI"
 _CALLBACK_TIMEOUT_SECONDS = 600
 
 

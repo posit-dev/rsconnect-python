@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
+  the consent screen. Previously registered clients keep their existing name.
 - `login` and `add --connect-cloud` can start device-code authentication and return
   approval details as JSON. Finish a pending login by nickname with `--finish`.
   Use `--timeout` to bound the entire finish invocation, including account lookup.
