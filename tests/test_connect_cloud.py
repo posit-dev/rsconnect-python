@@ -1910,6 +1910,28 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
                 self.client.get_account_by_id_or_name("acct-2")
         self.assertIn("do not have permission to publish to it", str(context.exception))
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_service_account_on_an_sso_account_is_told_sso_blocks_it(self):
+        client = ConnectCloudClient(
+            ConnectCloudServer("acme", access_token="at", client_id="cid", client_secret="csecret")
+        )
+        _register_accounts(
+            {"id": "1", "name": "sso-publisher", "role": "publisher", "sso_enabled": True, "permissions": []},
+            {"id": "2", "name": "sso-viewer", "role": "viewer", "sso_enabled": True, "permissions": []},
+        )
+        with client:
+            with self.assertRaises(RSConnectException) as sso_context:
+                client.get_account_by_name("sso-publisher")
+            with self.assertRaises(RSConnectException) as viewer_context:
+                client.get_account_by_name("sso-viewer")
+        self.assertIn("requires single sign-on (SSO)", str(sso_context.exception))
+        self.assertIn("do not have permission to publish to it", str(viewer_context.exception))
+
+        with self.client:
+            with self.assertRaises(RSConnectException) as interactive_context:
+                self.client.get_account_by_name("sso-publisher")
+        self.assertNotIn("Service account credentials", str(interactive_context.exception))
+
 
 class TestConnectCloudAddVerifiesAccount(CliTestCase):
     skip_account_check = False

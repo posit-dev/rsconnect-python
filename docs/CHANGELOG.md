@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Publishing to a Posit Connect Cloud account that requires single sign-on (SSO) with
+  service account credentials now explains that SSO blocks the publish, instead of
+  suggesting the publisher role.
 - `login` and `add --connect-cloud` can start device-code authentication and return
   approval details as JSON. Finish a pending login by nickname with `--finish`.
   Use `--timeout` to bound the entire finish invocation, including account lookup.

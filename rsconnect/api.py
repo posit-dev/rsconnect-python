@@ -3317,6 +3317,8 @@ class ConnectCloudAccount(TypedDict):
     id: str
     name: str
     permissions: NotRequired[list[str]]
+    role: NotRequired[Optional[str]]
+    sso_enabled: NotRequired[bool]
 
 
 class ConnectCloudAccountSearchResults(TypedDict):
@@ -3654,6 +3656,19 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "skipping the publish permission check." % name
             )
         if not self._can_publish(account):
+            server = self._server
+            # The server does not grant content:create on SSO accounts to tokens without
+            # a recent SSO login, which service account credentials never have.
+            if (
+                server.client_id
+                and server.client_secret
+                and account.get("sso_enabled")
+                and account.get("role") in ("owner", "admin", "publisher")
+            ):
+                raise RSConnectException(
+                    'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
+                    "Service account credentials cannot publish to accounts that require SSO." % name
+                )
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '
                 "permission to publish to it. Ask an account administrator for the publisher role." % name
