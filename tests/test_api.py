@@ -54,6 +54,54 @@ class TestAPI(TestCase):
         with self.assertRaises(RSConnectException):
             client.nodejs_settings()
 
+    def test_http_failure_diagnostics_omit_untrusted_reason_and_exception_text(self):
+        from http.client import BadStatusLine
+
+        from rsconnect.http_support import HTTPResponse
+
+        server = RSConnectServer("https://connect.example.com", "api-key")
+        reason_secret = "reason-refresh-token"
+        response = HTTPResponse("https://connect.example.com/v1/user", body="")
+        response.status = 503
+        response.reason = reason_secret
+
+        with self.assertRaises(RSConnectException) as raised:
+            server.handle_bad_response(response, is_httpresponse=True)
+
+        self.assertIn("503", raised.exception.message)
+        self.assertNotIn(reason_secret, raised.exception.message)
+
+        exception_secret = "bad-status-refresh-token"
+        failure = BadStatusLine(exception_secret)
+        failed_response = HTTPResponse("https://connect.example.com/v1/user", exception=failure)
+        with self.assertRaises(RSConnectException) as raised:
+            server.handle_bad_response(failed_response, is_httpresponse=True)
+
+        self.assertNotIn(exception_secret, raised.exception.message)
+        self.assertIs(raised.exception.cause, failure)
+
+    def test_oauth_refresh_warning_omits_exception_text(self):
+        secret = "refresh-token-secret"
+        client = RSConnectClient(
+            RSConnectServer(
+                "https://connect.example.com",
+                None,
+                oauth_access_token="stale-access-token",
+                oauth_client_id="oauth-client",
+            )
+        )
+
+        with patch("rsconnect.oauth.keyring_get_tokens", return_value=(None, "refresh-token")):
+            with patch("rsconnect.oauth.discover_oauth_metadata", return_value={}):
+                with patch("rsconnect.oauth.refresh_access_token", side_effect=RSConnectException(secret)):
+                    with self.assertLogs("rsconnect", level="WARNING") as captured:
+                        self.assertFalse(client._attempt_token_refresh())
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("OAuth token refresh failed", log_text)
+        self.assertIn("RSConnectException", log_text)
+        self.assertNotIn(secret, log_text)
+
     def test_executor_init(self):
         connect_server = require_connect()
         api_key = require_api_key()
@@ -198,8 +246,9 @@ class TestSystemRuntimeCachesAPI(TestCase):
         with patch.object(RSConnectClient, "get", return_value=failed_response):
             with self.assertRaises(RSConnectException) as cm:
                 ce.verify_api_key()
-        self.assertEqual(str(cm.exception), "Could not connect to http://test-server/ - connection refused")
+        self.assertEqual(str(cm.exception), "Could not connect to http://test-server/ (OSError)")
         self.assertIs(cm.exception.cause, failed_response.exception)
+        self.assertNotIn("connection refused", str(cm.exception))
 
     # The deprecated module-level verify_api_key() is reached via actions.test_api_key()
     # during `rsconnect add`, so it must accept the same credentials as the executor path.
@@ -553,8 +602,8 @@ class SPCSConnectServerTestCase(TestCase):
         mock_response = Mock()
         mock_response.status = 401
         mock_response.exception = None
-        mock_response.full_uri = "https://example.snowflakecomputing.com/oauth/token"
-        mock_response.reason = "Unauthorized"
+        mock_response.full_uri = "https://example.snowflakecomputing.com/oauth/token?refresh_token=uri-secret"
+        mock_response.reason = "reason-secret"
         mock_server_instance.request.return_value = mock_response
 
         # Mock the token endpoint and payload
@@ -566,13 +615,11 @@ class SPCSConnectServerTestCase(TestCase):
         }
 
         # Call the method and verify it raises the expected exception
-        with pytest.raises(RSConnectException) as raised:
+        with pytest.raises(RSConnectException, match="Failed to exchange Snowflake token") as raised:
             server.exchange_token()
-        self.assertEqual(
-            raised.value.message,
-            "Failed to exchange Snowflake token: Received an unexpected response from "
-            "https://spcs.example.com (calling https://example.snowflakecomputing.com/oauth/token): 401 Unauthorized",
-        )
+        self.assertIs(mock_server_instance._suppress_oauth_response_logging, True)
+        self.assertNotIn("reason-secret", raised.value.message)
+        self.assertNotIn("uri-secret", raised.value.message)
 
     @patch("rsconnect.api.HTTPServer")
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")

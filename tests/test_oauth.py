@@ -13,6 +13,7 @@ from rsconnect.metadata import ServerData
 
 from .utils import failing_keyring
 from rsconnect.oauth import (
+    _CallbackHandler,
     InvalidClientError,
     InvalidGrantError,
     _exchange_code_for_token,
@@ -59,6 +60,48 @@ def mock_http_server():
         yield mock_server
 
 
+@pytest.mark.parametrize("suppress_response_logging", [False, True])
+@pytest.mark.parametrize(
+    ("function_name", "args", "data", "expected"),
+    [
+        ("discover_oauth_metadata", (FAKE_URL,), FAKE_METADATA, FAKE_METADATA),
+        ("register_client", (FAKE_METADATA, FAKE_URL), {"client_id": "client"}, "client"),
+        ("_post_oauth_form_request", (FAKE_URL, "/token", {}), {"access_token": "token"}, None),
+        (
+            "_post_token_request",
+            (FAKE_METADATA["token_endpoint"], {}),
+            {"access_token": "token"},
+            {"access_token": "token"},
+        ),
+        (
+            "refresh_access_token",
+            (FAKE_METADATA, "client", "refresh"),
+            {"access_token": "token"},
+            {"access_token": "token"},
+        ),
+    ],
+)
+def test_logging_keyword_remains_accepted_and_oauth_responses_stay_private(
+    mock_http_server: MagicMock,
+    suppress_response_logging: bool,
+    function_name: str,
+    args: tuple[Any, ...],
+    data: dict[str, Any],
+    expected: Any,
+):
+    from rsconnect import oauth
+
+    response = _make_response(200, data)
+    mock_http_server.get.return_value = response
+    mock_http_server.post.return_value = response
+    mock_http_server.request.return_value = response
+
+    result = getattr(oauth, function_name)(*args, suppress_response_logging=suppress_response_logging)
+
+    assert result == (response if expected is None else expected)
+    assert mock_http_server._suppress_oauth_response_logging is True
+
+
 class TestPKCE:
     def test_generates_valid_pair(self):
         verifier, challenge = generate_pkce_pair()
@@ -73,17 +116,13 @@ class TestDiscoverOAuthMetadata:
         mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
         result = discover_oauth_metadata(FAKE_URL)
         assert result == FAKE_METADATA
+        assert mock_http_server._suppress_oauth_response_logging is True
 
     def test_client_specific_request_timeout_and_deadline(self, mock_http_server: MagicMock):
         mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
         assert discover_oauth_metadata(FAKE_URL, request_timeout=0.25, request_deadline=12.5) == FAKE_METADATA
         assert mock_http_server.request_timeout == 0.25
         assert mock_http_server.request_deadline == 12.5
-
-    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
-        mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
-        assert discover_oauth_metadata(FAKE_URL, suppress_response_logging=True) == FAKE_METADATA
-        assert mock_http_server._suppress_oauth_response_logging is True
 
     def test_server_not_supporting_oauth(self, mock_http_server: MagicMock):
         mock_http_server.get.return_value = _make_response(404, None)
@@ -101,6 +140,7 @@ class TestRegisterClient:
         mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
         result = register_client(FAKE_METADATA, FAKE_URL)
         assert result == "test-client-123"
+        assert mock_http_server._suppress_oauth_response_logging is True
 
     def test_registers_human_readable_client_name(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
@@ -113,18 +153,24 @@ class TestRegisterClient:
         assert mock_http_server.request_timeout == 0.25
         assert mock_http_server.request_deadline == 12.5
 
-    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
-        mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
-        assert register_client(FAKE_METADATA, FAKE_URL, suppress_response_logging=True) == "test-client-123"
-        assert mock_http_server._suppress_oauth_response_logging is True
-
     def test_failure(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(
-            400, {"error": "invalid_request", "error_description": "bad request"}
+            400, {"error": "invalid_request", "error_description": "refresh-token-secret"}
         )
         with pytest.raises(RSConnectException, match="OAuth error") as raised:
             register_client(FAKE_METADATA, FAKE_URL)
-        assert "bad request" in str(raised.value)
+        assert "invalid_request" in str(raised.value)
+        assert "refresh-token-secret" not in str(raised.value)
+
+    def test_unknown_oauth_error_code_is_not_echoed(self, mock_http_server: MagicMock):
+        secret = "refresh-token-secret"
+        mock_http_server.post.return_value = _make_response(400, {"error": secret, "error_description": secret})
+
+        with pytest.raises(RSConnectException) as raised:
+            register_client(FAKE_METADATA, FAKE_URL)
+
+        assert "unknown_error" in str(raised.value)
+        assert secret not in str(raised.value)
 
     def test_client_id_response_keeps_legacy_stringification(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(200, {"client_id": "bad\nclient"})
@@ -166,6 +212,7 @@ class TestExchangeTokenForApiKey:
         mock_http_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
         result = exchange_token_for_api_key(FAKE_URL, "oidc-token")
         assert result == "minted-key"
+        assert mock_http_server._suppress_oauth_response_logging is True
         # RFC 8693 token-exchange request shape.
         body = mock_http_server.request.call_args.kwargs["body"]
         assert b"grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange" in body
@@ -234,18 +281,47 @@ class TestExchangeTokenForApiKey:
             exchange_token_for_api_key(FAKE_URL, "oidc-token")
 
     def test_verification_failure(self, mock_http_server: MagicMock):
+        secret = "subject-token-secret"
         self._set_metadata(mock_http_server)
         mock_http_server.request.return_value = _make_response(
-            400, {"error": "invalid_grant", "error_description": "could not verify token signature"}
+            400, {"error": "invalid_grant", "error_description": f"could not verify token signature {secret}"}
         )
-        with pytest.raises(RSConnectException, match="could not verify the identity token"):
+        with pytest.raises(RSConnectException, match="could not verify the identity token") as raised:
             exchange_token_for_api_key(FAKE_URL, "oidc-token")
+        assert secret not in str(raised.value)
 
     def test_generic_failure(self, mock_http_server: MagicMock):
         self._set_metadata(mock_http_server)
         mock_http_server.request.return_value = _make_response(500, {"error": "boom", "error_description": "kaboom"})
-        with pytest.raises(RSConnectException, match="HTTP 500"):
+        with pytest.raises(RSConnectException, match="HTTP 500") as raised:
             exchange_token_for_api_key(FAKE_URL, "oidc-token")
+        assert "boom" not in str(raised.value)
+        assert "kaboom" not in str(raised.value)
+
+
+def test_browser_callback_error_does_not_expose_description():
+    secret = "callback-token-secret"
+    with patch("rsconnect.oauth._HTTPServer") as server_factory:
+        server = server_factory.return_value
+        server.server_address = ("127.0.0.1", 0)
+        server.RequestHandlerClass = _CallbackHandler
+        server.handle_request.side_effect = lambda: _CallbackHandler.result_queue.put(
+            ("error", "invalid_request", secret)
+        )
+
+        with patch("rsconnect.oauth.webbrowser.open", return_value=True):
+            with pytest.raises(RSConnectException) as raised:
+                login_with_browser(FAKE_URL, "client-1", FAKE_METADATA)
+
+    assert "invalid_request" in str(raised.value)
+    assert secret not in str(raised.value)
+
+
+def test_callback_server_log_does_not_include_request_line():
+    request = "GET /callback?code=authorization-secret&state=state-secret HTTP/1.1"
+    with patch("rsconnect.oauth.logger.debug") as debug:
+        _CallbackHandler.log_message(MagicMock(), "%s", request)
+    debug.assert_called_once_with("OAuth callback server handled a request.")
 
 
 class TestDeviceCodeFlow:
@@ -335,6 +411,19 @@ class TestDeviceCodeFlow:
         with pytest.raises(RSConnectException, match="unexpected response"):
             _poll_for_device_token(FAKE_METADATA, "client-1", "device-code-1", 5, 600)
 
+    @patch("rsconnect.oauth.time.sleep")
+    def test_poll_error_uses_code_without_description(self, _, mock_http_server: MagicMock):
+        secret = "refresh-token-secret"
+        mock_http_server.request.return_value = _make_response(
+            400, {"error": "server_error", "error_description": secret}
+        )
+
+        with pytest.raises(RSConnectException) as raised:
+            _poll_for_device_token(FAKE_METADATA, "client-1", "device-code-1", 5, 600)
+
+        assert "server_error" in str(raised.value)
+        assert secret not in str(raised.value)
+
     @pytest.mark.parametrize(
         ("response", "message"),
         [
@@ -366,19 +455,6 @@ class TestRefreshAccessToken:
         )
         assert mock_http_server.request_timeout == 0.25
         assert mock_http_server.request_deadline == 12.5
-
-    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
-        mock_http_server.request.return_value = _make_response(200, {"access_token": "new-at"})
-        refresh_access_token(
-            FAKE_METADATA,
-            "client-1",
-            "old-rt",
-            request_timeout=0.25,
-            request_deadline=12.5,
-            suppress_response_logging=True,
-        )
-        assert mock_http_server.request_timeout == 0.25
-        assert mock_http_server.request_deadline == 12.5
         assert mock_http_server._suppress_oauth_response_logging is True
 
     def test_refresh_keeps_legacy_path_only_for_token_query(self, mock_http_server: MagicMock):
@@ -402,12 +478,14 @@ class TestRefreshAccessToken:
             refresh_access_token(FAKE_METADATA, "bad-client", "old-rt")
 
     def test_invalid_grant(self, mock_http_server: MagicMock):
+        secret = "refresh-token-secret"
         mock_http_server.request.return_value = _make_response(
-            400, {"error": "invalid_grant", "error_description": "refresh token expired"}
+            400, {"error": "invalid_grant", "error_description": secret}
         )
-        with pytest.raises(InvalidGrantError, match="refresh token expired") as raised:
+        with pytest.raises(InvalidGrantError) as raised:
             refresh_access_token(FAKE_METADATA, "client-1", "old-rt")
-        assert raised.value.description == "refresh token expired"
+        assert secret not in str(raised.value)
+        assert raised.value.description == secret
 
     def test_invalid_grant_without_a_description(self, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(400, {"error": "invalid_grant"})
