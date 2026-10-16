@@ -10,12 +10,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Publishing to a Posit Connect Cloud account that requires single sign-on (SSO) with
   client credentials now explains that SSO blocks the publish, instead of
   suggesting the publisher role.
+
+## [1.32.0] - 2026-10-16
+
+- OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
+  the consent screen. Previously registered clients keep their existing name.
+- Resumable device login stores approved tokens in a separate system keyring
+  entry when available, keeping only a reference in pending state. Protected-file
+  fallback and retries from existing plaintext checkpoints remain supported.
+  Cloud retries preserve rotated tokens without replacing a saved login before account lookup completes.
+- Credential files written through the default file backend are created with
+  private permissions, and existing files have their permissions repaired before
+  new credentials are written. Unchanged files also have their permissions repaired.
+  Saves retain existing symlinks and hardlinks and can update writable files
+  without write access to the parent directory.
+- Authentication errors and verbose HTTP diagnostics omit provider-supplied
+  error descriptions, response reasons and redirect headers that could expose
+  credentials. OAuth response bodies and redirect destinations are also omitted
+  from verbose logs, along with all OAuth response header values.
+  Resumable Cloud account lookup uses the same protection. Encoded credential
+  query names are redacted, and cookie diagnostics omit names as well as values.
+- Generated manifests and bundles exclude `.rsconnect-python` directories and
+  the configured CLI credential directory, including explicit extra files and
+  symlink aliases. Publishing from inside that directory is rejected, including
+  static notebook rendering before execution. Prepared
+  bundle archives remain unchanged.
 - `login` and `add --connect-cloud` can start device-code authentication and return
   approval details as JSON. Finish a pending login by nickname with `--finish`.
   Use `--timeout` to bound the entire finish invocation, including account lookup.
   Resumable login requires POSIX (Linux or macOS). Pending state is validated
-  before saving and uses owner-only permissions. Resumable authentication omits
-  sensitive provider diagnostics. Connect Cloud finish retains the original OAuth client.
+  before saving and uses owner-only permissions. Connect Cloud finish retains the original OAuth client.
 - Added `rsconnect preflight` to check Python and Node.js runtime availability on
   self-hosted Posit Connect and Snowpark Container Services (SPCS), from POSIX systems. For first
   publishes, it considers server installations marked publishable. Python

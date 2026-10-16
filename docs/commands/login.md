@@ -33,9 +33,14 @@ The command stores pending logins under its configuration directory. Files use o
 Resumable device login requires a POSIX system such as Linux or macOS. Use a private configuration directory.
 Existing blocking login remains available on Windows.
 
-Pending state contains device codes and token checkpoints in plaintext, even when final credentials use a keyring.
+Pending state contains device codes in plaintext. After approval, tokens are stored in a separate system keyring entry,
+and the pending file keeps a reference to those tokens. If keyring storage is unavailable, tokens are saved in the owner-only
+pending file instead. Existing plaintext token checkpoints remain readable.
 Owner-only permissions restrict ordinary access to your operating-system account; processes running as that account and backups can still read it.
-Finish pending logins promptly. Abandoned state has no background cleanup, and deleting local state does not revoke an issued token.
+Finish pending logins promptly. Completion removes the pending file and its temporary keyring entry.
+Abandoned state has no background cleanup, and deleting local state does not revoke an issued token.
+If a pending keyring entry cannot be read, unlock the same keyring and retry; the command will not redeem the device code again.
+Recovery after an interrupted pending-file write also requires the same keyring backend.
 Use HTTPS with certificate verification and keep the configuration directory private and outside your application directory.
 
 ## Finish device authentication

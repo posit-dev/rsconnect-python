@@ -26,7 +26,10 @@ from .oauth import (
     _post_oauth_form_request,
     _unwrap_json_response,
     discover_oauth_metadata,
+    keyring_delete_values,
+    keyring_read_value,
     keyring_store_token,
+    keyring_store_values,
     register_client,
 )
 from .validation import require_posix
@@ -461,7 +464,12 @@ def _validate_state_polling(raw: dict[str, Any]) -> None:
         raise RSConnectException("Pending device login state is invalid.")
     if not _positive_finite_duration(raw["interval"]):
         raise RSConnectException("Pending device login state is invalid.")
-    _validate_tokens(raw["tokens"])
+    tokens = raw["tokens"]
+    if isinstance(tokens, dict) and "keyring" in tokens:
+        if tokens != {"keyring": True} or tokens["keyring"] is not True:
+            raise RSConnectException("Pending device login state is invalid.")
+    else:
+        _validate_tokens(tokens)
 
 
 def _validate_state(kind: str, name: str, raw: Any) -> dict[str, Any]:
@@ -489,7 +497,11 @@ def _read_state(kind: str, name: str) -> Optional[dict[str, Any]]:
             os.close(descriptor)
         except OSError:
             pass
-    return _validate_state(kind, name, raw)
+    state = _validate_state(kind, name, raw)
+    # Recover a keyring write even if the subsequent state-file write failed.
+    if state["tokens"] is None and _read_keyring_checkpoint(state) is not None:
+        state["tokens"] = {"keyring": True}
+    return state
 
 
 def _read_state_json(descriptor: int) -> Any:
@@ -500,11 +512,20 @@ def _read_state_json(descriptor: int) -> Any:
         raise RSConnectException("Pending device login state is invalid.") from exc
 
 
-def _remove_state(kind: str, name: str) -> None:
+def _remove_state(state: dict[str, Any]) -> None:
+    tokens = None
+    if state["tokens"] == {"keyring": True}:
+        tokens = _read_keyring_checkpoint(state)
+        if not keyring_delete_values(_checkpoint_key(state), ("tokens",)):
+            raise RSConnectException("Could not remove pending login tokens from the keyring. Unlock it and retry.")
     try:
-        os.unlink(_state_path(kind, name))
+        os.unlink(_state_path(state["kind"], state["name"]))
     except FileNotFoundError:
         pass
+    except OSError:
+        if tokens is not None:
+            _store_checkpoint(state, tokens)
+        raise
 
 
 def _ca_values(ca_data: Optional[str | bytes]) -> tuple[Optional[str], Optional[str]]:
@@ -654,13 +675,14 @@ def _register_device_client(
     ca_data: Optional[str | bytes],
     deadline: float,
 ) -> str:
+    request_timeout = _remaining(deadline)
     try:
         client_id = register_client(
             metadata,
             server,
             insecure,
             ca_data,
-            request_timeout=_remaining(deadline),
+            request_timeout=request_timeout,
             request_deadline=deadline,
             suppress_response_logging=True,
         )
@@ -806,7 +828,7 @@ def _start_connect_login(
     _assert_nickname_target(store, "connect", name, server)
     state = _read_state("connect", name)
     if state and _device_code_expired(state):
-        _remove_state("connect", name)
+        _remove_state(state)
         state = None
     if state:
         _check_pending_target(state, "connect", server, None, client_id, insecure, ca_data)
@@ -863,7 +885,7 @@ def _start_cloud_login(
     _assert_nickname_target(store, "cloud", name, server, account)
     state = _read_state("cloud", name)
     if state and _device_code_expired(state):
-        _remove_state("cloud", name)
+        _remove_state(state)
         state = None
     if state:
         _check_pending_target(state, "cloud", server, account, None, False, None)
@@ -1014,12 +1036,54 @@ def _checkpoint(tokens: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _checkpoint_key(state: dict[str, Any]) -> str:
+    identity = [state[key] for key in ("kind", "name", "server", "client_id", "device_code")]
+    digest = hashlib.sha256(json.dumps(identity).encode("utf-8")).hexdigest()
+    return "device-login:" + digest
+
+
+def _read_keyring_checkpoint(state: dict[str, Any]) -> Optional[dict[str, Any]]:
+    readable, value = keyring_read_value(_checkpoint_key(state), "tokens")
+    if not readable:
+        raise RSConnectException("Could not read pending login tokens from the keyring. Unlock it and retry.")
+    if value is None:
+        return None
+    try:
+        tokens = json.loads(value)
+    except (ValueError, TypeError) as exc:
+        raise RSConnectException("Pending login tokens in the keyring are invalid.") from exc
+    _validate_tokens(tokens)
+    if tokens is None:
+        raise RSConnectException("Pending login tokens in the keyring are invalid.")
+    return cast(Dict[str, Any], tokens)
+
+
+def _approved_tokens(state: dict[str, Any]) -> dict[str, Any]:
+    if state["tokens"] != {"keyring": True}:
+        return state["tokens"]
+    tokens = _read_keyring_checkpoint(state)
+    if tokens is None:
+        raise RSConnectException(
+            "Pending login tokens are missing from the keyring. Restore the entry, or remove pending state "
+            "and start a new login."
+        )
+    return tokens
+
+
+def _store_checkpoint(state: dict[str, Any], tokens: dict[str, Any]) -> None:
+    # Keep file checkpoints on disk so a failed rotation write cannot revive older file tokens.
+    use_keyring = state["tokens"] is None or state["tokens"] == {"keyring": True}
+    in_keyring = use_keyring and keyring_store_values(_checkpoint_key(state), {"tokens": json.dumps(tokens)})
+    state["tokens"] = {"keyring": True} if in_keyring else tokens
+    _write_state(state)
+
+
 def _pending(state: dict[str, Any]) -> dict[str, Any]:
     return {"status": "pending", "name": state["name"], "server": state["server"]}
 
 
 def _finalize_connect(state: dict[str, Any]) -> dict[str, Any]:
-    name, server, tokens = state["name"], state["server"], state["tokens"]
+    name, server, tokens = state["name"], state["server"], _approved_tokens(state)
     store = _store()
     _assert_nickname_target(store, "connect", name, server)
     saved = _saved_connect_entry(store, name, server)
@@ -1052,7 +1116,7 @@ class _DeviceLoginCloudClient(api.ConnectCloudClient):
 def _cloud_login_client(
     state: dict[str, Any], deadline: float
 ) -> tuple[api.ConnectCloudServer, api.ConnectCloudClient, dict[str, Any]]:
-    tokens = state["tokens"]
+    tokens = _approved_tokens(state)
     cloud_server = api.ConnectCloudServer(
         account_name=state["account"],
         access_token=tokens["access_token"],
@@ -1101,12 +1165,12 @@ def _checkpoint_rotated_cloud_tokens(
 ) -> None:
     if cloud_server.access_token == tokens["access_token"] and cloud_server.refresh_token == tokens["refresh_token"]:
         return
-    state["tokens"] = {
+    rotated = {
         "access_token": cloud_server.access_token,
         "refresh_token": cloud_server.refresh_token,
         "expires_at": tokens["expires_at"],
     }
-    _write_state(state)
+    _store_checkpoint(state, rotated)
 
 
 def _save_cloud_account(
@@ -1154,8 +1218,7 @@ def _finish_state(state: dict[str, Any], deadline: float) -> dict[str, Any]:
         tokens = _poll_for_token(state, deadline)
         if tokens is None:
             return _pending(state)
-        state["tokens"] = _checkpoint(tokens)
-        _write_state(state)
+        _store_checkpoint(state, _checkpoint(tokens))
     if deadline <= time.monotonic():
         return _pending(state)
     if state["kind"] == "cloud":
@@ -1168,7 +1231,7 @@ def _load_pending(kind: str, name: str) -> dict[str, Any]:
     if state is None:
         raise RSConnectException('No pending "%s" login exists for nickname "%s".' % (kind, name))
     if _device_code_expired(state):
-        _remove_state(kind, name)
+        _remove_state(state)
         raise _Expired()
     _assert_nickname_target(_store(), kind, name, state["server"], state["account"])
     return state
@@ -1191,19 +1254,19 @@ def finish_login(kind: str, name: str, timeout: int = 120) -> dict[str, Any]:
         with _state_lock(kind, name, deadline):
             _remove_temporary_state_files(kind, name)
             state = _load_pending(kind, name)
-            return _finish_and_cleanup(kind, name, state, deadline)
+            return _finish_and_cleanup(state, deadline)
     except _LockBusy:
         return {"status": "pending", "name": name, "server": None}
 
 
-def _finish_and_cleanup(kind: str, name: str, state: dict[str, Any], deadline: float) -> dict[str, Any]:
+def _finish_and_cleanup(state: dict[str, Any], deadline: float) -> dict[str, Any]:
     try:
         result = _finish_state(state, deadline)
     except _FinishDeadline:
         return _pending(state)
     except (_Denied, _Expired, InvalidClientError, InvalidGrantError, ConnectCloudAccountNotFoundError):
-        _remove_state(kind, name)
+        _remove_state(state)
         raise
     if result["status"] == "done":
-        _remove_state(kind, name)
+        _remove_state(state)
     return result
