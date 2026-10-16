@@ -102,6 +102,11 @@ class TestRegisterClient:
         result = register_client(FAKE_METADATA, FAKE_URL)
         assert result == "test-client-123"
 
+    def test_registers_human_readable_client_name(self, mock_http_server: MagicMock):
+        mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
+        register_client(FAKE_METADATA, FAKE_URL)
+        assert mock_http_server.post.call_args.kwargs["body"]["client_name"] == "Posit CLI"
+
     def test_client_specific_request_timeout_and_deadline(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(200, {"client_id": "bounded-client"})
         assert register_client(FAKE_METADATA, FAKE_URL, request_timeout=0.25, request_deadline=12.5) == "bounded-client"
