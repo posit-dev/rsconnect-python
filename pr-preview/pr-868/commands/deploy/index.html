@@ -1585,6 +1585,12 @@
 
 
 
+<p>Generated bundles exclude <code>.rsconnect-python</code> directories and the configured
+CLI credential directory, including symlink aliases and files supplied as
+explicit extras. Keep application files outside that directory; publishing
+from inside it is rejected.</p>
+<p>Deploying an already prepared bundle uploads the archive as supplied. Check its
+contents before deployment.</p>
 <h1 id="deploy">deploy<a class="headerlink" href="#deploy" title="Permanent link">#</a></h1>
 <p>Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io.</p>
 <p><strong>Usage:</strong></p>
