@@ -3593,7 +3593,7 @@ def test_write_api_manifest_excludes_current_home_config_extra(tmp_path, monkeyp
     pending_state.write_text("SECRET")
     (project / "app.py").write_text("app = object()")
     (project / "data.csv").write_text("safe")
-    (project / "requirements.txt").write_text("flask==3.0.0\n")
+    (project / "requirements.txt").write_bytes(b"flask==3.0.0\n")
     extra_files = [str(pending_state), str(project / "data.csv")]
     environment = _make_test_environment()
 
@@ -3636,7 +3636,7 @@ def test_write_notebook_manifest_filters_protected_extras_before_hashing(tmp_pat
     safe_extra.write_text("safe")
     environment = _make_test_environment()
     requirements_file = project / environment.filename
-    requirements_file.write_text(environment.contents)
+    requirements_file.write_bytes(to_bytes(environment.contents))
 
     (config_dir / "servers.json").write_text("ACTIVE SECRET")
     reserved_file = project / ".rsconnect-python" / "data" / "servers.json"
