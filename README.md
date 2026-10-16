@@ -54,7 +54,7 @@ Deploy your application:
 rsconnect deploy shiny app.py --name cloud --title "my shiny app"
 ```
 
-For non-interactive use such as CI, pass a service account credential with
+For non-interactive use such as CI, pass client credentials with
 `--client-id` and `--client-secret`, or the `CONNECT_CLOUD_CLIENT_ID` and
 `CONNECT_CLOUD_CLIENT_SECRET` environment variables.
 

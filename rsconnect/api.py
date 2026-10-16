@@ -3319,6 +3319,8 @@ class ConnectCloudAccount(TypedDict):
     id: str
     name: str
     permissions: NotRequired[list[str]]
+    role: NotRequired[Optional[str]]
+    sso_enabled: NotRequired[bool]
 
 
 class ConnectCloudAccountSearchResults(TypedDict):
@@ -3420,7 +3422,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
 
-        Uses the client credentials grant when a service account credential is
+        Uses the client credentials grant when client credentials are
         stored, and the refresh token otherwise. Returns whether a new token was
         obtained.
 
@@ -3447,8 +3449,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exc).__name__)
                 return False
             raise RSConnectException(
-                "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
-                "rotated. Create a new one at %s/identity/credentials, then save it with `%s`."
+                "The Posit Connect Cloud client credentials were rejected — they have been revoked or "
+                "rotated. Create new ones at %s/identity/credentials, then save them with `%s`."
                 % (server.urls().auth, self._add_command(service_account=True))
             ) from exc
         except InvalidGrantError as exc:
@@ -3545,7 +3547,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         # A refresh persists the new tokens and nothing else. Every other field
         # is taken from the saved entry alone — never from this run, which may
         # be publishing to a different account on the same login, or carrying
-        # service-account credentials from the environment that must not be
+        # client credentials from the environment that must not be
         # grafted onto an interactively created entry. `rsconnect add` is what
         # changes those. This is how the R client's withTokenRefreshRetry()
         # writes back too. ServerStore.set writes the file itself, and omits
@@ -3650,6 +3652,21 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "skipping the publish permission check." % name
             )
         if not self._can_publish(account):
+            server = self._server
+            # The server does not grant content:create on SSO accounts to tokens without
+            # a recent SSO login, which client credentials never have.
+            if (
+                server.client_id
+                and server.client_secret
+                and account.get("sso_enabled")
+                and account.get("role") in ("owner", "admin", "publisher")
+            ):
+                raise RSConnectException(
+                    'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
+                    "Client credentials cannot publish to accounts that require SSO. Log in interactively "
+                    "with SSO instead: run `rsconnect add --connect-cloud -n <nickname> -A %s` without "
+                    "client credentials." % (name, name)
+                )
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '
                 "permission to publish to it. Ask an account administrator for the publisher role." % name
