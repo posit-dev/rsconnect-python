@@ -117,6 +117,66 @@ class TestSystemCachesDelete(unittest.TestCase):
         self.assertEqual(body["version"], "1.2.3")
         self.assertEqual(body["image_name"], "Local")
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_delete_task_failed(self):
+        """A task that finishes with a non-zero code is surfaced as exit code 1."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.DELETE,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            status=200,
+            body=json.dumps(
+                {"language": "Python", "version": "1.2.3", "image_name": "Local", "dry_run": False, "task_id": "abc123"}
+            ),
+            adding_headers={"Content-Type": "application/json"},
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{CONNECT_SERVER}/__api__/v1/tasks/abc123",
+            body=json.dumps(
+                {
+                    "id": "abc123",
+                    "output": [],
+                    "result": {"type": "", "data": ""},
+                    "finished": True,
+                    "code": 1,
+                    "error": "failed to delete cache",
+                    "last": 0,
+                }
+            ),
+            adding_headers={"Content-Type": "application/json"},
+        )
+
+        runner = CliRunner()
+        args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
+        result = runner.invoke(cli, args)
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertRegex(result.output, "Failed to delete the runtime cache: failed to delete cache")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_delete_dry_run(self):
+        """A dry run has no task to wait for and exits 0."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.DELETE,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            status=200,
+            body=json.dumps(
+                {"language": "Python", "version": "1.2.3", "image_name": "Local", "dry_run": True, "task_id": None}
+            ),
+            adding_headers={"Content-Type": "application/json"},
+        )
+
+        runner = CliRunner()
+        args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
+        args.append("--dry-run")
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
+        result = runner.invoke(cli, args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
     def test_system_caches_delete_missing_all_flags(self):
         """Omitting both --language and --version yields exit code 2 (Click validation)."""
         runner = CliRunner()
