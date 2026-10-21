@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `write-manifest <framework>` and `deploy quarto` now honor `--package-installer`. Previously the option was accepted but ignored, so the manifest always recorded `pip`.
+
 ## [1.32.0] - 2026-10-16
 
 - OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
