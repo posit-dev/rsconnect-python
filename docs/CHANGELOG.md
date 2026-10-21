@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Publishing to a Posit Connect Cloud account that requires single sign-on (SSO) with
+  client credentials now explains that SSO blocks the publish, instead of
+  suggesting the publisher role.
+
 ## [1.32.0] - 2026-10-16
 
 - OAuth clients now register with Posit Connect as "Posit CLI", the name shown on
