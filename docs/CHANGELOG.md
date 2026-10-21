@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Publishing to a Posit Connect Cloud account that requires single sign-on (SSO) with
   client credentials now explains that SSO blocks the publish, instead of
-  suggesting the publisher role.
+  suggesting the publisher role. `rsconnect content migrate-to-connect-cloud`
+  explains it the same way.
 
 ## [1.32.0] - 2026-10-16
 

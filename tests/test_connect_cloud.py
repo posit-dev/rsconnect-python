@@ -3144,6 +3144,25 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.assertIsNotNone(saved.get(SHINYAPPS), "the source record must survive a refusal")
         self.assertIsNone(saved.get(MIGRATED_KEY))
 
+    def test_client_credentials_on_an_sso_account_are_told_sso_blocks_them(self):
+        self._record(SHINYAPPS)
+        executor = self._executor()
+        executor.remote_server = ConnectCloudServer(
+            "acme", access_token="at", account_id="acct-1", client_id="cid", client_secret="csecret"
+        )
+        executor.client.get_accounts.return_value = [
+            {"id": "acct-1", "name": "acme", "role": "publisher", "sso_enabled": True, "permissions": []},
+        ]
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("requires single sign-on (SSO)", str(context.exception))
+        self.assertNotIn("publisher role", str(context.exception))
+        saved = self._store()
+        self.assertIsNotNone(saved.get(SHINYAPPS), "the source record must survive a refusal")
+        self.assertIsNone(saved.get(MIGRATED_KEY))
+
     def test_an_account_named_after_its_id_keeps_the_written_record(self):
         # The id-keyed and name-keyed record locations collide when the account's
         # name equals its id; removing the name-keyed one then deletes the record
