@@ -5921,10 +5921,7 @@ def system_caches_delete(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        _, task = ce.delete_runtime_cache(language, version, image_name, dry_run)
-        if task is not None and (task["code"] != 0 or task.get("error")):
-            reason = task.get("error") or "task exited with status %d" % task["code"]
-            raise RSConnectException("Failed to delete the runtime cache: %s" % reason)
+        ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
 def _parse_installations(values: tuple[str, ...]) -> list[EnvironmentInstallation] | None:

@@ -153,7 +153,7 @@ class TestSystemCachesDelete(unittest.TestCase):
         result = runner.invoke(cli, args)
 
         self.assertEqual(result.exit_code, 1, result.output)
-        self.assertRegex(result.output, "Failed to delete the runtime cache: failed to delete cache")
+        self.assertRegex(result.output, "Task exited with status 1.")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_system_caches_delete_dry_run(self):
