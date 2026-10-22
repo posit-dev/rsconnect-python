@@ -2678,6 +2678,9 @@ for shinyapps.io. See command help for further details."
             # validate_connect_cloud_server, so without this check a viewer role is
             # caught only by the deploy -- after the source record has been removed.
             if not service.can_publish_to(account):
+                sso_error = service.sso_blocked_error(account)
+                if sso_error:
+                    raise sso_error
                 raise RSConnectException(
                     'You have access to the Posit Connect Cloud account "%s" but do not have '
                     "permission to publish to it, so the next deploy from this directory would "
@@ -3652,21 +3655,9 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "skipping the publish permission check." % name
             )
         if not self._can_publish(account):
-            server = self._server
-            # The server does not grant content:create on SSO accounts to tokens without
-            # a recent SSO login, which client credentials never have.
-            if (
-                server.client_id
-                and server.client_secret
-                and account.get("sso_enabled")
-                and account.get("role") in ("owner", "admin", "publisher")
-            ):
-                raise RSConnectException(
-                    'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
-                    "Client credentials cannot publish to accounts that require SSO. Log in interactively "
-                    "with SSO instead: run `rsconnect add --connect-cloud -n <nickname> -A %s` without "
-                    "client credentials." % (name, name)
-                )
+            sso_error = self._sso_blocked_error(self._server, account)
+            if sso_error:
+                raise sso_error
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '
                 "permission to publish to it. Ask an account administrator for the publisher role." % name
@@ -3694,6 +3685,29 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         if permissions is None:
             return True
         return _CONNECT_CLOUD_PUBLISH_PERMISSION in permissions
+
+    @staticmethod
+    def _sso_blocked_error(server: ConnectCloudServer, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+        """The error for client credentials that SSO keeps from publishing to this account, if that is
+        why the account cannot be published to.
+
+        The server does not grant content:create on SSO accounts to tokens without
+        a recent SSO login, which client credentials never have.
+        """
+        if not (
+            server.client_id
+            and server.client_secret
+            and account.get("sso_enabled")
+            and account.get("role") in ("owner", "admin", "publisher")
+        ):
+            return None
+        name = account.get("name")
+        return RSConnectException(
+            'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
+            "Client credentials cannot publish to accounts that require SSO. Log in interactively "
+            "with SSO instead: run `rsconnect add --connect-cloud -n <nickname> -A %s` without "
+            "client credentials." % (name, name)
+        )
 
     def get_content(self, content_id: str) -> ConnectCloudContent:
         response = cast(Union[ConnectCloudContent, HTTPResponse], self.get(f"/contents/{content_id}"))
@@ -4116,6 +4130,12 @@ class ConnectCloudService:
         client too.
         """
         return ConnectCloudClient._can_publish(account)
+
+    def sso_blocked_error(self, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+        """The error get_account_by_name raises when SSO keeps client credentials from
+        publishing to this account, or None when that is not why publishing is refused.
+        """
+        return ConnectCloudClient._sso_blocked_error(self._server, account)
 
     def content_url(self, content_id: str, account_id: Optional[str]) -> str:
         """Build the browsable URL for a content item.
