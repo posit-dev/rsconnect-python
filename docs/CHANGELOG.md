@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When client credentials can't publish to a Posit Connect Cloud account because the
   account requires single sign-on (SSO), the error now says so, instead of
   suggesting the publisher role.
+- `rsconnect bootstrap` uses the `/__api__/v1/bootstrap` endpoint, falling back to
+  the deprecated `/__api__/v1/experimental/bootstrap` endpoint on Posit Connect
+  versions before 2024.05.0. (#594)
 
 ## [1.32.0] - 2026-10-16
 
