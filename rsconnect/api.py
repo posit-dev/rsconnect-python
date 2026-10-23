@@ -3007,7 +3007,7 @@ for shinyapps.io. See command help for further details."
             print("Dry run finished")
             return result, None
         else:
-            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
+            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info)
             return result, task
 
 
