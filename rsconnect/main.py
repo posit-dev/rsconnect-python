@@ -379,7 +379,7 @@ def _start_cloud_device_login(params: dict[str, Any]) -> dict[str, Any]:
     from .device_login import start_cloud_login
 
     if params.get("client_id") or params.get("client_secret"):
-        raise RSConnectException("--no-wait cannot be combined with service account credentials.")
+        raise RSConnectException("--no-wait cannot be combined with client credentials.")
     ctx = click.get_current_context()
     account = validation.effective_connect_cloud_account(ctx, params.get("account"))
     if not account:
@@ -512,7 +512,7 @@ def connect_cloud_args(func: Callable[P, T]) -> Callable[P, T]:
     The target is selected either with `--server connect.posit.cloud`, mirroring
     how shinyapps.io is selected with `--server shinyapps.io`, or with the
     equivalent `--connect-cloud` shorthand. The remaining options supply the
-    service account credential used for non-interactive login.
+    client credentials used for non-interactive login.
     """
 
     @click.option(
@@ -525,13 +525,13 @@ and takes precedence over a CONNECT_SERVER environment variable.",
     @click.option(
         "--client-id",
         envvar="CONNECT_CLOUD_CLIENT_ID",
-        help="The Posit Connect Cloud service account client ID, for non-interactive \
+        help="The client ID of Posit Connect Cloud client credentials, for non-interactive \
 authentication. (Also settable via CONNECT_CLOUD_CLIENT_ID environment variable.)",
     )
     @click.option(
         "--client-secret",
         envvar="CONNECT_CLOUD_CLIENT_SECRET",
-        help="The Posit Connect Cloud service account client secret, for non-interactive \
+        help="The client secret of Posit Connect Cloud client credentials, for non-interactive \
 authentication. (Also settable via CONNECT_CLOUD_CLIENT_SECRET environment variable.)",
     )
     @functools.wraps(func)
@@ -866,8 +866,8 @@ def cli(future: bool):
     are needed.
 
     For Posit Connect Cloud, the server ('connect.posit.cloud') and account are needed.
-    Credentials come from an interactive browser login, or from a service account
-    client ID and secret for non-interactive use.
+    Credentials come from an interactive browser login, or from client
+    credentials (a client ID and secret) for non-interactive use.
     """
     global future_enabled
     future_enabled = future
@@ -925,7 +925,7 @@ def _connect_cloud_login(
 ) -> api.ConnectCloudServer:
     """Authenticate against Posit Connect Cloud and return the resulting server.
 
-    Uses the OAuth client credentials grant when a service account credential is
+    Uses the OAuth client credentials grant when client credentials are
     supplied, and the interactive device code flow otherwise. The server is built
     before logging in because its URL decides which environment's auth host to
     log in against: an explicitly typed staging API URL must not authenticate
@@ -941,8 +941,8 @@ def _connect_cloud_login(
     if client_id or client_secret:
         if not (client_id and client_secret):
             raise RSConnectException(
-                "Both --client-id and --client-secret are required to authenticate with a "
-                "Posit Connect Cloud service account. Omit both to log in interactively."
+                "Both --client-id and --client-secret are required to authenticate with "
+                "Posit Connect Cloud client credentials. Omit both to log in interactively."
             )
         tokens = connect_cloud_auth.login_client_credentials(client_id, client_secret, server.environment)
     else:
@@ -1255,7 +1255,7 @@ def list_servers(verbose: int):
                 if server.get("connect_cloud_account_name"):
                     click.echo("    Posit Connect Cloud account: %s" % server["connect_cloud_account_name"])
                     if server.get("connect_cloud_client_id"):
-                        click.echo("    Service account client ID: %s" % server["connect_cloud_client_id"])
+                        click.echo("    Client ID: %s" % server["connect_cloud_client_id"])
                     access, _, client_secret = connect_cloud_auth.credentials_from_keyring(
                         server["url"], server["name"]
                     )

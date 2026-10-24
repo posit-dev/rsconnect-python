@@ -1756,7 +1756,8 @@ See command help for further details."
 class TestBootstrap(TestCase):
     def setUp(self):
         self.mock_server = "http://localhost:8080"
-        self.mock_uri = "http://localhost:8080/__api__/v1/experimental/bootstrap"
+        self.mock_uri = "http://localhost:8080/__api__/v1/bootstrap"
+        self.mock_experimental_uri = "http://localhost:8080/__api__/v1/experimental/bootstrap"
         self.jwt_keypath = "tests/testdata/jwt/secret.key"
         self.jwt_env_secret = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
 
@@ -1769,7 +1770,9 @@ class TestBootstrap(TestCase):
             "--insecure",
         ]
 
-    def create_bootstrap_mock_callback(self, status, json_data):
+    def create_bootstrap_mock_callback(self, status, json_data, expected_uri=None):
+        expected_uri = expected_uri or self.mock_uri
+
         def request_callback(request, uri, response_headers):
             # verify auth header is sent correctly
             authorization = request.headers.get("Authorization")
@@ -1779,7 +1782,7 @@ class TestBootstrap(TestCase):
             self.assertTrue(has_jwt_structure(auth_split[1]))
 
             # verify uri
-            self.assertEqual(uri, self.mock_uri)
+            self.assertEqual(uri, expected_uri)
 
             return [status, {"Content-Type": "application/json"}, json.dumps(json_data)]
 
@@ -1797,6 +1800,34 @@ class TestBootstrap(TestCase):
             httpretty.POST,
             self.mock_uri,
             body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        self.assertEqual(json_output, expected_output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_experimental_fallback(self):
+        """
+        Fall back to the experimental endpoint on Connect versions before 2024.05.0
+        """
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=self.create_bootstrap_mock_callback(404, {}),
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_experimental_uri,
+            body=self.create_bootstrap_mock_callback(
+                200, {"api_key": "testapikey123"}, expected_uri=self.mock_experimental_uri
+            ),
         )
 
         runner = CliRunner()
@@ -1870,12 +1901,15 @@ class TestBootstrap(TestCase):
         Fail reasonablly if response indicates 404 not found
         """
 
-        callback = self.create_bootstrap_mock_callback(404, {})
-
         httpretty.register_uri(
             httpretty.POST,
             self.mock_uri,
-            body=callback,
+            body=self.create_bootstrap_mock_callback(404, {}),
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_experimental_uri,
+            body=self.create_bootstrap_mock_callback(404, {}, expected_uri=self.mock_experimental_uri),
         )
 
         runner = CliRunner()
