@@ -553,77 +553,29 @@ class RSConnectClient(BearerTokenHTTPServer):
         return isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
 
     def _attempt_token_refresh(self) -> bool:
-        from .oauth import (
-            InvalidClientError,
-            discover_oauth_metadata,
-            keyring_delete_tokens,
-            keyring_get_tokens,
-            keyring_store_token,
-            refresh_access_token,
-            register_client,
-        )
-        from .metadata import ServerStore
+        from .oauth import InvalidClientError, NotLoggedInError, refresh_stored_tokens
 
         server = cast(RSConnectServer, self._server)
-
-        # The keyring is where a login stores its tokens; the entry's own fields are
-        # the fallback for a machine without one.
-        _, refresh_token = keyring_get_tokens(server.url)
-        if not refresh_token:
-            entry = ServerStore().saved_entry(server.server_name, server.url)
-            if entry:
-                refresh_token = entry.get("oauth_refresh_token")  # type: ignore[assignment]
-        if not refresh_token:
-            return False
-
         try:
-            metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
-            token_response = refresh_access_token(
-                metadata, server.oauth_client_id or "", refresh_token, server.insecure, server.ca_data
+            new_access = refresh_stored_tokens(
+                server.url,
+                server.oauth_client_id or "",
+                server.server_name,
+                server.insecure,
+                server.ca_data,
+                rejected_access_token=server.oauth_access_token,
             )
+        except NotLoggedInError:
+            return False
         except InvalidClientError:
-            # Client was deleted server-side; clear stale tokens and re-register
-            keyring_delete_tokens(server.url)
-            store = ServerStore()
-            entry = store.saved_entry(server.server_name, server.url)
-            if entry:
-                entry_name = str(entry.get("name", server.server_name or server.url))
-                store.update_oauth_tokens(entry_name, None, None, None)
-            try:
-                metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
-                new_client_id = register_client(metadata, server.url, server.insecure, server.ca_data)
-                server.oauth_client_id = new_client_id
-                if entry:
-                    entry["oauth_client_id"] = new_client_id  # type: ignore[typeddict-unknown-key]
-                    store._set(entry_name, entry)  # type: ignore[possibly-undefined]
-                logger.warning("OAuth client was re-registered; please run `rsconnect login` again.")
-            except Exception as exc:
-                logger.warning(
-                    "OAuth client re-registration failed (%s). Please run `rsconnect login` again." % type(exc).__name__
-                )
+            logger.warning("The OAuth client was deleted on the server; please run `rsconnect login` again.")
             return False
         except Exception as exc:
             logger.warning("OAuth token refresh failed (%s)." % type(exc).__name__)
             return False
 
-        new_access = token_response["access_token"]
-        new_refresh = token_response.get("refresh_token", refresh_token)
-        expires_in = token_response.get("expires_in")
-        import time
-
-        new_expiry = time.time() + expires_in if expires_in else None
-
         self.authorization(f"Bearer {new_access}")
         server.oauth_access_token = new_access
-
-        stored = keyring_store_token(server.url, new_access, new_refresh)
-        if not stored:
-            store = ServerStore()
-            entry = store.saved_entry(server.server_name, server.url)
-            if entry:
-                entry_name = str(entry.get("name", server.server_name or server.url))
-                store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
-
         return True
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:

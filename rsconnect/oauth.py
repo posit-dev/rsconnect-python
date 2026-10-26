@@ -7,14 +7,18 @@ Device Code flow, token refresh, and keyring integration.
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
+import os
 import queue
 import secrets
+import sys
 import threading
 import time
 import webbrowser
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer as _HTTPServer
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, Generator, Iterable, Mapping, Optional, Tuple, cast
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import click
@@ -72,6 +76,13 @@ class InvalidGrantError(RSConnectException):
     def __init__(self, description: Optional[str] = None) -> None:
         self.description = description
         super().__init__("The OAuth grant is invalid, expired, or has been revoked.")
+
+
+class NotLoggedInError(RSConnectException):
+    """Raised when no OAuth tokens are stored for a Posit Connect server."""
+
+    def __init__(self, server_url: str) -> None:
+        super().__init__("No OAuth credentials are stored for %s." % server_url)
 
 
 def _check_oauth_error_response(response: HTTPResponse) -> None:
@@ -882,3 +893,173 @@ def keyring_get_tokens(key: str) -> Tuple[Optional[str], Optional[str]]:
 def keyring_delete_tokens(key: str) -> None:
     """Delete OAuth tokens from the system keyring."""
     keyring_delete_values(key, (ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD))
+
+
+def stored_tokens(server_url: str, server_name: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+    """The (access_token, refresh_token) that `rsconnect login` stored for a Posit Connect server.
+
+    The keyring is where a login stores its tokens; the server's saved entry holds
+    them instead on a machine without one.
+    """
+    access_token, refresh_token = keyring_get_tokens(server_url)
+    if access_token is None and refresh_token is None:
+        from .metadata import ServerStore
+
+        entry = ServerStore().saved_entry(server_name, server_url)
+        if entry:
+            access_token = entry.get("oauth_access_token")
+            refresh_token = entry.get("oauth_refresh_token")
+    return access_token, refresh_token
+
+
+def refresh_stored_tokens(
+    server_url: str,
+    client_id: str,
+    server_name: Optional[str] = None,
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+    *,
+    rejected_access_token: Optional[str],
+) -> str:
+    """Exchange the stored refresh token for a new access token, store both, and return the access token.
+
+    Pass the access token the server rejected as ``rejected_access_token``. Refresh
+    tokens rotate, so two processes refreshing at once would invalidate each
+    other's tokens. The exchange therefore happens under a lock shared across
+    processes, and if the stored access token no longer matches the rejected one,
+    another process has already refreshed and its token is returned as is.
+
+    Raises NotLoggedInError when no refresh token is stored, and InvalidGrantError
+    when the server rejects it. Raises InvalidClientError when the OAuth client
+    no longer exists on the server, after clearing the stored tokens and
+    registering a new client, so the next `rsconnect login` works.
+    """
+    from .metadata import ServerStore
+
+    with _refresh_lock():
+        access_token, refresh_token = stored_tokens(server_url, server_name)
+        if access_token and access_token != rejected_access_token:
+            return access_token
+        if not refresh_token:
+            raise NotLoggedInError(server_url)
+
+        try:
+            metadata = discover_oauth_metadata(server_url, insecure, ca_data)
+            token_response = refresh_access_token(metadata, client_id, refresh_token, insecure, ca_data)
+        except InvalidClientError:
+            _replace_deleted_client(server_url, server_name, insecure, ca_data)
+            raise
+
+        new_access = str(token_response["access_token"])
+        new_refresh = token_response.get("refresh_token", refresh_token)
+        expires_in = token_response.get("expires_in")
+        new_expiry = time.time() + expires_in if expires_in else None
+
+        if not keyring_store_token(server_url, new_access, new_refresh):
+            store = ServerStore()
+            entry = store.saved_entry(server_name, server_url)
+            if entry:
+                entry_name = str(entry.get("name", server_name or server_url))
+                store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
+        return new_access
+
+
+def _replace_deleted_client(
+    server_url: str, server_name: Optional[str], insecure: bool, ca_data: Optional[str | bytes]
+) -> None:
+    """Clear the tokens of an OAuth client the server deleted, and register a new client in its place."""
+    from .metadata import ServerStore
+
+    keyring_delete_tokens(server_url)
+    store = ServerStore()
+    entry = store.saved_entry(server_name, server_url)
+    if not entry:
+        return
+    entry_name = str(entry.get("name", server_name or server_url))
+    store.update_oauth_tokens(entry_name, None, None, None)
+    try:
+        metadata = discover_oauth_metadata(server_url, insecure, ca_data)
+        new_client_id = register_client(metadata, server_url, insecure, ca_data)
+    except Exception as exc:
+        logger.debug("OAuth client re-registration failed (%s)." % type(exc).__name__)
+        return
+    entry = store.saved_entry(server_name, server_url) or entry
+    entry["oauth_client_id"] = new_client_id  # type: ignore[typeddict-unknown-key]
+    store._set(entry_name, entry)  # pyright: ignore[reportPrivateUsage]
+
+
+# Long enough for another process to finish a refresh, which is two HTTP requests.
+_REFRESH_LOCK_TIMEOUT = 60.0
+_REFRESH_LOCK_POLL_INTERVAL = 0.05
+
+
+def _refresh_lock_path() -> str:
+    from .metadata import config_dirname
+
+    return os.path.join(config_dirname(), "oauth-refresh.lock")
+
+
+@contextmanager
+def _refresh_lock(timeout: float = _REFRESH_LOCK_TIMEOUT) -> Generator[None, None, None]:
+    """Hold the lock that serializes OAuth token refreshes across processes.
+
+    One lock covers every server: refreshes are rare and quick. When the lock
+    file cannot be created (a read-only config directory, say), the refresh goes
+    ahead unlocked, as it would have before the lock existed.
+    """
+    path = _refresh_lock_path()
+    try:
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    except OSError as exc:
+        logger.debug("Could not open the OAuth refresh lock (%s); refreshing without it." % type(exc).__name__)
+        yield
+        return
+
+    try:
+        deadline = time.monotonic() + timeout
+        while not _try_lock(descriptor):
+            if time.monotonic() >= deadline:
+                raise RSConnectException("Timed out waiting for another process to refresh the OAuth tokens.")
+            time.sleep(_REFRESH_LOCK_POLL_INTERVAL)
+        try:
+            yield
+        finally:
+            _unlock(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _try_lock(descriptor: int) -> bool:
+    """Take an exclusive lock on an open file without blocking. Returns whether it was taken."""
+    if sys.platform == "win32":
+        import msvcrt
+
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        try:
+            msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+        except OSError:
+            return False
+        return True
+
+    import fcntl
+
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        if exc.errno in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+            return False
+        raise
+    return True
+
+
+def _unlock(descriptor: int) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
