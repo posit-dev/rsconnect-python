@@ -56,6 +56,7 @@ nav:
         - remove: commands/remove.md
         - set-default: commands/set-default.md
       - system: commands/system.md
+      - token: commands/token.md
       - version: commands/version.md
       - write-manifest: commands/write-manifest.md
 

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a
+  Posit Connect server, so other tools, such as the Connect SDKs, can make API
+  requests with your login. `--refresh` gets a new token after the server rejects
+  the current one, and `--format json` prints machine-readable output. It exits
+  with status 4 when you need to log in again, and it never prints API keys.
+- OAuth token refreshes are serialized across processes, so concurrent commands
+  don't invalidate each other's rotated refresh tokens. A command whose token was
+  already refreshed by another process uses the new token without refreshing again.
+
 - When client credentials can't publish to a Posit Connect Cloud account because the
   account requires single sign-on (SSO), the error now says so, instead of
   suggesting the publisher role.

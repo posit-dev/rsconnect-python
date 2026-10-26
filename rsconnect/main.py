@@ -1822,6 +1822,101 @@ def logout(
     click.echo('Logged out from "%s".' % (name or server))
 
 
+# `token` exits with this when the user has to log in again: the server has no
+# stored OAuth credentials, or it rejected them. Same code as `gh` uses.
+TOKEN_EXIT_LOGIN_REQUIRED = 4
+
+
+@cli.command(
+    short_help="Print an OAuth access token for a Posit Connect server.",
+    help=(
+        "Print the OAuth access token stored by 'rsconnect login' for a Posit Connect server, so other tools "
+        "can make API requests as you with 'Authorization: Bearer <token>'.\n\n"
+        "The token is printed as is, without contacting the server. When the server rejects it with a 401, "
+        "run the command again with --refresh to get a new one, then retry the request. Concurrent refreshes "
+        "are safe: if another process has already refreshed, its token is printed.\n\n"
+        "Only tokens from 'rsconnect login' are printed, never API keys. The command never prompts.\n\n"
+        "Output: the bare token, or with --format json an object with the keys access_token, token_type "
+        '("Bearer"), and server. Nothing is printed on stdout on failure.\n\n'
+        "Exit status: 0 on success; 4 when you need to log in again (no stored OAuth credentials, or the "
+        "server rejected them); 1 for other errors, such as an unreachable server."
+    ),
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
+@click.option("--server", "-s", envvar="CONNECT_SERVER", help="The URL of the Posit Connect server.")
+@click.option("--refresh", is_flag=True, help="Get a new access token, after the server rejected the current one.")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    show_default=True,
+    help="Print the bare token, or a JSON object.",
+)
+@click.pass_context
+def token(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    refresh: bool,
+    output_format: str,
+):
+    from .oauth import (
+        InvalidClientError,
+        InvalidGrantError,
+        NotLoggedInError,
+        refresh_stored_tokens,
+        stored_tokens,
+    )
+
+    # Name the login command the way the user invoked this one, which differs
+    # when another CLI mounts these commands (e.g. `posit connect token`).
+    login_command = "%s login" % ctx.command_path.rsplit(" ", 1)[0]
+
+    def fail(message: str, exit_code: int = 1) -> Never:
+        click.secho("Error: %s" % message, fg="bright_red", err=True)
+        sys.exit(exit_code)
+
+    def login_required(message: str) -> Never:
+        fail("%s Run '%s' to log in." % (message, login_command), TOKEN_EXIT_LOGIN_REQUIRED)
+
+    try:
+        server_data = server_store.resolve(name, server)
+    except RSConnectException as exc:
+        fail(exc.message)
+    if not server_data.from_store or not server_data.url:
+        if not server:
+            fail("Specify a server with -s/--server or -n/--name.")
+        login_required("No saved credentials for %s." % server)
+    url = server_data.url
+    client_id = server_data.oauth_client_id
+    if not client_id:
+        login_required('Server "%s" was not added with OAuth login.' % server_data.name)
+
+    try:
+        access_token, _ = stored_tokens(url, server_data.name)
+        if refresh or not access_token:
+            access_token = refresh_stored_tokens(
+                url,
+                client_id,
+                server_data.name,
+                bool(server_data.insecure),
+                server_data.ca_data,
+                rejected_access_token=access_token,
+            )
+    except NotLoggedInError:
+        login_required("No OAuth credentials are stored for %s." % url)
+    except (InvalidGrantError, InvalidClientError):
+        login_required("%s rejected the stored OAuth credentials." % url)
+    except RSConnectException as exc:
+        fail(exc.message)
+
+    if output_format == "json":
+        click.echo(json.dumps({"access_token": access_token, "token_type": "Bearer", "server": url}))
+    else:
+        click.echo(access_token)
+
+
 def _get_names_to_check(file_or_directory: str) -> list[str]:
     """
     A function to determine a set files to look for in getting information about a
