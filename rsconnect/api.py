@@ -492,6 +492,16 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
         return False
 
 
+# App modes that Connect renders (or serves as-is) at deploy time rather than running
+# as a process. See RSConnectExecutor.is_rendered_content.
+_RENDERED_APP_MODES = {
+    AppModes.RMD.name(),
+    AppModes.STATIC.name(),
+    AppModes.JUPYTER_NOTEBOOK.name(),
+    AppModes.STATIC_QUARTO.name(),
+}
+
+
 def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
     """
     Check if the server supports deploying a bundle as a draft and activating it
@@ -2698,12 +2708,34 @@ for shinyapps.io. See command help for further details."
             self._draft_deploy_supported = server_supports_draft_deploy(server_version)
         return self._draft_deploy_supported
 
+    @property
+    def is_rendered_content(self) -> bool:
+        """Whether the bundle is rendered or static content rather than a running app.
+
+        Connect renders a document when its bundle is deployed and renders it again
+        when a draft is activated, so verifying a draft first would render it twice.
+        Requesting the rendered output also can't catch anything the deploy task's
+        render didn't already, and Connect reverts to the previous bundle if an
+        activating render fails.
+        """
+        app_mode = self.bundle_manifest().get("metadata", {}).get("appmode")
+        return app_mode in _RENDERED_APP_MODES
+
+    def should_verify(self, draft: bool, no_verify: bool) -> bool:
+        """Whether to verify the deployed content.
+
+        Rendered content is only verified when it was deployed as an explicit draft.
+        """
+        if no_verify:
+            return False
+        return draft or not self.is_rendered_content
+
     def should_deploy_as_draft(self, draft: bool, no_verify: bool) -> bool:
         """Whether the bundle should be deployed without activating it.
 
         An explicit ``--draft`` always deploys a draft. Otherwise we deploy a draft only
         when we are going to verify it before activating, which requires server support.
-        With ``--no-verify`` we activate immediately.
+        With ``--no-verify``, or for rendered content, we activate immediately.
         """
         if draft:
             if not isinstance(self.client, RSConnectClient):
@@ -2715,9 +2747,20 @@ for shinyapps.io. See command help for further details."
                 # would be the opposite of what the user asked for, so fail loudly.
                 raise RSConnectException("Deploying as a draft requires Posit Connect 2025.06.0 or later.")
             return True
-        if no_verify:
+        if not self.should_verify(draft, no_verify):
             return False
         return self.supports_verify_before_activate
+
+    def verify_and_activate(self, draft: bool, no_verify: bool):
+        """Verify the deployed content, then activate it if it was deployed as a
+        draft only so that it could be verified first."""
+        if not self.should_verify(draft, no_verify):
+            return self
+        self.verify_deployment()
+        if not draft and self.deployed_info and self.deployed_info.get("draft_url"):
+            # The draft bundle verified successfully, so activate it.
+            self.activate_deployment().emit_task_log()
+        return self
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):
