@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `rsconnect bootstrap` uses the `/__api__/v1/bootstrap` endpoint, falling back to
   the deprecated `/__api__/v1/experimental/bootstrap` endpoint on Posit Connect
   versions before 2024.05.0. (#594)
+- `rsconnect deploy` deploys and activates rendered and static content (R Markdown,
+  Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
+  first. Activating a draft makes Connect render it a second time, and if the
+  render fails, Connect keeps serving the previously-active bundle. `--draft`
+  still deploys a draft and verifies it. (#872)
 
 ## [1.32.0] - 2026-10-16
 

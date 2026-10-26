@@ -474,6 +474,63 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rendered_content_activates_without_verifying(self, caplog):
+        # #872: Connect renders a draft and renders it again on activation, so rendered
+        # content is deployed and activated in one step, without verifying a draft.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0})
+        )
+        deploy_bodies = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_bodies.append(_load_json(request.body))
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+        verify_invoked = []
+
+        def get_content_callback(request, uri, response_headers):
+            verify_invoked.append(uri)
+            return [200, {"Content-Type": "text/html"}, "<html></html>"]
+
+        httpretty.register_uri(
+            httpretty.GET,
+            re.compile(r"http://fake_server/content/1234-5678-9012-3456/"),
+            body=get_content_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            # A single deploy that activates: no "activate" field is sent.
+            assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
+            assert verify_invoked == []
+            assert "Verifying deployed content..." not in caplog.text
+            assert "Activating deployed content..." not in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_verify_before_activate_unsupported_server(self, caplog):
         # Servers older than 2025.06.0 reject the "activate" field, so we must not deploy
         # a draft. Instead we deploy + activate in one step (no "activate" field sent) and
@@ -816,10 +873,11 @@ class TestMain:
             body="",
             status=502,
         )
-        target = get_dir(join("pip1", "dummy.ipynb"))
+        # Rendered content such as a notebook isn't verified, so deploy an app.
+        target = get_manifest_path("pyshiny_with_manifest", "")
         try:
             runner = CliRunner(mix_stderr=False)
-            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args = apply_common_args(["deploy", "manifest", target], server="http://fake_server", key="FAKE_API_KEY")
             args += ["--quiet"]
             with mock.patch(
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
