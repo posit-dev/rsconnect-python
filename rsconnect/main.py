@@ -4104,7 +4104,7 @@ def write_manifest_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("Checking arguments"):
-        base_dir = dirname(path)
+        base_dir = path if isdir(path) else dirname(path)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -4117,7 +4117,7 @@ def write_manifest_voila(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
-            app_file=path,
+            app_file=None if isdir(path) else path,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
