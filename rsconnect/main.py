@@ -2096,10 +2096,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -2298,10 +2295,7 @@ def deploy_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -3014,10 +3008,7 @@ def deploy_git(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -3514,10 +3505,7 @@ def generate_deploy_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
-        ),
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
@@ -3903,8 +3891,7 @@ def write_manifest():
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4025,8 +4012,7 @@ def write_manifest_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4183,8 +4169,7 @@ def write_manifest_voila(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4606,8 +4591,7 @@ def generate_write_manifest_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help="Path to Python interpreter whose environment should be used. "
-        + "The Python environment must have the rsconnect-python package installed.",
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",

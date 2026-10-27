@@ -3,8 +3,7 @@
 Given a directory and a Python executable, this module inspects the environment
 and returns information about the Python version and the environment itself.
 
-To inspect the environment it relies on a subprocess that runs the `rsconnect.subprocesses.inspect_environment`
-module. This module is responsible for gathering the environment information and returning it in a JSON format.
+The selected interpreter runs the environment inspector as an isolated subprocess.
 """
 
 import typing
@@ -16,8 +15,10 @@ import json
 import pathlib
 import os.path
 import enum
+import uv
 
 from . import pyproject
+from .subprocesses import inspect_environment
 from .log import logger, warn_user
 from .exception import RSConnectException
 from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
@@ -121,7 +122,7 @@ class Environment:
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
 
-        If no Python executable is provided, the current system Python executable is used.
+        If no Python executable is provided, select the project environment when available.
 
         :param directory: the project directory to inspect.
         :param requirements_file: requirements file name relative to the project directory. If None,
@@ -145,14 +146,6 @@ class Environment:
 
         _check_requirements_file(directory, requirements_file)
 
-        if python is not None:
-            # TODO: Remove the option in a future release
-            logger.warning(
-                "On modern Posit Connect versions, the --python option won't influence "
-                "the Python version used to deploy the application anymore. "
-                "Please use a .python-version file to force a specific interpreter version."
-            )
-
         if override_python_version:
             # TODO: Remove the option in a future release
             logger.warning(
@@ -162,7 +155,9 @@ class Environment:
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
-        environment = cls._get_python_env_info(module_file, python, requirements_file=requirements_file)
+        environment = cls._get_python_env_info(
+            module_file, python, requirements_file=requirements_file, project_directory=directory
+        )
         environment.python_version_requirement = python_version_requirement
 
         if override_python_version:
@@ -191,6 +186,7 @@ class Environment:
         file_name: str,
         python: typing.Optional[str],
         requirements_file: typing.Optional[str] = "requirements.txt",
+        project_directory: typing.Optional[str] = None,
     ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
@@ -202,12 +198,11 @@ class Environment:
         :return: information about the version of Python in use plus some environmental
         stuff.
         """
-        python = which_python(python)
-        logger.debug("Python: %s" % python)
+        python = which_python(python, project_directory or os.path.dirname(file_name))
+        logger.info("Using Python: %s", python)
         environment = cls._inspect_environment(python, os.path.dirname(file_name), requirements_file=requirements_file)
         if environment.error:
             raise RSConnectException(environment.error)
-        logger.debug("Python: %s" % python)
         logger.debug("Environment: %s" % pprint.pformat(environment._asdict()))
         return environment
 
@@ -224,12 +219,21 @@ class Environment:
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        args = [python, "-m", "rsconnect.subprocesses.inspect_environment"]
+        args = [python, "-I", inspect_environment.__file__, "--uv", uv.find_uv_bin()]
         args.extend(["--requirements-file", requirements_file or "none"])
         args.append(directory)
 
         try:
-            environment_json = check_output(args, text=True)
+            options: typing.Dict[str, typing.Any] = {"text": True}
+            if requirements_file and os.path.basename(requirements_file) == "pyproject.toml":
+                path = os.path.join(directory, requirements_file)
+                if os.path.exists(path):
+                    with open(path, encoding="utf-8") as project_file:
+                        project = pyproject.tomllib.loads(project_file.read())
+                    args.append("--pyproject-stdin")
+                    dependencies = project.get("project", {}).get("dependencies", [])
+                    options["input"] = json.dumps({"dependencies": dependencies}, default=str)
+            environment_json = check_output(args, **options)
         except Exception as e:
             raise RSConnectException("Error inspecting environment (subprocess failed)") from e
 
@@ -249,24 +253,46 @@ class Environment:
             raise RSConnectException("Error constructing environment object") from e
 
 
-def which_python(python: typing.Optional[str] = None) -> str:
+def which_python(python: typing.Optional[str] = None, directory: typing.Optional[str] = None) -> str:
     """Determines which Python executable to use.
 
-    If the :param python: is provided, then validation is performed to check if the path is an executable file. If
-    None, the invoking system Python executable location is returned.
-
-    :param python: (Optional) path to a python executable.
-    :return: :param python: or `sys.executable`.
+    Explicit paths take precedence over active and project environments.
     """
-    if python is None:
-        return sys.executable
-    if not os.path.exists(python):
-        raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
-    if os.path.isdir(python):
-        raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
-    if not os.access(python, os.X_OK):
-        raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
-    return python
+    if python is not None:
+        if not os.path.exists(python):
+            raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
+        if os.path.isdir(python):
+            raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
+        if not os.access(python, os.X_OK):
+            raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
+        return python
+
+    def interpreter(environment: typing.Union[str, pathlib.Path], conda: bool = False) -> typing.Optional[str]:
+        executable = (
+            "python.exe" if os.name == "nt" and conda else "Scripts/python.exe" if os.name == "nt" else "bin/python"
+        )
+        root = pathlib.Path(environment)
+        path = root / executable
+        if path.is_file() and os.access(path, os.X_OK):
+            if root.resolve() == pathlib.Path(sys.prefix).resolve():
+                return sys.executable
+            return str(path)
+        return None
+
+    active = os.environ.get("VIRTUAL_ENV")
+    if active and (selected := interpreter(active)):
+        return selected
+
+    project = pathlib.Path(directory or os.curdir).absolute()
+    project_environment = os.environ.get("UV_PROJECT_ENVIRONMENT") or ".venv"
+    for parent in (project, *project.parents):
+        if selected := interpreter(parent / project_environment):
+            return selected
+
+    conda = os.environ.get("CONDA_PREFIX")
+    if conda and (selected := interpreter(conda, conda=True)):
+        return selected
+    return sys.executable
 
 
 def fake_module_file_from_directory(directory: str) -> str:
