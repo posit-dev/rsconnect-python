@@ -281,7 +281,7 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
         raise EnvironmentException(f"pyproject.toml not found: {pyproject_filename}")
 
     try:
-        with open(pyproject_path, "r", encoding="utf-8") as f:
+        with open(pyproject_path, "r", encoding="utf-8-sig") as f:
             pyproject = tomllib.loads(f.read())
     except Exception as exception:
         raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
