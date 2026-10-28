@@ -2182,7 +2182,20 @@ class TestWriteManifestFramework:
         assert requirements.read_text() == "example-package==1.0\n"
         assert manifest["files"][requirements.name]["checksum"] == file_checksum(requirements)
 
-    @pytest.mark.parametrize("dependencies", ["['flask', 3, {a = 'b'}]", "['flask']"])
+    @pytest.mark.parametrize(
+        "dependencies",
+        [
+            pytest.param(
+                "['flask', 3, {a = 'b'}]",
+                marks=pytest.mark.skipif(
+                    sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"
+                ),
+            ),
+            "[3]",
+            "[{a = 'b'}]",
+            "['flask']",
+        ],
+    )
     def test_pyproject_requirements_file(self, tmp_path, dependencies):
         (tmp_path / "app.py").write_text("app = object()\n")
         (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n")

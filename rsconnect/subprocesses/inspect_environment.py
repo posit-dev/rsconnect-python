@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
-from typing import Callable, Optional, cast
+from typing import Callable, List, Optional, cast
 
 try:
     import tomllib
@@ -287,11 +287,11 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
         raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
 
     project = pyproject.get("project", {})
-    dependencies: list[object] = project.get("dependencies", [])
+    dependencies: List[object] = project.get("dependencies", [])
     if not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies):
         raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
 
-    requirements = filter_pip_freeze_output("\n".join(cast(list[str], dependencies)))
+    requirements = filter_pip_freeze_output("\n".join(cast(List[str], dependencies)))
     if requirements and not requirements.endswith("\n"):
         requirements += "\n"
     requirements = (

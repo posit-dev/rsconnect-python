@@ -236,7 +236,24 @@ def test_pyproject_dependencies(tmp_path):
     assert env.package_manager == "pip"
 
 
-@pytest.mark.parametrize("dependencies", ["3", "['flask', 3]", "['flask', {a = 'b'}]", "[true]", "[['flask']]"])
+@pytest.mark.parametrize(
+    "dependencies",
+    [
+        "3",
+        "[3]",
+        "[{a = 'b'}]",
+        pytest.param(
+            "['flask', 3]",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
+        ),
+        pytest.param(
+            "['flask', {a = 'b'}]",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
+        ),
+        "[true]",
+        "[['flask']]",
+    ],
+)
 def test_pyproject_dependencies_invalid(tmp_path, dependencies):
     (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n", encoding="utf-8")
 
