@@ -2154,6 +2154,23 @@ class TestWriteManifestNodeJS:
 
 
 class TestWriteManifestFramework:
+    def test_dangling_symlink_reports_clear_error(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        link = tmp_path / "data.csv"
+        try:
+            link.symlink_to("missing-target")
+        except OSError:
+            pytest.skip("symlinks are unavailable")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert str(link) in result.output
+        assert "dangling symlink" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+
     @pytest.mark.parametrize("existing_requirements", [False, True])
     def test_force_generate_requirements(self, tmp_path, existing_requirements):
         (tmp_path / "app.py").write_text("app = object()\n")
