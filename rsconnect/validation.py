@@ -430,10 +430,8 @@ class PythonVersionParamType(click.ParamType):
     def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]):
         try:
             parts = list(map(int, value.split(".")))
-            if len(parts) == 3:
+            if len(parts) in (2, 3):
                 return value
-            elif len(parts) == 2:
-                return value + ".0"
             else:
                 raise ValueError
         except (AttributeError, ValueError):

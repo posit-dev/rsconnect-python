@@ -12,6 +12,7 @@ import click
 import httpretty
 import pytest
 from click.testing import CliRunner
+from packaging.specifiers import SpecifierSet
 
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
@@ -2154,6 +2155,34 @@ class TestWriteManifestNodeJS:
 
 
 class TestWriteManifestFramework:
+    @pytest.mark.parametrize(
+        "version, expected_requirement, matching, nonmatching",
+        [
+            ("3.11", "==3.11.*", "3.11.15", "3.12.0"),
+            ("3.11.0", "==3.11.0", "3.11.0", "3.11.15"),
+            ("3.11.15", "==3.11.15", "3.11.15", "3.11.14"),
+        ],
+    )
+    def test_override_python_version(self, tmp_path, version, expected_requirement, matching, nonmatching):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+
+        result = CliRunner().invoke(
+            cli,
+            [
+                "write-manifest", "api", "--entrypoint", "app:app", "--exclude-renv",
+                "--override-python-version", version, str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert manifest["python"]["version"] == version
+        requirement = manifest["environment"]["python"]["requires"]
+        assert requirement == expected_requirement
+        assert matching in SpecifierSet(requirement)
+        assert nonmatching not in SpecifierSet(requirement)
+
     @pytest.mark.parametrize("existing_requirements", [False, True])
     def test_force_generate_requirements(self, tmp_path, existing_requirements):
         (tmp_path / "app.py").write_text("app = object()\n")

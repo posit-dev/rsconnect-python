@@ -453,7 +453,7 @@ class TestEnvironmentDeprecations:
             "The --override-python-version option is deprecated, "
             "please use a .python-version file to force a specific interpreter version."
         )
-        assert result.python_version_requirement == "==3.8"
+        assert result.python_version_requirement == "==3.8.*"
 
     def test_python_interpreter(self):
         current_python_version = ".".join((str(v) for v in sys.version_info[:3]))
