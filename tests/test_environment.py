@@ -220,7 +220,8 @@ requires-dist = [
     assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
-def test_pyproject_dependencies(tmp_path):
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_pyproject_dependencies(tmp_path, encoding):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
@@ -232,7 +233,7 @@ def test_pyproject_dependencies(tmp_path):
         "    'annotated-types>=0.7.0',\n"
         "    'rsconnect-python==1.0.0',\n"
         "]\n",
-        encoding="utf-8",
+        encoding=encoding,
     )
 
     env = detect_environment(str(project_dir), requirements_file="pyproject.toml")
@@ -246,6 +247,14 @@ def test_pyproject_dependencies(tmp_path):
     assert env.contents.endswith("\n")
     assert env.source == "pyproject_toml"
     assert env.package_manager == "pip"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_pyproject_dependencies_invalid_toml(tmp_path, encoding):
+    (tmp_path / "pyproject.toml").write_text("[project\ndependencies =", encoding=encoding)
+
+    with pytest.raises(EnvironmentException, match="Error reading pyproject.toml"):
+        detect_environment(str(tmp_path), requirements_file="pyproject.toml")
 
 
 @pytest.mark.parametrize(

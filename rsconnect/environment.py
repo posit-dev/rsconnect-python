@@ -240,7 +240,7 @@ class Environment:
             path = os.path.join(directory, requirements_file)
             if os.path.exists(path):
                 try:
-                    with open(path, encoding="utf-8") as project_file:
+                    with open(path, encoding="utf-8-sig") as project_file:
                         project = pyproject.tomllib.loads(project_file.read())
                 except Exception as e:
                     raise RSConnectException(f"Error reading {requirements_file}: {e}") from e

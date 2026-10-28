@@ -306,7 +306,7 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str, project_data: 
                 import tomllib
             except ImportError:
                 import toml as tomllib  # type: ignore[no-redef]
-            with open(pyproject_path, "r", encoding="utf-8") as f:
+            with open(pyproject_path, "r", encoding="utf-8-sig") as f:
                 project_data = tomllib.loads(f.read()).get("project", {})
         except Exception as exception:
             raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
