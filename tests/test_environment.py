@@ -11,7 +11,7 @@ from unittest import mock
 
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
-from rsconnect.environment import Environment, which_python
+from rsconnect.environment import Environment, PackageInstaller, which_python
 from rsconnect.subprocesses.inspect_environment import (
     EnvironmentException,
     detect_environment,
@@ -200,8 +200,15 @@ requires-dist = [
         encoding="utf-8",
     )
 
+    from rsconnect.bundle import Manifest
+
+    uv_path = uv.find_uv_bin()
+    expected_uv_version = subprocess.check_output([uv_path, "--version"], text=True).split()[1]
+    env_dir = project_dir / ".venv"
+    subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     monkeypatch.setenv("PATH", "")
-    env = Environment.create_python_environment(str(project_dir), requirements_file="uv.lock", python=sys.executable)
+    env = Environment.create_python_environment(str(project_dir), requirements_file="uv.lock", python=str(python))
 
     assert env.filename == "requirements.txt.lock"
     assert "aiofiles==24.1.0" in env.contents
@@ -209,6 +216,8 @@ requires-dist = [
     assert "annotated-types==0.7.0" in env.contents
     assert env.source == "uv_lock"
     assert env.package_manager == "uv"
+    assert env.pip is None
+    assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
 def test_pyproject_dependencies(tmp_path):
@@ -379,6 +388,20 @@ def test_inspect_environment_reports_invalid_pyproject(tmp_path):
         Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file="pyproject.toml")
 
 
+@pytest.mark.parametrize("output", [b"banner\n", b""])
+def test_inspection_json_errors_name_interpreter(tmp_path, output):
+    with pytest.raises(RSConnectException, match="Error parsing environment JSON from Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=lambda *args, **kwargs: output)
+
+
+def test_inspection_subprocess_errors_name_interpreter(tmp_path):
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    with pytest.raises(RSConnectException, match="Error inspecting environment with Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=fail)
+
+
 def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, monkeypatch, caplog):
     from rsconnect.bundle import Manifest
 
@@ -426,11 +449,65 @@ def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, m
     existing = Environment.create_python_environment(str(project), python=str(python))
     assert existing.pip is None
     assert existing.contents == "project-package==1.0\n"
+    uv_environment = Environment.create_python_environment(
+        str(project), python=str(python), package_manager=PackageInstaller.UV
+    )
+    expected_uv_version = subprocess.check_output([uv.find_uv_bin(), "--version"], text=True).split()[1]
+    assert Manifest(environment=uv_environment).data["python"]["package_manager"]["version"] == expected_uv_version
 
     (project / "pyproject.toml").write_text('[project]\nname = "demo"\ndependencies = ["other-package>=2"]\n')
     pyproject = Environment.create_python_environment(str(project), requirements_file="pyproject.toml")
     assert "other-package>=2" in pyproject.contents
     assert pyproject.pip is None
+
+
+def test_uv_freeze_does_not_create_relative_cache_in_inspector_directory(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = project / ".venv"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    inspector_dir = tmp_path / "inspector"
+    inspector_dir.mkdir()
+    inspector = inspector_dir / "inspect_environment.py"
+    shutil.copyfile(rsconnect.environment.inspect_environment.__file__, inspector)
+    monkeypatch.setattr(rsconnect.environment.inspect_environment, "__file__", str(inspector))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UV_CACHE_DIR", ".cache/uv")
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.source == "pip_freeze"
+    assert not (inspector_dir / ".cache").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Requires a POSIX user site directory")
+def test_isolated_inspection_finds_pip_in_user_site(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = tmp_path / "environment"
+    subprocess.run(
+        [uv.find_uv_bin(), "venv", "--system-site-packages", "--python", sys.executable, str(env_dir)], check=True
+    )
+    python = env_dir / "bin/python"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PYTHONUSERBASE", raising=False)
+    user_site = Path(
+        subprocess.check_output(
+            [str(python), "-E", "-c", "import site; print(site.getusersitepackages())"], text=True
+        ).strip()
+    )
+    pip = user_site / "pip"
+    pip.mkdir(parents=True)
+    (pip / "__init__.py").write_text("")
+    (pip / "__main__.py").write_text(
+        "import sys\nprint('pip 50.0' if '--version' in sys.argv else 'user-project-dependency==1.2.3')\n"
+    )
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.pip == "50.0"
+    assert "user-project-dependency==1.2.3" in result.contents
 
 
 class TestPythonVersionRequirements:

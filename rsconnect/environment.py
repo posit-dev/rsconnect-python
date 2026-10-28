@@ -61,6 +61,7 @@ class Environment:
         # Fields that are not loaded from the environment subprocess
         self.python_version_requirement = python_version_requirement
         self.python_interpreter = python_interpreter
+        self.uv: typing.Optional[str] = None
         # Optional override of server install behavior. If None, server-driven
         # default is used.
         self.package_manager_allow_uv: typing.Optional[bool] = None
@@ -175,6 +176,14 @@ class Environment:
             # Derive allow_uv from selection
             environment.package_manager_allow_uv = selected_package_manager is PackageInstaller.UV
 
+        if environment.package_manager == PackageInstaller.UV:
+            try:
+                uv_version = subprocess.check_output([_uv_bin(), "--version"], text=True).strip().split()
+                if len(uv_version) >= 2 and uv_version[0] == "uv":
+                    environment.uv = uv_version[1]
+            except (OSError, subprocess.SubprocessError):
+                logger.debug("Could not determine uv version", exc_info=True)
+
         if requirements_file is None:
             _warn_on_ignored_requirements(directory, environment.filename)
 
@@ -219,8 +228,7 @@ class Environment:
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        # -E ignores PYTHONPATH but, unlike -I, keeps user site-packages, which global installs depend on.
-        args = [python, "-E", inspect_environment.__file__, "--uv", _uv_bin()]
+        args = [python, "-I", inspect_environment.__file__, "--uv", _uv_bin()]
         args.extend(["--requirements-file", requirements_file or "none"])
         args.append(directory)
 
@@ -240,12 +248,12 @@ class Environment:
         try:
             environment_json = check_output(args, **options)
         except Exception as e:
-            raise RSConnectException("Error inspecting environment (subprocess failed)") from e
+            raise RSConnectException(f"Error inspecting environment with Python {python} (subprocess failed)") from e
 
         try:
             environment_data = json.loads(environment_json)
         except json.JSONDecodeError as e:
-            raise RSConnectException("Error parsing environment JSON") from e
+            raise RSConnectException(f"Error parsing environment JSON from Python {python}") from e
 
         if "error" in environment_data:
             system_error_message = environment_data.get("error")

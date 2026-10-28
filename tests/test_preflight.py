@@ -730,9 +730,22 @@ def test_unpinned_local_version_mismatch_is_unknown_until_pin_applied(tmp_path, 
     result = run_preflight(executor, str(tmp_path))
 
     assert result["status"] == "unknown"
+    assert result["local_python_publishable"] is False
     assert result["recommended_python"] == "3.12"
     assert result["changed_files"] == []
     assert any("dependency compatibility has not been tested" in warning for warning in result["warnings"])
+
+
+def test_project_environment_with_missing_publishable_flags_is_unknown(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.9.6")
+    executor, _, _ = make_executor(tmp_path, new=True, settings={"installations": [{"version": "3.12.8"}]})
+
+    result = run_preflight(executor, str(tmp_path))
+
+    assert result["local_python"] == "3.9.6"
+    assert result["status"] == "unknown"
+    assert result["local_python_publishable"] is None
+    assert any("publishable flag" in warning for warning in result["warnings"])
 
 
 def test_existing_python_version_pin_warns_when_local_python_does_not_match(tmp_path):

@@ -3,7 +3,7 @@
 Environment data class abstraction that is usable as a standalone script
 
 ```bash
-python -E path/to/inspect_environment.py --requirements-file none DIRECTORY
+python -I path/to/inspect_environment.py --requirements-file none DIRECTORY
 ```
 """
 
@@ -83,6 +83,14 @@ def detect_environment(
     """
 
     has_pip = importlib.util.find_spec("pip") is not None
+    if has_pip:
+        pip_version = get_version("pip")
+    else:
+        try:
+            pip_version = get_version("pip")
+        except EnvironmentException:
+            pip_version = None
+        has_pip = pip_version is not None
     result: dict[str, Any]
     if requirements_file is None:
         # --force-generate sets requirements_file to None
@@ -102,7 +110,7 @@ def detect_environment(
 
     if result is not None:
         result["python"] = get_python_version()
-        result["pip"] = get_version("pip") if has_pip else None
+        result["pip"] = pip_version
         result["locale"] = get_default_locale()
 
     return MakeEnvironmentData(**result)
@@ -181,7 +189,7 @@ def pip_freeze(uv_path: str = "uv", has_pip: bool = True):
         command = (
             [sys.executable, "-E", "-m", "pip", "freeze", "--disable-pip-version-check"]
             if has_pip
-            else [uv_path, "pip", "freeze", "--python", sys.executable]
+            else [uv_path, "pip", "freeze", "--no-cache", "--python", sys.executable]
         )
         proc = subprocess.Popen(
             command,

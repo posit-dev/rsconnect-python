@@ -260,9 +260,10 @@ class Manifest:
         if environment:
             pm_name = str(environment.package_manager)
             pm_version_value = getattr(environment, pm_name, None)
-            if pm_version_value is None:
+            if pm_version_value is None and pm_name != "uv":
                 # Fallback: use pip version if available; otherwise empty string
                 pm_version_value = getattr(environment, "pip", None) or ""
+            pm_version_value = pm_version_value or ""
             pm: ManifestDataPythonPackageManager = {
                 "name": pm_name,
                 "version": pm_version_value,
