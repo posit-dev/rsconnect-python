@@ -512,7 +512,15 @@ def make_hasher():
 
 def file_checksum(path: str | Path) -> str:
     """Calculate the md5 hex digest of the specified file"""
-    with open(path, "rb") as f:
+    try:
+        file = open(path, "rb")
+    except FileNotFoundError as exc:
+        if os.path.islink(path):
+            raise RSConnectException(
+                f"Cannot bundle dangling symlink '{path}'. Fix or exclude it and try again."
+            ) from exc
+        raise
+    with file as f:
         m = make_hasher()
         chunk_size = 64 * 1024
 

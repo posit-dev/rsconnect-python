@@ -208,7 +208,8 @@ requires-dist = [
     assert env.package_manager == "uv"
 
 
-def test_pyproject_dependencies(tmp_path):
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_pyproject_dependencies(tmp_path, encoding):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
@@ -220,7 +221,7 @@ def test_pyproject_dependencies(tmp_path):
         "    'annotated-types>=0.7.0',\n"
         "    'rsconnect-python==1.0.0',\n"
         "]\n",
-        encoding="utf-8",
+        encoding=encoding,
     )
 
     env = detect_environment(str(project_dir), requirements_file="pyproject.toml")
@@ -230,9 +231,55 @@ def test_pyproject_dependencies(tmp_path):
     assert "annotated-types>=0.7.0" in env.contents
     # rsconnect dependency lines must be stripped, matching the behavior of output_file() and pip_freeze()
     dep_lines = [line for line in env.contents.splitlines() if line and not line.startswith("#")]
-    assert not any("rsconnect" in line for line in dep_lines)
+    assert dep_lines == ["aiofiles==24.1.0", "annotated-types>=0.7.0"]
+    assert env.contents.endswith("\n")
     assert env.source == "pyproject_toml"
     assert env.package_manager == "pip"
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_pyproject_dependencies_invalid_toml(tmp_path, encoding):
+    (tmp_path / "pyproject.toml").write_text("[project\ndependencies =", encoding=encoding)
+
+    with pytest.raises(EnvironmentException, match="Error reading pyproject.toml"):
+        detect_environment(str(tmp_path), requirements_file="pyproject.toml")
+
+
+@pytest.mark.parametrize(
+    "dependencies",
+    [
+        "3",
+        "[3]",
+        "[{a = 'b'}]",
+        pytest.param(
+            "['flask', 3]",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
+        ),
+        pytest.param(
+            "['flask', {a = 'b'}]",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
+        ),
+        "[true]",
+        "[['flask']]",
+    ],
+)
+def test_pyproject_dependencies_invalid(tmp_path, dependencies):
+    (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n", encoding="utf-8")
+
+    with pytest.raises(
+        EnvironmentException, match=r"Invalid project\.dependencies in pyproject\.toml: expected a list of strings\."
+    ):
+        detect_environment(str(tmp_path), requirements_file="pyproject.toml")
+
+
+@pytest.mark.parametrize("dependencies", ["[]", "['rsconnect-python']"])
+def test_pyproject_dependencies_empty(tmp_path, dependencies):
+    (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n", encoding="utf-8")
+
+    env = detect_environment(str(tmp_path), requirements_file="pyproject.toml")
+
+    assert len(env.contents.splitlines()) == 1
+    assert env.contents.endswith("\n")
 
 
 def test_requirements_file_keeps_crlf_line_endings(tmp_path: Path):

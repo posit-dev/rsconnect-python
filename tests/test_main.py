@@ -2131,6 +2131,38 @@ class TestDeployNodeJS:
         assert "does not exist" in result.output
 
 
+@pytest.mark.parametrize(
+    ("command", "filename"),
+    [
+        (["write-manifest", "notebook"], "nb.ipynb"),
+        (["deploy", "notebook"], "nb.ipynb"),
+        (["deploy", "quarto"], "doc.qmd"),
+    ],
+)
+@pytest.mark.parametrize("path_kind", ["bare", "relative", "absolute"])
+@pytest.mark.parametrize("requirements_file", [None, "custom.txt"])
+def test_missing_requirements_reports_content_directory(
+    tmp_path, monkeypatch, command, filename, path_kind, requirements_file
+):
+    monkeypatch.chdir(tmp_path)
+    content_dir = tmp_path if path_kind == "bare" else tmp_path / "content"
+    content_dir.mkdir(exist_ok=True)
+    content = content_dir / filename
+    content.write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    path = str(content) if path_kind == "absolute" else str(content.relative_to(tmp_path))
+    expected_directory = str(content_dir) if path_kind == "absolute" else os.path.dirname(path) or "."
+
+    requirements_option = ["--requirements-file", requirements_file] if requirements_file else []
+    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
+        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    ):
+        result = CliRunner().invoke(cli, [*command, *requirements_option, path])
+
+    assert result.exit_code == 1
+    expected_file = requirements_file or "requirements.txt"
+    assert f"The requirements file '{expected_file}' does not exist in '{expected_directory}'." in result.output
+
+
 class TestWriteManifestNodeJS:
     def test_help(self):
         runner = CliRunner()
@@ -2189,6 +2221,23 @@ class TestWriteManifestFramework:
         assert matching in SpecifierSet(requirement)
         assert nonmatching not in SpecifierSet(requirement)
 
+    def test_dangling_symlink_reports_clear_error(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        link = tmp_path / "data.csv"
+        try:
+            link.symlink_to("missing-target")
+        except OSError:
+            pytest.skip("symlinks are unavailable")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert str(link) in result.output
+        assert "dangling symlink" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+
     def test_malformed_pyproject_with_requirements_file(self, tmp_path):
         (tmp_path / "app.py").write_text("app = object()\n")
         (tmp_path / "requirements.txt").write_text("flask\n")
@@ -2231,6 +2280,34 @@ class TestWriteManifestFramework:
         manifest = json.loads((tmp_path / "manifest.json").read_text())
         assert requirements.read_text() == "example-package==1.0\n"
         assert manifest["files"][requirements.name]["checksum"] == file_checksum(requirements)
+
+    @pytest.mark.parametrize(
+        "dependencies",
+        [
+            pytest.param(
+                "['flask', 3, {a = 'b'}]",
+                marks=pytest.mark.skipif(
+                    sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"
+                ),
+            ),
+            "[3]",
+            "[{a = 'b'}]",
+            "['flask']",
+        ],
+    )
+    def test_pyproject_requirements_file(self, tmp_path, dependencies):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "-r", "pyproject.toml", str(tmp_path)])
+        requirements = tmp_path / "requirements.txt"
+        if dependencies == "['flask']":
+            assert result.exit_code == 0, result.output
+            assert requirements.read_text().endswith("\nflask\n")
+        else:
+            assert result.exit_code != 0
+            assert "Invalid project.dependencies in pyproject.toml: expected a list of strings" in result.output
+            assert not requirements.exists()
 
 
 class TestWriteManifestExcludeRenv:
