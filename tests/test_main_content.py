@@ -3,6 +3,7 @@ import json
 import shutil
 import tarfile
 import unittest
+import warnings
 from unittest import mock
 
 import httpretty
@@ -117,6 +118,30 @@ class TestContentSubcommand(unittest.TestCase):
         result = runner.invoke(cli, ["version"])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn(VERSION, result.output)
+
+    def test_build_command_help_has_one_verbose_option(self):
+        for command in ("add", "rm", "ls", "history", "logs", "run"):
+            with self.subTest(command=command), warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                result = CliRunner().invoke(cli, ["content", "build", command, "--help"])
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(result.output.count("--verbose"), 1, result.output)
+                self.assertFalse([warning for warning in caught if "used more than once" in str(warning.message)])
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_build_list_verbosity(self):
+        register_uris(self.connect_server)
+        for option, count in (("--verbose", 1), ("-v", 1), ("-vv", 2)):
+            with self.subTest(option=option), mock.patch("rsconnect.main.set_verbosity") as set_verbosity:
+                args = ["content", "build", "ls", option]
+                apply_common_args(args, server=self.connect_server, key=self.api_key)
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always")
+                    result = CliRunner().invoke(cli, args)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIsInstance(json.loads(result.output), list)
+                self.assertFalse([warning for warning in caught if "used more than once" in str(warning.message)])
+                set_verbosity.assert_called_once_with(count)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_content_search(self):

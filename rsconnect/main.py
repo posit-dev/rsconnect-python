@@ -5688,7 +5688,6 @@ def remove_content_build(
     metavar="TEXT",
     help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 # todo: --format option (json, text)
 @click.pass_context
 def list_content_build(
