@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
-from typing import Callable, Optional
+from typing import Callable, List, Optional, cast
 
 try:
     import tomllib
@@ -284,17 +284,19 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
         raise EnvironmentException(f"pyproject.toml not found: {pyproject_filename}")
 
     try:
-        with open(pyproject_path, "r", encoding="utf-8") as f:
+        with open(pyproject_path, "r", encoding="utf-8-sig") as f:
             pyproject = tomllib.loads(f.read())
     except Exception as exception:
         raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
 
     project = pyproject.get("project", {})
-    dependencies: list[object] = project.get("dependencies", [])
-    if not isinstance(dependencies, list):
+    dependencies: List[object] = project.get("dependencies", [])
+    if not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies):
         raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
 
-    requirements = filter_pip_freeze_output("\n".join(str(dep) for dep in dependencies))
+    requirements = filter_pip_freeze_output("\n".join(cast(List[str], dependencies)))
+    if requirements and not requirements.endswith("\n"):
+        requirements += "\n"
     requirements = (
         f"# requirements.txt generated from pyproject.toml by rsconnect-python on "
         f"{datetime.datetime.now(datetime.timezone.utc)}\n"

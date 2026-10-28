@@ -140,7 +140,10 @@ class Environment:
         _warn_on_ignored_manifest(directory)
         _warn_if_environment_directory(directory)
 
-        python_version_requirement = pyproject.detect_python_version_requirement(directory)
+        try:
+            python_version_requirement = pyproject.detect_python_version_requirement(directory)
+        except pyproject.TOMLDecodeError as err:
+            raise RSConnectException(f"Error reading pyproject.toml: {err}") from err
         _warn_on_missing_python_version(python_version_requirement)
 
         _check_requirements_file(directory, requirements_file)
@@ -337,7 +340,7 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
             "The requirements file '%s' does not exist in '%s'.\n"
             "Please create the file or specify a different file with --requirements-file.\n"
             "To have the requirements file generated using pip freeze, pass --force-generate."
-            % (requirements_file, directory)
+            % (requirements_file, directory or ".")
         )
 
 
