@@ -4838,11 +4838,10 @@ def _write_framework_manifest(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
-    resolved_requirements_file = resolve_requirements_file(directory, requirements_file, False)
     with cli_feedback("Inspecting Python environment"):
         environment = Environment.create_python_environment(
             directory,
-            requirements_file=resolved_requirements_file,
+            requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
         )
@@ -4866,7 +4865,7 @@ def _write_framework_manifest(
             r_environment,
         )
 
-    generate_env = resolved_requirements_file is None
+    generate_env = requirements_file is None
     if environment_file_exists and not generate_env:
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
