@@ -116,7 +116,6 @@ class Environment:
         requirements_file: typing.Optional[str] = "requirements.txt",
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
-        app_file: typing.Optional[str] = None,
         package_manager: typing.Optional[PackageInstaller] = None,
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
@@ -128,14 +127,10 @@ class Environment:
                                   capture the environment via pip freeze.
         :param python: the Python executable of the environment to use for inspection.
         :param override_python_version: the Python version required by  the project.
-        :param app_file: the main application file to use for inspection.
 
         :return: a tuple containing the Python executable of the environment and the Environment object.
         """
-        if app_file is None:
-            module_file = fake_module_file_from_directory(directory)
-        else:
-            module_file = app_file
+        module_file = fake_module_file_from_directory(directory)
 
         _warn_on_ignored_manifest(directory)
         _warn_if_environment_directory(directory)
