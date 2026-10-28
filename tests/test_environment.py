@@ -148,8 +148,12 @@ def test_filter_generated_requirements():
             "-e ./local-project",
             "--editable=file:///work/project",
             "-e git+file:///work/repo#egg=project",
+            "-e git+file:/work/repo#egg=project",
+            "-e C:\\work\\project",
             "-e git+https://example.com/repo.git#egg=remote",
             "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+            "-e bzr+lp:project#egg=remote-bzr",
+            "-e git+https:repo#egg=remote-git",
             "# my rsconnect project",
         ]
     )
@@ -160,6 +164,8 @@ def test_filter_generated_requirements():
         "demo @ file:///work/rsconnect-demo",
         "-e git+https://example.com/repo.git#egg=remote",
         "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+        "-e bzr+lp:project#egg=remote-bzr",
+        "-e git+https:repo#egg=remote-git",
         "# my rsconnect project",
     ]
 

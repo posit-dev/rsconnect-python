@@ -30,7 +30,7 @@ except ImportError:
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 rsconnect_requirement_re = re.compile(r"^\s*rsconnect[-_.]+python(?=\s*(?:[=<>!~@;\[]|$))", re.IGNORECASE)
 editable_re = re.compile(r"^\s*(?:-e\s+|--editable(?:\s+|=))(.+?)\s*$")
-remote_url_re = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
+remote_url_re = re.compile(r"^(?:[a-z][a-z0-9+.-]*://|(?:bzr|git|hg|svn)\+[a-z][a-z0-9+.-]*:)", re.IGNORECASE)
 exec_dir = os.path.dirname(sys.executable)
 
 
@@ -327,7 +327,7 @@ def is_local_editable(line: str) -> bool:
     if not match:
         return False
     target = match.group(1)
-    scheme = target.split("://", 1)[0].lower()
+    scheme = target.split(":", 1)[0].lower()
     return not remote_url_re.match(target) or scheme == "file" or scheme.endswith("+file")
 
 
