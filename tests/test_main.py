@@ -2162,6 +2162,21 @@ class TestWriteManifestNodeJS:
 
 
 class TestWriteManifestFramework:
+    def test_malformed_pyproject_with_requirements_file(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        (tmp_path / "pyproject.toml").write_text('[project\nname = "x"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert "Error: Error reading pyproject.toml:" in result.output
+        assert "line 1" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+        assert not (tmp_path / "manifest.json").exists()
+
     @pytest.mark.parametrize("existing_requirements", [False, True])
     def test_force_generate_requirements(self, tmp_path, existing_requirements):
         (tmp_path / "app.py").write_text("app = object()\n")
@@ -2189,6 +2204,34 @@ class TestWriteManifestFramework:
         manifest = json.loads((tmp_path / "manifest.json").read_text())
         assert requirements.read_text() == "example-package==1.0\n"
         assert manifest["files"][requirements.name]["checksum"] == file_checksum(requirements)
+
+    @pytest.mark.parametrize(
+        "dependencies",
+        [
+            pytest.param(
+                "['flask', 3, {a = 'b'}]",
+                marks=pytest.mark.skipif(
+                    sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"
+                ),
+            ),
+            "[3]",
+            "[{a = 'b'}]",
+            "['flask']",
+        ],
+    )
+    def test_pyproject_requirements_file(self, tmp_path, dependencies):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "-r", "pyproject.toml", str(tmp_path)])
+        requirements = tmp_path / "requirements.txt"
+        if dependencies == "['flask']":
+            assert result.exit_code == 0, result.output
+            assert requirements.read_text().endswith("\nflask\n")
+        else:
+            assert result.exit_code != 0
+            assert "Invalid project.dependencies in pyproject.toml: expected a list of strings" in result.output
+            assert not requirements.exists()
 
 
 class TestWriteManifestExcludeRenv:

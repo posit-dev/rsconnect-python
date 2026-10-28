@@ -142,7 +142,10 @@ class Environment:
         _warn_on_ignored_manifest(directory)
         _warn_if_environment_directory(directory)
 
-        python_version_requirement = pyproject.detect_python_version_requirement(directory)
+        try:
+            python_version_requirement = pyproject.detect_python_version_requirement(directory)
+        except pyproject.TOMLDecodeError as err:
+            raise RSConnectException(f"Error reading pyproject.toml: {err}") from err
         _warn_on_missing_python_version(python_version_requirement)
 
         _check_requirements_file(directory, requirements_file)

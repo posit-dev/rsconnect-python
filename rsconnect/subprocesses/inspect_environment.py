@@ -20,7 +20,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional, cast
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
@@ -313,10 +313,12 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str, project_data: 
 
     project = project_data or {}
     dependencies: list[object] = project.get("dependencies", [])
-    if not isinstance(dependencies, list):
+    if not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies):
         raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
 
-    requirements = filter_pip_freeze_output("\n".join(str(dep) for dep in dependencies))
+    requirements = filter_pip_freeze_output("\n".join(cast(List[str], dependencies)))
+    if requirements and not requirements.endswith("\n"):
+        requirements += "\n"
     requirements = (
         f"# requirements.txt generated from pyproject.toml by rsconnect-python on "
         f"{datetime.datetime.now(datetime.timezone.utc)}\n"
