@@ -2182,6 +2182,21 @@ class TestWriteManifestFramework:
         assert requirements.read_text() == "example-package==1.0\n"
         assert manifest["files"][requirements.name]["checksum"] == file_checksum(requirements)
 
+    @pytest.mark.parametrize("dependencies", ["['flask', 3, {a = 'b'}]", "['flask']"])
+    def test_pyproject_requirements_file(self, tmp_path, dependencies):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "-r", "pyproject.toml", str(tmp_path)])
+        requirements = tmp_path / "requirements.txt"
+        if dependencies == "['flask']":
+            assert result.exit_code == 0, result.output
+            assert requirements.read_text().endswith("\nflask\n")
+        else:
+            assert result.exit_code != 0
+            assert "Invalid project.dependencies in pyproject.toml: expected a list of strings" in result.output
+            assert not requirements.exists()
+
 
 class TestWriteManifestExcludeRenv:
     def test_exclude_renv_omits_r_dependencies(self, tmp_path):
