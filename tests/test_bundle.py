@@ -4,6 +4,7 @@ import io
 import json
 import os
 import sys
+import subprocess
 import tarfile
 import tempfile
 from os.path import abspath, basename, dirname, join
@@ -12,6 +13,7 @@ from typing import Any
 from unittest import TestCase, mock
 
 import pytest
+import uv
 
 import rsconnect.bundle
 from rsconnect.bundle import (
@@ -3514,6 +3516,17 @@ def test_notebook_html_bundle_rejects_config_paths_before_conversion(tmp_path, m
             check_output=check_output,
         )
     assert callback_calls == []
+
+
+def test_static_notebook_reports_missing_nbconvert_in_selected_environment(tmp_path):
+    environment_dir = tmp_path / "env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(environment_dir)], check=True)
+    python = environment_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text("{}")
+
+    with pytest.raises(RSConnectException, match="nbconvert is not installed in the selected Python environment"):
+        make_notebook_html_bundle(str(notebook), str(python), hide_all_input=False, hide_tagged_input=False)
 
 
 def test_standalone_quarto_bundle_filters_config_extras(tmp_path, monkeypatch):

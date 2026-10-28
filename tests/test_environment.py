@@ -1,6 +1,7 @@
 import re
 import sys
 import os
+import json
 import tempfile
 import shutil
 import subprocess
@@ -10,7 +11,7 @@ from unittest import mock
 
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
-from rsconnect.environment import Environment, which_python
+from rsconnect.environment import Environment, PackageInstaller, which_python
 from rsconnect.subprocesses.inspect_environment import (
     EnvironmentException,
     detect_environment,
@@ -22,6 +23,7 @@ from rsconnect.subprocesses.inspect_environment import (
 from .utils import get_dir
 
 import pytest
+import uv
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 TESTDATA = os.path.join(os.path.dirname(__file__), "testdata")
@@ -133,7 +135,7 @@ class TestEnvironment(TestCase):
         self.assertEqual(filtered, expected)
 
 
-def test_uv_lock_export(tmp_path):
+def test_uv_lock_export(tmp_path, monkeypatch):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
@@ -198,7 +200,15 @@ requires-dist = [
         encoding="utf-8",
     )
 
-    env = detect_environment(str(project_dir), requirements_file="uv.lock")
+    from rsconnect.bundle import Manifest
+
+    uv_path = uv.find_uv_bin()
+    expected_uv_version = subprocess.check_output([uv_path, "--version"], text=True).split()[1]
+    env_dir = project_dir / ".venv"
+    subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    monkeypatch.setenv("PATH", "")
+    env = Environment.create_python_environment(str(project_dir), requirements_file="uv.lock", python=str(python))
 
     assert env.filename == "requirements.txt.lock"
     assert "aiofiles==24.1.0" in env.contents
@@ -206,6 +216,8 @@ requires-dist = [
     assert "annotated-types==0.7.0" in env.contents
     assert env.source == "uv_lock"
     assert env.package_manager == "uv"
+    assert env.pip is None
+    assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
@@ -312,6 +324,21 @@ def test_pyproject_dependencies_no_project_table(tmp_path):
 
 
 class WhichPythonTestCase(TestCase):
+    def setUp(self):
+        # which_python() falls back to sys.executable only without an active or project environment.
+        environ = {
+            name: value
+            for name, value in os.environ.items()
+            if name not in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT")
+        }
+        patcher = mock.patch.dict(os.environ, environ, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        workdir = tempfile.TemporaryDirectory()
+        self.addCleanup(workdir.cleanup)
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(workdir.name)
+
     def test_default(self):
         self.assertEqual(which_python(), sys.executable)
 
@@ -337,6 +364,197 @@ class WhichPythonTestCase(TestCase):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
+
+
+def test_python_environment_lookup_order(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+
+    def make_interpreter(environment, conda=False):
+        executable = (
+            "python.exe" if os.name == "nt" and conda else "Scripts/python.exe" if os.name == "nt" else "bin/python"
+        )
+        path = environment / executable
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("")
+        path.chmod(0o755)
+        return str(path)
+
+    project = tmp_path / "project"
+    nested = project / "content" / "nested"
+    nested.mkdir(parents=True)
+    activated = make_interpreter(tmp_path / "active")
+    parent = make_interpreter(project / ".venv")
+    nearest = make_interpreter(project / "content" / ".venv")
+    alternate = make_interpreter(project / "custom")
+    conda = make_interpreter(tmp_path / "conda", conda=True)
+    monkeypatch.setenv("CONDA_PREFIX", str(tmp_path / "conda"))
+
+    assert which_python(directory=str(nested)) == nearest
+    assert which_python(directory=str(project)) == parent
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "custom")
+    assert which_python(directory=str(nested)) == alternate
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "active"))
+    assert which_python(directory=str(nested)) == activated
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "missing")
+    assert which_python(directory=str(nested)) == conda
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "active"))
+    assert which_python(directory=str(nested)) == activated
+    assert which_python(sys.executable, directory=str(nested)) == sys.executable
+    monkeypatch.delenv("VIRTUAL_ENV")
+    monkeypatch.delenv("CONDA_PREFIX")
+    assert which_python(directory=str(nested)) == sys.executable
+
+
+def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    current = tmp_path / "current"
+    (tmp_path / "sibling").mkdir()
+    python = current / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    python.chmod(0o755)
+    monkeypatch.chdir(current)
+
+    assert which_python(directory=os.path.join("..", "sibling")) == sys.executable
+
+
+def test_inspect_environment_without_bundled_uv(monkeypatch):
+    def missing_uv():
+        raise FileNotFoundError("uv")
+
+    monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_uv)
+    environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
+    assert environment.source == "file"
+
+
+def test_inspect_environment_reports_invalid_pyproject(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    with pytest.raises(RSConnectException, match="Error reading pyproject.toml"):
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file="pyproject.toml")
+
+
+@pytest.mark.parametrize("output", [b"banner\n", b""])
+def test_inspection_json_errors_name_interpreter(tmp_path, output):
+    with pytest.raises(RSConnectException, match="Error parsing environment JSON from Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=lambda *args, **kwargs: output)
+
+
+def test_inspection_subprocess_errors_name_interpreter(tmp_path):
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    with pytest.raises(RSConnectException, match="Error inspecting environment with Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=fail)
+
+
+def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, monkeypatch, caplog):
+    from rsconnect.bundle import Manifest
+
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT"):
+        monkeypatch.delenv(name, raising=False)
+    project = tmp_path / "project"
+    project.mkdir()
+    environment_dir = project / ".venv"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(environment_dir)], check=True)
+    python = environment_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    paths = subprocess.check_output(
+        [str(python), "-I", "-c", "import json,sysconfig; print(json.dumps(sysconfig.get_path('purelib')))"], text=True
+    )
+    metadata_dir = Path(json.loads(paths)) / "example_project_dependency-1.2.3.dist-info"
+    metadata_dir.mkdir()
+    (metadata_dir / "METADATA").write_text("Metadata-Version: 2.1\nName: example-project-dependency\nVersion: 1.2.3\n")
+    foreign_path = tmp_path / "foreign"
+    foreign_path.mkdir()
+    (foreign_path / "pip.py").write_text("raise RuntimeError('foreign pip must not be imported')\n")
+    monkeypatch.setenv("PYTHONPATH", str(foreign_path))
+    assert (
+        subprocess.run(
+            [
+                str(python),
+                "-I",
+                "-c",
+                "import importlib.util; assert not any(importlib.util.find_spec(x) for x in ('pip', 'rsconnect'))",
+            ],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+    monkeypatch.setenv("PATH", "")
+    with caplog.at_level("INFO"):
+        generated = Environment.create_python_environment(str(project), requirements_file=None)
+    assert generated.python_interpreter == str(python)
+    assert f"Using Python: {python}" in caplog.text
+    assert generated.pip is None
+    assert "example-project-dependency==1.2.3" in generated.contents
+    assert "click==" not in generated.contents
+    assert Manifest(environment=generated).data["python"]["package_manager"]["version"] == ""
+
+    (project / "requirements.txt").write_text("project-package==1.0\n")
+    existing = Environment.create_python_environment(str(project), python=str(python))
+    assert existing.pip is None
+    assert existing.contents == "project-package==1.0\n"
+    uv_environment = Environment.create_python_environment(
+        str(project), python=str(python), package_manager=PackageInstaller.UV
+    )
+    expected_uv_version = subprocess.check_output([uv.find_uv_bin(), "--version"], text=True).split()[1]
+    assert Manifest(environment=uv_environment).data["python"]["package_manager"]["version"] == expected_uv_version
+
+    (project / "pyproject.toml").write_text('[project]\nname = "demo"\ndependencies = ["other-package>=2"]\n')
+    pyproject = Environment.create_python_environment(str(project), requirements_file="pyproject.toml")
+    assert "other-package>=2" in pyproject.contents
+    assert pyproject.pip is None
+
+
+def test_uv_freeze_does_not_create_relative_cache_in_inspector_directory(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = project / ".venv"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    inspector_dir = tmp_path / "inspector"
+    inspector_dir.mkdir()
+    inspector = inspector_dir / "inspect_environment.py"
+    shutil.copyfile(rsconnect.environment.inspect_environment.__file__, inspector)
+    monkeypatch.setattr(rsconnect.environment.inspect_environment, "__file__", str(inspector))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UV_CACHE_DIR", ".cache/uv")
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.source == "pip_freeze"
+    assert not (inspector_dir / ".cache").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Requires a POSIX user site directory")
+def test_isolated_inspection_finds_pip_in_user_site(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = tmp_path / "environment"
+    subprocess.run(
+        [uv.find_uv_bin(), "venv", "--system-site-packages", "--python", sys.executable, str(env_dir)], check=True
+    )
+    python = env_dir / "bin/python"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PYTHONUSERBASE", raising=False)
+    user_site = Path(
+        subprocess.check_output(
+            [str(python), "-E", "-c", "import site; print(site.getusersitepackages())"], text=True
+        ).strip()
+    )
+    pip = user_site / "pip"
+    pip.mkdir(parents=True)
+    (pip / "__init__.py").write_text("")
+    (pip / "__main__.py").write_text(
+        "import sys\nprint('pip 50.0' if '--version' in sys.argv else 'user-project-dependency==1.2.3')\n"
+    )
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.pip == "50.0"
+    assert "user-project-dependency==1.2.3" in result.contents
 
 
 class TestPythonVersionRequirements:
@@ -471,7 +689,7 @@ def test_get_python_env_info(
     expected_python,
     expected_environment,
 ):
-    def fake_which_python(python, env=os.environ):
+    def fake_which_python(python, directory):
         return expected_python
 
     def fake_inspect_environment(
@@ -522,12 +740,7 @@ class TestEnvironmentDeprecations:
 
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
             result = Environment.create_python_environment(get_dir("pip1"), python=sys.executable)
-        assert mock_warning.call_count == 1
-        mock_warning.assert_called_once_with(
-            "On modern Posit Connect versions, the --python option won't influence "
-            "the Python version used to deploy the application anymore. "
-            "Please use a .python-version file to force a specific interpreter version."
-        )
+        mock_warning.assert_not_called()
         assert result.python == current_python_version
 
 

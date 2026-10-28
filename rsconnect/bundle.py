@@ -260,9 +260,10 @@ class Manifest:
         if environment:
             pm_name = str(environment.package_manager)
             pm_version_value = getattr(environment, pm_name, None)
-            if pm_version_value is None:
+            if pm_version_value is None and pm_name != "uv":
                 # Fallback: use pip version if available; otherwise empty string
-                pm_version_value = getattr(environment, "pip", "")
+                pm_version_value = getattr(environment, "pip", None) or ""
+            pm_version_value = pm_version_value or ""
             pm: ManifestDataPythonPackageManager = {
                 "name": pm_name,
                 "version": pm_version_value,
@@ -815,8 +816,15 @@ def make_notebook_html_bundle(
         else:
             cmd.append("--TagRemovePreprocessor.remove_input_tags=['hide_input']")
     try:
-        output = check_output(cmd)
-    except subprocess.CalledProcessError:
+        output = check_output(cmd, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as error:
+        if error.stderr and b"No module named nbconvert" in error.stderr:
+            raise RSConnectException(
+                f"nbconvert is not installed in the selected Python environment ({python}). "
+                "Install nbconvert in that environment to deploy a static notebook."
+            ) from error
+        if error.stderr:
+            sys.stderr.write(error.stderr.decode("utf-8", errors="replace"))
         raise
 
     nb_name = basename(filename)

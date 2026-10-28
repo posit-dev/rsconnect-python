@@ -48,6 +48,14 @@ def _load_json(data):
     return json.loads(data)
 
 
+@pytest.mark.parametrize("command", [["deploy", "notebook"], ["deploy", "api"], ["write-manifest", "notebook"]])
+def test_python_option_help_does_not_require_rsconnect_in_target_environment(command):
+    result = CliRunner().invoke(cli, [*command, "--help"])
+    assert result.exit_code == 0
+    assert "--python" in result.output
+    assert "must have the rsconnect" not in result.output
+
+
 class TestMain:
     # Every env var ``metadata.config_dirname()`` consults. ``HOME`` alone only
     # isolates macOS: Linux prefers ``XDG_CONFIG_HOME`` and Windows prefers

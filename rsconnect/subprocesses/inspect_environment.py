@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Environment data class abstraction that is usable as an executable module
+Environment data class abstraction that is usable as a standalone script
 
 ```bash
-python -m rsconnect.subprocesses.inspect_environment
+python -I path/to/inspect_environment.py --requirements-file none DIRECTORY
 ```
 """
 
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import importlib.util
 import locale
 import os
 import tempfile
@@ -19,16 +20,12 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
-from typing import Callable, List, Optional, cast
-
-try:
-    import tomllib
-except ImportError:
-    # Python <3.11 doesn't have tomllib in the standard library
-    import toml as tomllib  # type: ignore[no-redef]
+from typing import Any, Callable, List, Optional, cast
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
+# `python -m` puts the working directory on sys.path, so run modules from a directory with known contents.
+module_cwd = os.path.dirname(os.path.abspath(__file__))
 
 
 @dataclass(frozen=True)
@@ -37,7 +34,7 @@ class EnvironmentData:
     filename: str
     locale: str
     package_manager: str
-    pip: str
+    pip: Optional[str]
     python: str
     source: str
     python_requires: Optional[str]
@@ -55,7 +52,7 @@ def MakeEnvironmentData(
     filename: str,
     locale: str,
     package_manager: str,
-    pip: str,
+    pip: Optional[str],
     python: str,
     source: str,
     python_requires: Optional[str] = None,
@@ -69,7 +66,12 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname: str, requirements_file: Optional[str] = "requirements.txt") -> EnvironmentData:
+def detect_environment(
+    dirname: str,
+    requirements_file: Optional[str] = "requirements.txt",
+    uv_path: str = "uv",
+    project_data: Optional[dict[str, Any]] = None,
+) -> EnvironmentData:
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment.
@@ -80,24 +82,35 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
     or a dictionary containing `error` on failure.
     """
 
+    has_pip = importlib.util.find_spec("pip") is not None
+    if has_pip:
+        pip_version = get_version("pip")
+    else:
+        try:
+            pip_version = get_version("pip")
+        except EnvironmentException:
+            pip_version = None
+        has_pip = pip_version is not None
+    result: dict[str, Any]
     if requirements_file is None:
         # --force-generate sets requirements_file to None
-        result = pip_freeze()
+        result = pip_freeze(uv_path, has_pip)
     elif os.path.basename(requirements_file) == "uv.lock":
-        result = uv_export(dirname, requirements_file)
+        result = uv_export(dirname, requirements_file, uv_path)
     elif os.path.basename(requirements_file) == "pyproject.toml":
-        result = pyproject_dependencies(dirname, requirements_file)
+        result = pyproject_dependencies(dirname, requirements_file, project_data)
     else:
-        result = output_file(dirname, requirements_file, "pip")
-        if result is None:
+        file_result = output_file(dirname, requirements_file, "pip")
+        if file_result is None:
             raise EnvironmentException(
                 "The requirements file '%s' was not found in '%s'. "
                 "Please create it or use --force-generate to use pip freeze." % (requirements_file, dirname)
             )
+        result = file_result
 
     if result is not None:
         result["python"] = get_python_version()
-        result["pip"] = get_version("pip")
+        result["pip"] = pip_version
         result["locale"] = get_default_locale()
 
     return MakeEnvironmentData(**result)
@@ -115,9 +128,10 @@ def get_default_locale(locale_source: Callable[..., tuple[str | None, str | None
 
 def get_version(module: str):
     try:
-        args = [sys.executable, "-m", module, "--version"]
+        args = [sys.executable, "-E", "-m", module, "--version"]
         proc = subprocess.Popen(
             args,
+            cwd=module_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -164,7 +178,7 @@ def output_file(dirname: str, filename: str, package_manager: str):
         raise EnvironmentException("Error reading %s: %s" % (filename, str(exception)))
 
 
-def pip_freeze():
+def pip_freeze(uv_path: str = "uv", has_pip: bool = True):
     """Inspect the environment using `pip freeze --disable-pip-version-check version`.
 
     Returns a dictionary containing the filename
@@ -172,8 +186,14 @@ def pip_freeze():
     or a dictionary containing 'error' on failure.
     """
     try:
+        command = (
+            [sys.executable, "-E", "-m", "pip", "freeze", "--disable-pip-version-check"]
+            if has_pip
+            else [uv_path, "pip", "freeze", "--no-cache", "--python", sys.executable]
+        )
         proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "freeze", "--disable-pip-version-check"],
+            command,
+            cwd=module_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -205,7 +225,7 @@ def pip_freeze():
     }
 
 
-def uv_export(dirname: str, lock_filename: str):
+def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
     """
     Export requirements from a uv.lock file using `uv export`.
     """
@@ -221,7 +241,7 @@ def uv_export(dirname: str, lock_filename: str):
         try:
             result = subprocess.run(
                 [
-                    "uv",
+                    uv_path,
                     "export",
                     "--format",
                     "requirements-txt",
@@ -265,7 +285,7 @@ def uv_export(dirname: str, lock_filename: str):
     }
 
 
-def pyproject_dependencies(dirname: str, pyproject_filename: str):
+def pyproject_dependencies(dirname: str, pyproject_filename: str, project_data: Optional[dict[str, Any]] = None):
     """Read project.dependencies from a pyproject.toml file as a requirements spec.
 
     Emits a requirements.txt file listing the top-level dependencies declared
@@ -280,14 +300,19 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
     if not os.path.exists(pyproject_path):
         raise EnvironmentException(f"pyproject.toml not found: {pyproject_filename}")
 
-    try:
-        with open(pyproject_path, "r", encoding="utf-8-sig") as f:
-            pyproject = tomllib.loads(f.read())
-    except Exception as exception:
-        raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
+    if project_data is None:
+        try:
+            try:
+                import tomllib
+            except ImportError:
+                import toml as tomllib  # type: ignore[no-redef]
+            with open(pyproject_path, "r", encoding="utf-8-sig") as f:
+                project_data = tomllib.loads(f.read()).get("project", {})
+        except Exception as exception:
+            raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
 
-    project = pyproject.get("project", {})
-    dependencies: List[object] = project.get("dependencies", [])
+    project = project_data or {}
+    dependencies: list[object] = project.get("dependencies", [])
     if not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies):
         raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
 
@@ -341,6 +366,8 @@ def main():
             default="requirements.txt",
             help="Requirements file name (relative to the directory). Use 'none' to capture via pip freeze.",
         )
+        parser.add_argument("--uv", default="uv", help="Path to the uv executable.")
+        parser.add_argument("--pyproject-stdin", action="store_true")
         parser.add_argument("directory", help="Directory to inspect.")
         args = parser.parse_args()
 
@@ -348,7 +375,8 @@ def main():
         if requirements_file.lower() == "none":
             requirements_file = None
 
-        envinfo = detect_environment(args.directory, requirements_file=requirements_file)._asdict()
+        project_data = json.load(sys.stdin) if args.pyproject_stdin else None
+        envinfo = detect_environment(args.directory, requirements_file, args.uv, project_data)._asdict()
         if "contents" in envinfo:
             keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
             keepers = [line for line in keepers if not exclude(line)]
