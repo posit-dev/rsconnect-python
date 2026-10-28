@@ -28,6 +28,9 @@ except ImportError:
     import toml as tomllib  # type: ignore[no-redef]
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
+rsconnect_requirement_re = re.compile(r"^\s*rsconnect[-_.]+python(?=\s*(?:[=<>!~@;\[]|$))", re.IGNORECASE)
+editable_re = re.compile(r"^\s*(?:-e\s+|--editable(?:\s+|=))(.+?)\s*$")
+remote_url_re = re.compile(r"^[a-z][a-z0-9+.-]*://", re.IGNORECASE)
 exec_dir = os.path.dirname(sys.executable)
 
 
@@ -152,7 +155,7 @@ def output_file(dirname: str, filename: str, package_manager: str):
         with open(path, "r", newline="") as f:
             data = f.read()
 
-        data = "\n".join([line for line in data.split("\n") if "rsconnect" not in line])
+        data = "\n".join(line for line in data.split("\n") if not rsconnect_requirement_re.match(line))
 
         return {
             "filename": filename,
@@ -307,10 +310,23 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
 
 
 def filter_pip_freeze_output(pip_stdout: str):
-    # Filter out dependency on `rsconnect` and ignore output lines from pip which start with `[notice]`
     return "\n".join(
-        [line for line in pip_stdout.split("\n") if (("rsconnect" not in line) and (line.find("[notice]") != 0))]
+        line
+        for line in pip_stdout.split("\n")
+        if not rsconnect_requirement_re.match(line)
+        and not line.startswith("[notice]")
+        and not line.startswith("# Editable install with no version control (")
+        and not is_local_editable(line)
     )
+
+
+def is_local_editable(line: str) -> bool:
+    match = editable_re.match(line)
+    if not match:
+        return False
+    target = match.group(1)
+    scheme = target.split("://", 1)[0].lower()
+    return not remote_url_re.match(target) or scheme == "file" or scheme.endswith("+file")
 
 
 def strip_ref(line: str):

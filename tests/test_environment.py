@@ -75,14 +75,14 @@ class TestEnvironment(TestCase):
             os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
             custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
             with open(custom_requirements, "w", newline="\n") as f:
-                f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
+                f.write("foo==1.0\nbar>=2.0\nrsconnect-python==0.1\nrsconnect==0.1\n")
 
             result = Environment.create_python_environment(
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
             assert result.filename.endswith("custom.txt")
-            assert result.contents == "foo==1.0\nbar>=2.0\n"
+            assert result.contents == "foo==1.0\nbar>=2.0\nrsconnect==0.1\n"
             assert result.source == "file"
 
     def test_pip_freeze(self):
@@ -131,6 +131,48 @@ class TestEnvironment(TestCase):
         expected = "numpy\npandas\nnot at beginning [notice]"
 
         self.assertEqual(filtered, expected)
+
+
+def test_filter_generated_requirements():
+    raw = "\n".join(
+        [
+            "rsconnect-python==1.0",
+            "RSCONNECT_PYTHON @ https://example.com/rsconnect.whl",
+            "rsconnect.python>=1",
+            "rsconnect-python",
+            "my-rsconnect-utils==0.1",
+            "rsconnect-python-extra==1.0",
+            "demo @ file:///work/rsconnect-demo",
+            "# Editable install with no version control (demo==1.0)",
+            "-e /work/rsconnect-demo",
+            "-e ./local-project",
+            "--editable=file:///work/project",
+            "-e git+file:///work/repo#egg=project",
+            "-e git+https://example.com/repo.git#egg=remote",
+            "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+            "# my rsconnect project",
+        ]
+    )
+
+    assert filter_pip_freeze_output(raw).splitlines() == [
+        "my-rsconnect-utils==0.1",
+        "rsconnect-python-extra==1.0",
+        "demo @ file:///work/rsconnect-demo",
+        "-e git+https://example.com/repo.git#egg=remote",
+        "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+        "# my rsconnect project",
+    ]
+
+
+def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_bytes(
+        b"RSCONNECT_PYTHON==1.0\r\nmy-rsconnect-utils==0.1\r\n"
+        b"demo @ file:///work/rsconnect-demo\r\n# rsconnect note\r\n-e /work/local\r\n"
+    )
+
+    env = Environment.create_python_environment(str(tmp_path))
+
+    assert env.contents == "my-rsconnect-utils==0.1\r\ndemo\r\n# rsconnect note\r\n-e /work/local\r\n"
 
 
 def test_uv_lock_export(tmp_path):
