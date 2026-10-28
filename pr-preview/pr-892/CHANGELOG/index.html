@@ -2975,7 +2975,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/issues/889">#889</a>): Inspects activated or project virtual
   environments, including with <code>uv tool install</code>. Global installations now inspect activated environments.
-  Use <code>--python</code> to override selection.</li>
+  <code>rsconnect preflight</code> checks the same environment's Python version. Use <code>--python</code> to override selection.</li>
 <li><code>rsconnect token</code> prints the OAuth access token stored by <code>rsconnect login</code> for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
   requests with your login. <code>--refresh</code> gets a new token after the server rejects
