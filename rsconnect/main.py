@@ -2195,7 +2195,6 @@ def deploy_notebook(
     environment = Environment.create_python_environment(
         base_dir,
         requirements_file=requirements_file,
-        app_file=file,
         python=python,
         override_python_version=override_python_version,
         package_manager=package_installer,
@@ -3981,7 +3980,6 @@ def write_manifest_notebook(
             requirements_file=requirements_file,
             python=python,
             override_python_version=override_python_version,
-            app_file=file,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
@@ -4117,7 +4115,6 @@ def write_manifest_voila(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
-            app_file=None if isdir(path) else path,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
