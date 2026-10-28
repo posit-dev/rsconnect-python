@@ -97,7 +97,7 @@ def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Opti
 
     Returns None if the field is not found.
     """
-    content = pyproject_file.read_text()
+    content = pyproject_file.read_text(encoding="utf-8-sig")
     pyproject = tomllib.loads(content)
 
     return pyproject.get("project", {}).get("requires-python", None)
@@ -195,7 +195,7 @@ def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typ
     missing or when required ``app_mode`` / ``entrypoint`` fields are absent or
     not non-empty strings.
     """
-    content = pyproject_file.read_text()
+    content = pyproject_file.read_text(encoding="utf-8-sig")
     pyproject = tomllib.loads(content)
 
     tool = pyproject.get("tool")

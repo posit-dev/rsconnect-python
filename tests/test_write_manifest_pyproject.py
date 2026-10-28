@@ -352,12 +352,19 @@ def test_write_manifest_pyproject_never_rewrites_explicit_requirements_source(
         pass
 
 
-def test_write_manifest_pyproject_unmocked_end_to_end(runner: CliRunner, project_dir: pathlib.Path):
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+@pytest.mark.parametrize("command", ["pyproject", "api"])
+def test_write_manifest_pyproject_unmocked_end_to_end(
+    runner: CliRunner, project_dir: pathlib.Path, encoding: str, command: str
+):
     """Real environment inspection: default config must yield a deployable manifest."""
-    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    (project_dir / "pyproject.toml").write_text(textwrap.dedent(_REQ_PYPROJECT), encoding=encoding)
     (project_dir / "app.py").write_text("app = None\n")
 
-    result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
+    args = ["write-manifest", command]
+    if command == "api":
+        args.extend(["-r", "pyproject.toml"])
+    result = runner.invoke(cli, [*args, str(project_dir)])
 
     assert result.exit_code == 0, result.output
     manifest = _read_manifest(project_dir)
@@ -514,8 +521,11 @@ def test_write_manifest_pyproject_errors_on_missing_pyproject(runner: CliRunner,
     assert "quickstart" in result.output.lower()
 
 
-def test_write_manifest_pyproject_errors_on_malformed_pyproject(runner: CliRunner, project_dir: pathlib.Path):
-    (project_dir / "pyproject.toml").write_text("[tool.rsconnect\napp_mode =")
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_write_manifest_pyproject_errors_on_malformed_pyproject(
+    runner: CliRunner, project_dir: pathlib.Path, encoding: str
+):
+    (project_dir / "pyproject.toml").write_text("[tool.rsconnect\napp_mode =", encoding=encoding)
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
     assert result.exit_code != 0
     assert "could not be parsed" in result.output
