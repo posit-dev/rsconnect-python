@@ -146,7 +146,7 @@ class Environment:
             raise RSConnectException(f"Error reading pyproject.toml: {err}") from err
         _warn_on_missing_python_version(python_version_requirement)
 
-        _check_requirements_file(directory, requirements_file)
+        requirements_file = _check_requirements_file(directory, requirements_file)
 
         if python is not None:
             # TODO: Remove the option in a future release
@@ -317,7 +317,7 @@ def _warn_on_ignored_manifest(directory: str) -> None:
         warn_user("    Warning: the existing manifest.json file will not be used or considered.")
 
 
-def _check_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> None:
+def _check_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> typing.Optional[str]:
     """
     Verify that a requirements file exists inside the deployment directory.
 
@@ -327,13 +327,14 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
     if requirements_file is None:
         return
 
-    directory_path = pathlib.Path(directory)
-    requirements_file_path = directory_path / pathlib.Path(requirements_file)
-    if directory_path not in requirements_file_path.parents:
-        warn_user(
-            "    Warning: The requirements file '%s' is outside of the deployment directory.\n" % requirements_file,
-            fg="red",
-        )
+    directory_path = pathlib.Path(directory).resolve()
+    requirements_file_path = (directory_path / requirements_file).resolve()
+    try:
+        relative_path = requirements_file_path.relative_to(directory_path)
+    except ValueError:
+        raise RSConnectException(
+            "The requirements file '%s' is outside of the deployment directory '%s'." % (requirements_file, directory)
+        ) from None
 
     if not requirements_file_path.exists():
         raise RSConnectException(
@@ -342,6 +343,7 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
             "To have the requirements file generated using pip freeze, pass --force-generate."
             % (requirements_file, directory or ".")
         )
+    return str(relative_path)
 
 
 def _warn_if_environment_directory(directory: typing.Union[str, pathlib.Path]) -> None:
