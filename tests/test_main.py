@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+import venv
 from os.path import join
 from types import SimpleNamespace
 from unittest import TestCase, mock
@@ -351,6 +352,62 @@ class TestMain:
         bundle_args = ce.make_bundle.call_args.args
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == sys.executable
+
+    @pytest.mark.parametrize(
+        ("contents", "diagnostic", "missing_nbconvert"),
+        [
+            ("not json", "NotJSONError", False),
+            ("not json", "No module named nbconvert", True),
+            (
+                json.dumps(
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "execution_count": None,
+                                "metadata": {},
+                                "outputs": [],
+                                "source": ["raise ValueError('boom')"],
+                            }
+                        ],
+                        "metadata": {"kernelspec": {"name": "python3", "display_name": "Python 3"}},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    }
+                ),
+                "ValueError: boom",
+                False,
+            ),
+        ],
+    )
+    def test_deploy_static_notebook_render_failure(self, tmp_path, capfd, contents, diagnostic, missing_nbconvert):
+        notebook = tmp_path / "broken.ipynb"
+        notebook.write_text(contents)
+        interpreter = sys.executable
+        if missing_nbconvert:
+            env_dir = tmp_path / "empty-env"
+            venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(env_dir)
+            interpreter = str(env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=interpreter)
+
+        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ) as mock_executor:
+            mock_executor.return_value.make_bundle.side_effect = lambda func, *args: func(*args)
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        stderr = capfd.readouterr().err
+        assert result.exit_code == 1
+        assert diagnostic in re.sub(r"\x1b\[[0-9;]*m", "", stderr)
+        assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
+        assert "Traceback (most recent call last)" not in result.output
+        assert "Internal error" not in result.output + stderr
+        assert "subprocess.CalledProcessError" not in result.output + stderr
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_verify_before_activate(self, caplog):
