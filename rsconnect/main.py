@@ -3119,6 +3119,7 @@ def deploy_quarto(
                 base_dir,
                 requirements_file=requirements_file,
                 override_python_version=override_python_version,
+                package_manager=package_installer,
             )
 
     # R/Quarto content can use renv regardless of the Quarto engine, so detect it
@@ -4844,6 +4845,7 @@ def _write_framework_manifest(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
+            package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(directory)
 
