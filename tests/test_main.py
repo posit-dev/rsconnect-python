@@ -2130,6 +2130,38 @@ class TestDeployNodeJS:
         assert "does not exist" in result.output
 
 
+@pytest.mark.parametrize(
+    ("command", "filename"),
+    [
+        (["write-manifest", "notebook"], "nb.ipynb"),
+        (["deploy", "notebook"], "nb.ipynb"),
+        (["deploy", "quarto"], "doc.qmd"),
+    ],
+)
+@pytest.mark.parametrize("path_kind", ["bare", "relative", "absolute"])
+@pytest.mark.parametrize("requirements_file", [None, "custom.txt"])
+def test_missing_requirements_reports_content_directory(
+    tmp_path, monkeypatch, command, filename, path_kind, requirements_file
+):
+    monkeypatch.chdir(tmp_path)
+    content_dir = tmp_path if path_kind == "bare" else tmp_path / "content"
+    content_dir.mkdir(exist_ok=True)
+    content = content_dir / filename
+    content.write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    path = str(content) if path_kind == "absolute" else str(content.relative_to(tmp_path))
+    expected_directory = str(content_dir) if path_kind == "absolute" else os.path.dirname(path) or "."
+
+    requirements_option = ["--requirements-file", requirements_file] if requirements_file else []
+    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
+        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    ):
+        result = CliRunner().invoke(cli, [*command, *requirements_option, path])
+
+    assert result.exit_code == 1
+    expected_file = requirements_file or "requirements.txt"
+    assert f"The requirements file '{expected_file}' does not exist in '{expected_directory}'." in result.output
+
+
 class TestWriteManifestNodeJS:
     def test_help(self):
         runner = CliRunner()
