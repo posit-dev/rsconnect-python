@@ -2170,8 +2170,14 @@ class TestWriteManifestFramework:
         result = CliRunner().invoke(
             cli,
             [
-                "write-manifest", "api", "--entrypoint", "app:app", "--exclude-renv",
-                "--override-python-version", version, str(tmp_path),
+                "write-manifest",
+                "api",
+                "--entrypoint",
+                "app:app",
+                "--exclude-renv",
+                "--override-python-version",
+                version,
+                str(tmp_path),
             ],
         )
         assert result.exit_code == 0, result.output
