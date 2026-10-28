@@ -92,8 +92,38 @@ def save_deployment_record(app_file: Path, app_id: str) -> None:
 
 @pytest.fixture(autouse=True)
 def preflight_environment(monkeypatch):
+    for variable in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT"):
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setattr("rsconnect.preflight.platform.python_version", lambda: "3.12.2")
     monkeypatch.setattr("rsconnect.preflight.shutil.which", lambda _: "/usr/bin/quarto")
+
+
+def make_interpreter(path: Path, version: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!/bin/sh\necho {version}\n")
+    path.chmod(0o755)
+    return path
+
+
+def test_local_python_comes_from_project_environment(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.11.4")
+    executor, _, _ = make_executor(tmp_path, new=True)
+
+    result = run_preflight(executor, str(tmp_path), fix=True)
+
+    assert result["local_python"] == "3.11.4"
+    assert result["recommended_python"] == "3.11"
+    assert (tmp_path / ".python-version").read_text().strip() == "3.11"
+
+
+def test_explicit_python_overrides_project_environment(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.11.4")
+    explicit = make_interpreter(tmp_path / "other" / "python", "3.12.1")
+    executor, _, _ = make_executor(tmp_path, new=True)
+
+    result = run_preflight(executor, str(tmp_path), python=str(explicit))
+
+    assert result["local_python"] == "3.12.1"
 
 
 def test_metadata_precedence_and_explicit_constraint_are_preserved(tmp_path):

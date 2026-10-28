@@ -268,6 +268,21 @@ def test_pyproject_dependencies_no_project_table(tmp_path):
 
 
 class WhichPythonTestCase(TestCase):
+    def setUp(self):
+        # which_python() falls back to sys.executable only without an active or project environment.
+        environ = {
+            name: value
+            for name, value in os.environ.items()
+            if name not in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT")
+        }
+        patcher = mock.patch.dict(os.environ, environ, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        workdir = tempfile.TemporaryDirectory()
+        self.addCleanup(workdir.cleanup)
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(workdir.name)
+
     def test_default(self):
         self.assertEqual(which_python(), sys.executable)
 
@@ -333,6 +348,35 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     monkeypatch.delenv("VIRTUAL_ENV")
     monkeypatch.delenv("CONDA_PREFIX")
     assert which_python(directory=str(nested)) == sys.executable
+
+
+def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    current = tmp_path / "current"
+    (tmp_path / "sibling").mkdir()
+    python = current / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    python.chmod(0o755)
+    monkeypatch.chdir(current)
+
+    assert which_python(directory=os.path.join("..", "sibling")) == sys.executable
+
+
+def test_inspect_environment_without_bundled_uv(monkeypatch):
+    def missing_uv():
+        raise FileNotFoundError("uv")
+
+    monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_uv)
+    environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
+    assert environment.source == "file"
+
+
+def test_inspect_environment_reports_invalid_pyproject(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    with pytest.raises(RSConnectException, match="Error reading pyproject.toml"):
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file="pyproject.toml")
 
 
 def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, monkeypatch, caplog):

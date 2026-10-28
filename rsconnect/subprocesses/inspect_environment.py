@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Environment data class abstraction that is usable as an executable module
+Environment data class abstraction that is usable as a standalone script
 
 ```bash
-python -m rsconnect.subprocesses.inspect_environment
+python -E path/to/inspect_environment.py --requirements-file none DIRECTORY
 ```
 """
 
@@ -24,6 +24,8 @@ from typing import Any, Callable, Optional
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
+# `python -m` puts the working directory on sys.path, so run modules from a directory with known contents.
+module_cwd = os.path.dirname(os.path.abspath(__file__))
 
 
 @dataclass(frozen=True)
@@ -118,9 +120,10 @@ def get_default_locale(locale_source: Callable[..., tuple[str | None, str | None
 
 def get_version(module: str):
     try:
-        args = [sys.executable, "-I", "-m", module, "--version"]
+        args = [sys.executable, "-E", "-m", module, "--version"]
         proc = subprocess.Popen(
             args,
+            cwd=module_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -176,12 +179,13 @@ def pip_freeze(uv_path: str = "uv", has_pip: bool = True):
     """
     try:
         command = (
-            [sys.executable, "-I", "-m", "pip", "freeze", "--disable-pip-version-check"]
+            [sys.executable, "-E", "-m", "pip", "freeze", "--disable-pip-version-check"]
             if has_pip
             else [uv_path, "pip", "freeze", "--python", sys.executable]
         )
         proc = subprocess.Popen(
             command,
+            cwd=module_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,

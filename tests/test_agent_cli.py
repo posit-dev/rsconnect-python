@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import os
+import sys
 from unittest.mock import Mock, patch
 
 import click
@@ -197,7 +198,7 @@ def test_preflight_json_and_exit_status(tmp_path, status, exit_code):
             result = cli_runner().invoke(cli, ["preflight", "-n", "target", str(tmp_path), "--fix", "--new"])
     assert result.exit_code == exit_code, result.output
     assert json.loads(result.stdout) == expected
-    check.assert_called_once_with(executor, str(tmp_path), True)
+    check.assert_called_once_with(executor, str(tmp_path), True, None)
     assert create.call_args.kwargs["path"] == str(tmp_path)
     assert create.call_args.kwargs["new"] is True
 
@@ -230,6 +231,7 @@ def test_node_preflight_dispatch_and_incompatible_exit(tmp_path):
     [
         (["--runtime", "nodejs", "--fix"], "--fix applies only to Python"),
         (["--runtime", "unsupported"], "Invalid value"),
+        (["--runtime", "nodejs", "--python", sys.executable], "--python applies only to --runtime python"),
     ],
 )
 def test_node_preflight_invalid_options(arguments, message):

@@ -219,20 +219,25 @@ class Environment:
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        args = [python, "-I", inspect_environment.__file__, "--uv", uv.find_uv_bin()]
+        # -E ignores PYTHONPATH but, unlike -I, keeps user site-packages, which global installs depend on.
+        args = [python, "-E", inspect_environment.__file__, "--uv", _uv_bin()]
         args.extend(["--requirements-file", requirements_file or "none"])
         args.append(directory)
 
-        try:
-            options: typing.Dict[str, typing.Any] = {"text": True}
-            if requirements_file and os.path.basename(requirements_file) == "pyproject.toml":
-                path = os.path.join(directory, requirements_file)
-                if os.path.exists(path):
+        options: typing.Dict[str, typing.Any] = {"text": True}
+        if requirements_file and os.path.basename(requirements_file) == "pyproject.toml":
+            path = os.path.join(directory, requirements_file)
+            if os.path.exists(path):
+                try:
                     with open(path, encoding="utf-8") as project_file:
                         project = pyproject.tomllib.loads(project_file.read())
-                    args.append("--pyproject-stdin")
-                    dependencies = project.get("project", {}).get("dependencies", [])
-                    options["input"] = json.dumps({"dependencies": dependencies}, default=str)
+                except Exception as e:
+                    raise RSConnectException(f"Error reading {requirements_file}: {e}") from e
+                args.append("--pyproject-stdin")
+                dependencies = project.get("project", {}).get("dependencies", [])
+                options["input"] = json.dumps({"dependencies": dependencies}, default=str)
+
+        try:
             environment_json = check_output(args, **options)
         except Exception as e:
             raise RSConnectException("Error inspecting environment (subprocess failed)") from e
@@ -251,6 +256,13 @@ class Environment:
             return cls.from_dict(environment_data, python_interpreter=python)
         except TypeError as e:
             raise RSConnectException("Error constructing environment object") from e
+
+
+def _uv_bin() -> str:
+    try:
+        return uv.find_uv_bin()
+    except FileNotFoundError:
+        return "uv"
 
 
 def which_python(python: typing.Optional[str] = None, directory: typing.Optional[str] = None) -> str:
@@ -283,7 +295,7 @@ def which_python(python: typing.Optional[str] = None, directory: typing.Optional
     if active and (selected := interpreter(active)):
         return selected
 
-    project = pathlib.Path(directory or os.curdir).absolute()
+    project = pathlib.Path(os.path.abspath(directory or os.curdir))
     project_environment = os.environ.get("UV_PROJECT_ENVIRONMENT") or ".venv"
     for parent in (project, *project.parents):
         if selected := interpreter(parent / project_environment):
