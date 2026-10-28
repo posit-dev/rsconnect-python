@@ -293,6 +293,16 @@ class WhichPythonTestCase(TestCase):
 
 
 class TestPythonVersionRequirements:
+    def test_malformed_pyproject(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text('[project\nname = "x"\n')
+        (tmp_path / "requirements.txt").write_text("flask\n")
+
+        with pytest.raises(RSConnectException, match="Error reading pyproject.toml:") as exc_info:
+            Environment.create_python_environment(str(tmp_path))
+
+        assert isinstance(exc_info.value.__cause__, rsconnect.environment.pyproject.TOMLDecodeError)
+        assert str(exc_info.value.__cause__) in str(exc_info.value)
+
     def test_pyproject_toml(self):
         env = Environment.create_python_environment(
             os.path.join(TESTDATA, "python-project", "using_pyproject"), requirements_file=None

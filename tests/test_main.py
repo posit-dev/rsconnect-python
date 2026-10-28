@@ -2189,6 +2189,21 @@ class TestWriteManifestFramework:
         assert matching in SpecifierSet(requirement)
         assert nonmatching not in SpecifierSet(requirement)
 
+    def test_malformed_pyproject_with_requirements_file(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        (tmp_path / "pyproject.toml").write_text('[project\nname = "x"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert "Error: Error reading pyproject.toml:" in result.output
+        assert "line 1" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+        assert not (tmp_path / "manifest.json").exists()
+
     @pytest.mark.parametrize("existing_requirements", [False, True])
     def test_force_generate_requirements(self, tmp_path, existing_requirements):
         (tmp_path / "app.py").write_text("app = object()\n")
