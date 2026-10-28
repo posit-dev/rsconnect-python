@@ -72,6 +72,42 @@ def create_fake_quarto_rendered_output(target_dir, name):
         fp.write("// fake resource.js\n")
 
 
+@pytest.mark.parametrize("link_name", ["data.csv", ".venv/bin/python"])
+def test_api_bundle_reports_dangling_symlink(tmp_path, link_name):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    link = tmp_path / link_name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link.symlink_to("missing-target")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with pytest.raises(RSConnectException) as error:
+        make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], [])
+
+    assert str(link) in str(error.value)
+    assert "dangling symlink" in str(error.value)
+
+
+def test_api_bundle_keeps_valid_symlink(tmp_path):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    (tmp_path / "data.csv").write_text("data\n")
+    try:
+        (tmp_path / "data-link.csv").symlink_to("data.csv")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], []) as bundle:
+        with tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read())
+            assert manifest["files"]["data-link.csv"]["checksum"] == file_checksum(tmp_path / "data.csv")
+            assert tar.getmember("data-link.csv").issym()
+
+
 class TestBundle(TestCase):
     @staticmethod
     def python_version():
