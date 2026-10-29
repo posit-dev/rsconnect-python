@@ -1622,6 +1622,38 @@ class TestMain:
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
+    @pytest.mark.parametrize("override_kind", ["minor", "patch"])
+    def test_deploy_api_with_python_override(self, tmp_path, override_kind):
+        require_connect_version("2025.03.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        installations = client.python_settings()["installations"]
+        installed = {item["version"] for item in installations}
+        candidates = []
+        for item in installations:
+            version = item["version"]
+            match = re.fullmatch(r"(3)\.(\d+)\.(\d+)", version)
+            if not match or item.get("publishable") is False:
+                continue
+            major, minor, patch = map(int, match.groups())
+            if minor >= 8 and patch > 0 and f"{major}.{minor}.0" not in installed:
+                candidates.append((major, minor, patch))
+
+        if not candidates:
+            pytest.skip("Connect needs a publishable Python >= 3.8 with a nonzero patch and no matching x.y.0")
+
+        major, minor, patch = max(candidates)
+        version = f"{major}.{minor}"
+        if override_kind == "patch":
+            version += f".{patch}"
+
+        source = get_api_path("flask")
+        shutil.copy(join(source, "app.py"), tmp_path)
+        shutil.copy(join(source, "requirements.txt"), tmp_path)
+        args = self.create_deploy_args("api", str(tmp_path))
+        args.extend(["--entrypoint", "app:app", "--exclude-renv", "--override-python-version", version])
+        result = CliRunner().invoke(cli, args)
+        assert result.exit_code == 0, result.output
+
     def test_deploy_api_fail_verify(self):
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
