@@ -512,6 +512,14 @@ class TestEnvironmentDeprecations:
         )
         assert result.python_version_requirement == "==3.8.1"
 
+    def test_minor_python_override_warns_about_legacy_connect(self):
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1-no-version"), override_python_version="3.8")
+
+        assert result.python == ".".join(str(part) for part in sys.version_info[:3])
+        assert result.python_version_requirement == "==3.8.*"
+        assert any("local Python version instead" in call.args[0] for call in mock_warning.call_args_list)
+
     def test_python_interpreter(self):
         current_python_version = ".".join((str(v) for v in sys.version_info[:3]))
 

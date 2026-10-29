@@ -232,8 +232,11 @@ rsconnect deploy api --override-python-version 3.11.5 my-api/
 
 will deploy the content in `my-api` while requesting that Connect
 use Python version 3.11.5.
-The `--override-python-version` option requires a full version, including the
-patch component; for example, use `3.11.5` rather than `3.11`.
+On modern Connect versions, a major and minor version such as `3.11` requests
+the latest available patch release in that series. The manifest records the
+local Python version separately for compatibility. Older Connect versions that
+do not support version constraints use that local version instead, so specify a
+full version such as `3.11.5` when deploying to those servers.
 
 > **Note**
 > The packages and package versions listed in `requirements.txt` must be
