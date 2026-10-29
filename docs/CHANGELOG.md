@@ -7,9 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- ([#899](https://github.com/posit-dev/rsconnect-python/issues/899)): Reports local
-  editable dependencies that Posit Connect cannot install. Requirement filtering no
-  longer drops unrelated packages whose name or path contains `rsconnect`.
+- Reports local editable dependencies that Posit Connect cannot install. Requirement
+  filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
 - `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
   requests with your login. `--refresh` gets a new token after the server rejects
