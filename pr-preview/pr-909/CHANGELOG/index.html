@@ -2973,7 +2973,8 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
-<li>Reports local editable dependencies that Posit Connect cannot install. Requirement
+<li>Reports editable dependencies outside the deployment directory, which Posit Connect
+  cannot install, in both generated and user-provided requirements. Requirement
   filtering no longer drops unrelated packages whose name or path contains <code>rsconnect</code>.</li>
 <li><code>rsconnect token</code> prints the OAuth access token stored by <code>rsconnect login</code> for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
