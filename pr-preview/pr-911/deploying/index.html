@@ -2066,7 +2066,9 @@ that is installed in Connect, For example, this command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--override-python-version<span class="w"> </span><span class="m">3</span>.11.5<span class="w"> </span>my-api/
 </code></pre></div>
 <p>will deploy the content in <code>my-api</code> while requesting that Connect
-use Python version 3.11.5.</p>
+use Python version 3.11.5.
+The <code>--override-python-version</code> option requires a full version, including the
+patch component; for example, use <code>3.11.5</code> rather than <code>3.11</code>.</p>
 <blockquote>
 <p><strong>Note</strong>
 The packages and package versions listed in <code>requirements.txt</code> must be
