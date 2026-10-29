@@ -14,7 +14,9 @@ from rsconnect.environment import Environment, which_python
 from rsconnect.subprocesses.inspect_environment import (
     EnvironmentException,
     detect_environment,
+    check_editables_are_bundleable,
     filter_pip_freeze_output,
+    rsconnect_project_dir,
     get_default_locale,
     get_python_version,
 )
@@ -75,14 +77,14 @@ class TestEnvironment(TestCase):
             os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
             custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
             with open(custom_requirements, "w", newline="\n") as f:
-                f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
+                f.write("foo==1.0\nbar>=2.0\nrsconnect-python==0.1\nrsconnect==0.1\n")
 
             result = Environment.create_python_environment(
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
             assert result.filename.endswith("custom.txt")
-            assert result.contents == "foo==1.0\nbar>=2.0\n"
+            assert result.contents == "foo==1.0\nbar>=2.0\nrsconnect==0.1\n"
             assert result.source == "file"
 
     def test_pip_freeze(self):
@@ -131,6 +133,146 @@ class TestEnvironment(TestCase):
         expected = "numpy\npandas\nnot at beginning [notice]"
 
         self.assertEqual(filtered, expected)
+
+
+def test_filter_generated_requirements():
+    raw = "\n".join(
+        [
+            "rsconnect-python==1.0",
+            "RSCONNECT_PYTHON @ https://example.com/rsconnect.whl",
+            "rsconnect.python>=1",
+            "rsconnect-python",
+            "  Rsconnect_-Python[extra] ; python_version >= '3.8'",
+            "-rsconnect-python",
+            "my-rsconnect-utils==0.1",
+            "rsconnect-python-extra==1.0",
+            "demo @ file:///work/rsconnect-demo",
+            "# Editable install with no version control (demo==1.0)",
+            "-e git+https://example.com/repo.git#egg=remote",
+            "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+            "-e bzr+lp:project#egg=remote-bzr",
+            "-e git+https:repo#egg=remote-git",
+            "-e hg+http://example.com/repo#egg=remote-hg",
+            "--editable=svn+svn://example.com/repo#egg=remote-svn",
+            "-e https://example.com/project.tar.gz#egg=remote-archive",
+            "# my rsconnect project",
+        ]
+    )
+
+    assert filter_pip_freeze_output(raw).splitlines() == [
+        "-rsconnect-python",
+        "my-rsconnect-utils==0.1",
+        "rsconnect-python-extra==1.0",
+        "demo @ file:///work/rsconnect-demo",
+        "-e git+https://example.com/repo.git#egg=remote",
+        "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+        "-e bzr+lp:project#egg=remote-bzr",
+        "-e git+https:repo#egg=remote-git",
+        "-e hg+http://example.com/repo#egg=remote-hg",
+        "--editable=svn+svn://example.com/repo#egg=remote-svn",
+        "-e https://example.com/project.tar.gz#egg=remote-archive",
+        "# my rsconnect project",
+    ]
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "-e /work/rsconnect-demo",
+        "-e ../outside-project",
+        "-e ./libs/../../outside-project",
+        "--editable=file:///work/project",
+        "-e git+file:///work/repo#egg=project",
+        "-e git+file:/work/repo#egg=project",
+        "-e C:\\work\\project",
+        "-e D:/work/project",
+        "-e FILE:///work/project",
+    ],
+)
+def test_check_editables_rejects_editables_outside_bundle(tmp_path: Path, requirement):
+    with pytest.raises(EnvironmentException) as error:
+        check_editables_are_bundleable(f"six==1.17.0\n{requirement}\n", str(tmp_path))
+
+    assert requirement in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "-e ./libs/foo",
+        "-e libs/foo",
+        "--editable=.",
+        "-e git+https://example.com/repo.git#egg=remote",
+        "-e bzr+lp:project#egg=remote-bzr",
+        "six @ file:///work/six",
+    ],
+)
+def test_check_editables_allows_bundleable_requirements(tmp_path: Path, requirement):
+    check_editables_are_bundleable(f"{requirement}\r\n", str(tmp_path))
+
+
+def test_filter_generated_requirements_drops_editable_rsconnect():
+    raw = "\n".join(
+        [
+            "six==1.17.0",
+            "-e git+https://github.com/posit-dev/rsconnect-python.git@abc123#egg=rsconnect_python",
+            "# Editable install with no version control (rsconnect-python==1.0)",
+            f"-e {rsconnect_project_dir}",
+        ]
+    )
+
+    assert filter_pip_freeze_output(raw) == "six==1.17.0"
+
+
+def test_check_editables_reports_all_unbundleable_editables(tmp_path: Path):
+    with pytest.raises(EnvironmentException) as error:
+        check_editables_are_bundleable("-e /work/one\n-e /work/two", str(tmp_path))
+
+    assert "-e /work/one" in str(error.value)
+    assert "-e /work/two" in str(error.value)
+
+
+def test_inspect_environment_reports_local_editable(tmp_path: Path, monkeypatch):
+    pip_dir = tmp_path / "pip"
+    pip_dir.mkdir()
+    (pip_dir / "__init__.py").write_text("")
+    (pip_dir / "__main__.py").write_text(
+        "print('# Editable install with no version control (demo==1.0)')\nprint('-e /work/demo')\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(tmp_path), str(Path(__file__).resolve().parents[1])]))
+
+    with pytest.raises(
+        RSConnectException,
+        match="Editable dependencies outside the deployment directory cannot be installed on Connect",
+    ) as error:
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file=None)
+
+    assert "-e /work/demo" in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_bytes(
+        b"RSCONNECT_PYTHON==1.0\r\nmy-rsconnect-utils==0.1\r\n"
+        b"demo @ file:///work/rsconnect-demo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
+    )
+
+    env = Environment.create_python_environment(str(tmp_path))
+
+    assert env.contents == "my-rsconnect-utils==0.1\r\ndemo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
+
+
+def test_requirements_file_rejects_editable_outside_bundle(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_text("six\n-e /Users/me/localpkg\n")
+
+    with pytest.raises(
+        RSConnectException,
+        match="Editable dependencies outside the deployment directory cannot be installed on Connect",
+    ) as error:
+        Environment.create_python_environment(str(tmp_path))
+
+    assert "-e /Users/me/localpkg" in str(error.value)
 
 
 def test_uv_lock_export(tmp_path):
