@@ -103,7 +103,7 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
             )
 
     if result is not None:
-        check_editables_are_bundleable(result["contents"], dirname)
+        check_editables_are_bundleable(result["contents"] or "", dirname)
         result["python"] = get_python_version()
         result["pip"] = get_version("pip")
         result["locale"] = get_default_locale()
