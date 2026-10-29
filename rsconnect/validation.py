@@ -430,12 +430,16 @@ class PythonVersionParamType(click.ParamType):
     def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]):
         try:
             parts = list(map(int, value.split(".")))
-            if len(parts) in (2, 3):
+            if len(parts) == 3:
                 return value
             else:
                 raise ValueError
         except (AttributeError, ValueError):
-            self.fail(f"{value!r} is not a valid python version; expected 3.x or 3.x.y", param, ctx)
+            self.fail(
+                f"{value!r} is not a valid python version; expected major.minor.patch (for example, 3.11.15)",
+                param,
+                ctx,
+            )
 
 
 PYTHON_VERSION = PythonVersionParamType()

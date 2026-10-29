@@ -1622,12 +1622,10 @@ class TestMain:
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
-    @pytest.mark.parametrize("override_kind", ["minor", "patch"])
-    def test_deploy_api_with_python_override(self, tmp_path, override_kind):
+    def test_deploy_api_with_python_override(self, tmp_path):
         require_connect_version("2025.03.0")
         client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
         installations = client.python_settings()["installations"]
-        installed = {item["version"] for item in installations}
         candidates = []
         for item in installations:
             version = item["version"]
@@ -1635,16 +1633,14 @@ class TestMain:
             if not match or item.get("publishable") is False:
                 continue
             major, minor, patch = map(int, match.groups())
-            if minor >= 8 and patch > 0 and f"{major}.{minor}.0" not in installed:
+            if minor >= 8 and patch > 0:
                 candidates.append((major, minor, patch))
 
         if not candidates:
-            pytest.skip("Connect needs a publishable Python >= 3.8 with a nonzero patch and no matching x.y.0")
+            pytest.skip("Connect needs a publishable Python >= 3.8 with a nonzero patch")
 
         major, minor, patch = max(candidates)
-        version = f"{major}.{minor}"
-        if override_kind == "patch":
-            version += f".{patch}"
+        version = f"{major}.{minor}.{patch}"
 
         source = get_api_path("flask")
         shutil.copy(join(source, "app.py"), tmp_path)
@@ -1653,6 +1649,11 @@ class TestMain:
         args.extend(["--entrypoint", "app:app", "--exclude-renv", "--override-python-version", version])
         result = CliRunner().invoke(cli, args)
         assert result.exit_code == 0, result.output
+
+    def test_deploy_api_rejects_minor_python_override(self, tmp_path):
+        result = CliRunner().invoke(cli, ["deploy", "api", "--override-python-version", "3.11", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "expected major.minor.patch" in result.output
 
     def test_deploy_api_fail_verify(self):
         target = optional_target(get_api_path("flask-bad"))
@@ -2279,7 +2280,6 @@ class TestWriteManifestFramework:
     @pytest.mark.parametrize(
         "version, expected_requirement, matching, nonmatching",
         [
-            ("3.11", "==3.11.*", "3.11.15", "3.12.0"),
             ("3.11.0", "==3.11.0", "3.11.0", "3.11.15"),
             ("3.11.15", "==3.11.15", "3.11.15", "3.11.14"),
         ],
@@ -2309,6 +2309,12 @@ class TestWriteManifestFramework:
         assert requirement == expected_requirement
         assert matching in SpecifierSet(requirement)
         assert nonmatching not in SpecifierSet(requirement)
+
+    def test_minor_python_override_is_rejected(self, tmp_path):
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "--override-python-version", "3.11", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "expected major.minor.patch" in result.output
+        assert not (tmp_path / "manifest.json").exists()
 
     def test_dangling_symlink_reports_clear_error(self, tmp_path):
         (tmp_path / "app.py").write_text("app = object()\n")

@@ -157,8 +157,7 @@ class Environment:
                 "The --override-python-version option is deprecated, "
                 "please use a .python-version file to force a specific interpreter version."
             )
-            suffix = ".*" if len(override_python_version.split(".")) == 2 else ""
-            python_version_requirement = f"=={override_python_version}{suffix}"
+            python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
         environment = cls._get_python_env_info(module_file, python, requirements_file=requirements_file)
