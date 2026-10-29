@@ -2528,6 +2528,37 @@ class TestConnectCloudService(unittest.TestCase):
         self._prepare_deploy(app_id="c1", env_vars={})
         self.assertIsNone(self.client.update_content.call_args.kwargs["secrets"])
 
+    def test_prepare_deploy_with_env_vars_keeps_other_secrets(self):
+        # The secrets list replaces every secret on the content, so secrets that
+        # -E does not name (for example ones added in the Connect Cloud UI) must
+        # be sent with a null value to keep them.
+        self.client.get_content.return_value = {
+            "id": "c1",
+            "account_id": "acct-1",
+            "current_revision": {"id": "r0"},
+            "secrets": [{"name": "UI_KEY", "value": None}, {"name": "FOO", "value": None}],
+        }
+        self._prepare_deploy(app_id="c1", env_vars={"FOO": "bar"})
+        self.assertEqual(
+            self.client.update_content.call_args.kwargs["secrets"],
+            [{"name": "FOO", "value": "bar"}, {"name": "UI_KEY", "value": None}],
+        )
+
+    def test_prepare_deploy_with_env_vars_and_no_other_secrets(self):
+        for secrets in (None, []):
+            with self.subTest(secrets=secrets):
+                self.client.get_content.return_value = {
+                    "id": "c1",
+                    "account_id": "acct-1",
+                    "current_revision": {"id": "r0"},
+                    "secrets": secrets,
+                }
+                self._prepare_deploy(app_id="c1", env_vars={"FOO": "bar"})
+                self.assertEqual(
+                    self.client.update_content.call_args.kwargs["secrets"],
+                    [{"name": "FOO", "value": "bar"}],
+                )
+
     def test_prepare_deploy_updates_existing_content(self):
         result = self._prepare_deploy(app_id="c1")
 

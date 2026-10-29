@@ -3298,11 +3298,18 @@ class ConnectCloudRevision(TypedDict):
     publish_log_channel: NotRequired[Optional[str]]
 
 
+class ConnectCloudSecret(TypedDict):
+    name: str
+    # The API never returns a secret's value. On update, None keeps the current value.
+    value: Optional[str]
+
+
 class ConnectCloudContent(TypedDict):
     id: str
     account_id: NotRequired[str]
     title: NotRequired[str]
     state: NotRequired[str]
+    secrets: NotRequired[list[ConnectCloudSecret]]
     next_revision: NotRequired[Optional[ConnectCloudRevision]]
     current_revision: NotRequired[Optional[ConnectCloudRevision]]
 
@@ -3684,7 +3691,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         content_type: str,
         app_mode: str,
         primary_file: str,
-        secrets: Optional[list[dict[str, str]]] = None,
+        secrets: Optional[list[ConnectCloudSecret]] = None,
         access: Optional[str] = None,
         python_version: Optional[str] = None,
     ) -> ConnectCloudContent:
@@ -3722,7 +3729,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         primary_file: str,
         app_mode: str,
         content_type: str,
-        secrets: Optional[list[dict[str, str]]] = None,
+        secrets: Optional[list[ConnectCloudSecret]] = None,
         new_bundle: bool = True,
         title: Optional[str] = None,
         access: Optional[str] = None,
@@ -3735,11 +3742,12 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         changes what kind of content this is (--app-id pointing at content of
         another type) does not keep the old content type.
 
-        `secrets` replaces the content's whole set, and `title` overwrites the
-        stored one, so both are omitted from the request entirely when None: a
-        deploy without -E/-t must leave the existing values alone. `access` (the
-        content's visibility) is omitted the same way, so a redeploy without
-        -V keeps whatever visibility the content already has.
+        `secrets` replaces the content's whole set (a secret left out is
+        deleted, and one with a None value keeps its current value), and `title`
+        overwrites the stored one, so both are omitted from the request entirely
+        when None: a deploy without -E/-t must leave the existing values alone.
+        `access` (the content's visibility) is omitted the same way, so a
+        redeploy without -V keeps whatever visibility the content already has.
 
         `python_version` is omitted when None for the same reason: a redeploy of
         content whose bundle carries no Python version keeps the version already
@@ -3970,9 +3978,10 @@ class ConnectCloudService:
             )
 
         # None (no -E given) means "leave the server's secrets alone"; it reaches
-        # update_content as None and is omitted from the PATCH. A non-empty -E set
-        # replaces the whole collection, matching the R client.
-        secrets = [{"name": name, "value": value} for name, value in env_vars.items()] if env_vars else None
+        # update_content as None and is omitted from the PATCH.
+        secrets: Optional[list[ConnectCloudSecret]] = None
+        if env_vars:
+            secrets = [ConnectCloudSecret(name=name, value=value) for name, value in env_vars.items()]
 
         content: Optional[ConnectCloudContent] = None
         if app_id:
@@ -4019,6 +4028,15 @@ class ConnectCloudService:
                 access=visibility,
             )
         else:
+            # The PATCH replaces the whole secret set, so send the content's other
+            # secrets with a None value to keep them, including ones added in the
+            # Connect Cloud UI.
+            if secrets is not None and env_vars:
+                secrets += [
+                    ConnectCloudSecret(name=secret["name"], value=None)
+                    for secret in content.get("secrets") or []
+                    if secret["name"] not in env_vars
+                ]
             # Existing content: push secrets and entrypoint, and ask for a new
             # revision to upload into. Only freshly *created* content (above) can
             # skip this. In particular content whose first publish failed has no
