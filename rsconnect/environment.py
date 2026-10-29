@@ -157,13 +157,20 @@ class Environment:
                 "The --override-python-version option is deprecated, "
                 "please use a .python-version file to force a specific interpreter version."
             )
-            python_version_requirement = f"=={override_python_version}"
+            suffix = ".*" if len(override_python_version.split(".")) == 2 else ""
+            if suffix:
+                logger.warning(
+                    "Older Posit Connect versions without Python version constraint support will use the "
+                    "local Python version instead of the minor-only override. Specify a full patch version "
+                    "for those servers."
+                )
+            python_version_requirement = f"=={override_python_version}{suffix}"
 
         # with cli_feedback("Inspecting Python environment"):
         environment = cls._get_python_env_info(module_file, python, requirements_file=requirements_file)
         environment.python_version_requirement = python_version_requirement
 
-        if override_python_version:
+        if override_python_version and len(override_python_version.split(".")) == 3:
             # Retaing backward compatibility with old Connect versions
             # that didn't support environment.python.requires
             environment.python = override_python_version
