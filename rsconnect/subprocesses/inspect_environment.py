@@ -13,13 +13,19 @@ import argparse
 import datetime
 import json
 import locale
+import ntpath
 import os
+import posixpath
 import tempfile
 import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Callable, List, Optional, cast
+from urllib.parse import parse_qs, urlsplit
+
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
 
 try:
     import tomllib
@@ -28,10 +34,8 @@ except ImportError:
     import toml as tomllib  # type: ignore[no-redef]
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
-rsconnect_requirement_re = re.compile(r"^\s*rsconnect[-_.]+python(?=\s*(?:[=<>!~@;\[]|$))", re.IGNORECASE)
-editable_re = re.compile(r"^\s*(?:-e\s+|--editable(?:\s+|=))(.+?)\s*$")
-remote_url_re = re.compile(r"^(?:[a-z][a-z0-9+.-]*://|(?:bzr|git|hg|svn)\+[a-z][a-z0-9+.-]*:)", re.IGNORECASE)
 exec_dir = os.path.dirname(sys.executable)
+rsconnect_project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @dataclass(frozen=True)
@@ -99,6 +103,7 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
             )
 
     if result is not None:
+        check_editables_are_bundleable(result["contents"], dirname)
         result["python"] = get_python_version()
         result["pip"] = get_version("pip")
         result["locale"] = get_default_locale()
@@ -155,7 +160,7 @@ def output_file(dirname: str, filename: str, package_manager: str):
         with open(path, "r", newline="") as f:
             data = f.read()
 
-        data = "\n".join(line for line in data.split("\n") if not rsconnect_requirement_re.match(line))
+        data = "\n".join(line for line in data.split("\n") if not is_rsconnect_requirement(line))
 
         return {
             "filename": filename,
@@ -312,30 +317,73 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
 
 
 def filter_pip_freeze_output(pip_stdout: str):
-    local_editables = [line.strip() for line in pip_stdout.split("\n") if is_local_editable(line)]
-    if local_editables:
-        raise EnvironmentException(
-            "Local editable dependencies cannot be installed on Connect:\n"
-            + "\n".join(local_editables)
-            + "\nProvide a requirements file with installable dependencies, "
-            "or replace these installs with packages available to Connect."
-        )
     return "\n".join(
         line
         for line in pip_stdout.split("\n")
-        if not rsconnect_requirement_re.match(line)
+        if not is_rsconnect_requirement(line)
         and not line.startswith("[notice]")
         and not line.startswith("# Editable install with no version control (")
     )
 
 
-def is_local_editable(line: str) -> bool:
-    match = editable_re.match(line)
-    if not match:
+def check_editables_are_bundleable(requirements: str, dirname: str):
+    unbundleable = [line.strip() for line in requirements.split("\n") if is_unbundleable_editable(line, dirname)]
+    if unbundleable:
+        raise EnvironmentException(
+            "Editable dependencies outside the deployment directory cannot be installed on Connect:\n"
+            + "\n".join(unbundleable)
+            + "\nProvide a requirements file that installs them from a package index, a VCS URL, "
+            "or a relative path inside the deployment directory."
+        )
+
+
+def is_rsconnect_requirement(line: str) -> bool:
+    target = editable_target(line)
+    if target is not None:
+        return is_rsconnect_editable(target)
+    try:
+        requirement = Requirement(line.strip())
+    except InvalidRequirement:
         return False
-    target = match.group(1)
-    scheme = target.split(":", 1)[0].lower()
-    return not remote_url_re.match(target) or scheme == "file" or scheme.endswith("+file")
+    return canonicalize_name(requirement.name) == "rsconnect-python"
+
+
+def editable_target(line: str) -> Optional[str]:
+    line = line.strip()
+    if line.startswith("--editable="):
+        return line[len("--editable=") :].strip()
+    for flag in ("-e", "--editable"):
+        if line.startswith(flag) and line[len(flag) : len(flag) + 1].isspace():
+            return line[len(flag) :].strip()
+    return None
+
+
+def is_rsconnect_editable(target: str) -> bool:
+    url = urlsplit(target)
+    # pip freeze names VCS editables with an #egg= fragment; local checkouts are only identifiable by path.
+    egg = parse_qs(url.fragment).get("egg")
+    if egg:
+        return canonicalize_name(egg[0]) == "rsconnect-python"
+    return is_path(target) and os.path.isdir(target) and os.path.samefile(target, rsconnect_project_dir)
+
+
+def is_unbundleable_editable(line: str, dirname: str) -> bool:
+    target = editable_target(line)
+    if not target:
+        return False
+    if not is_path(target):
+        scheme = urlsplit(target).scheme.lower()
+        return scheme == "file" or scheme.endswith("+file")
+    # Requirements may come from Windows or POSIX publishers; either kind of absolute path only exists locally.
+    if posixpath.isabs(target) or ntpath.isabs(target):
+        return True
+    bundle_dir = os.path.abspath(dirname)
+    return os.path.commonpath([bundle_dir, os.path.abspath(os.path.join(bundle_dir, target))]) != bundle_dir
+
+
+def is_path(target: str) -> bool:
+    # PEP 508 URLs use RFC 3986 schemes; a one-letter scheme is a Windows drive, so the target is a path.
+    return len(urlsplit(target).scheme) <= 1
 
 
 def strip_ref(line: str):
