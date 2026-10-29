@@ -547,11 +547,14 @@ rsconnect deploy dash --new my-app/
 #### Updating a Different Deployment
 
 If you want to update an existing deployment but don't have the saved deployment data,
-you can provide the app's numeric ID or GUID on the command line:
+you can provide the content's GUID on the command line:
 
 ```bash
-rsconnect deploy notebook --app-id 123456 my-notebook.ipynb
+rsconnect deploy notebook --guid 00000000-0000-0000-0000-000000000000 my-notebook.ipynb
 ```
+
+To update existing content on Posit Connect Cloud or shinyapps.io, pass the
+application's ID with `--app-id` instead.
 
 You must be the owner of the target deployment, or a collaborator with permission to
 change the content. The type of content (static notebook, notebook with source code,
@@ -562,18 +565,15 @@ API, or application) must match the existing deployment.
 > accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
 > activate the previous version and remove the erroneous one.
 
-##### Finding the App ID
+##### Finding the GUID
 
-The App ID associated with a piece of content you have previously deployed from the
+The GUID associated with a piece of content you have previously deployed from the
 `rsconnect` command line interface can be found easily by querying the deployment
 information using the `info` command. For more information, see the
 [Showing the Deployment Information](#showing-the-deployment-information) section.
 
-If the content was deployed elsewhere or `info` does not return the correct App ID,
-but you can open the content on Posit Connect, find the content and open it in a
-browser. The URL in your browser's location bar will contain `#/apps/NNN` where `NNN`
-is your App ID. The GUID identifier for the app may be found on the **Info** tab for
-the content in the Posit Connect UI.
+If the content was deployed elsewhere, find it with `rsconnect content search`, or
+open it in the Posit Connect UI and look on its **Info** tab.
 
 #### Showing the Deployment Information
 

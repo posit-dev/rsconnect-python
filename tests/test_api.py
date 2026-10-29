@@ -402,7 +402,7 @@ class RSConnectClientTestCase(TestCase):
     def test_deploy_existing_application_with_failure(self):
         with patch.object(RSConnectClient, "__init__", lambda _, server, cookies, timeout: None):
             client = RSConnectClient(Mock(), Mock(), Mock())
-            client.app_get = Mock(side_effect=RSConnectException(""))
+            client.content_get = Mock(side_effect=RSConnectException(""))
             client._server = Mock(spec=RSConnectServer)
             app_id = Mock()
             with self.assertRaises(RSConnectException):

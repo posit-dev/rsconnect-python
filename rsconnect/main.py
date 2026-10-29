@@ -138,6 +138,7 @@ from .models import (
     AppMode,
     AppModes,
     BuildStatus,
+    ContentGuidParamType,
     ContentGuidWithBundle,
     ContentGuidWithBundleParamType,
     KeyValueParamType,
@@ -292,10 +293,22 @@ def preflight_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
+def _resolve_guid_option(new: Optional[bool], app_id: Optional[str], guid: Optional[str]) -> Optional[str]:
+    """Fold --guid into the app_id that the deploy plumbing understands."""
+    if guid is None:
+        return app_id
+    if app_id:
+        raise click.UsageError("Specify only one of --guid or --app-id.")
+    if new:
+        raise click.UsageError("Specify only one of --new or --guid.")
+    return guid
+
+
 def _validate_preflight_options(ctx: click.Context) -> None:
     params = ctx.params
     if params["new"] and params["app_id"]:
         raise click.UsageError("Specify only one of --new or --app-id.")
+    _resolve_guid_option(params["new"], params["app_id"], params["guid"])
     if params["runtime"] == "nodejs":
         if params["fix"]:
             raise click.UsageError("--fix applies only to Python projects; Node.js metadata is left unchanged.")
@@ -711,13 +724,22 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help=(
             "Force a new deployment, even if there is saved metadata from a "
-            "previous deployment. Cannot be used with --app-id."
+            "previous deployment. Cannot be used with --guid or --app-id."
         ),
+    )
+    @click.option(
+        "--guid",
+        type=ContentGuidParamType(),
+        help="GUID of an existing Connect content item to replace. Cannot be used with --new or --app-id.",
     )
     @click.option(
         "--app-id",
         "-a",
-        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+        help=(
+            "ID of an existing Connect Cloud or shinyapps.io application to replace. "
+            "For Posit Connect, use --guid (--app-id also accepts a Connect content GUID). "
+            "Cannot be used with --new."
+        ),
     )
     @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
     @click.option(
@@ -750,6 +772,10 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
+        guid = cast(Optional[str], kwargs.pop("guid"))
+        kwargs["app_id"] = _resolve_guid_option(
+            cast(Optional[bool], kwargs.get("new")), cast(Optional[str], kwargs.get("app_id")), guid
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -1354,7 +1380,12 @@ def details(
 @click.argument("directory", default=".", type=click.Path(exists=True))
 @click.option("--fix", is_flag=True, help="For new content without a constraint, create a suggested .python-version.")
 @click.option("--new", is_flag=True, help="Check a new content item even when a deployment record exists.")
-@click.option("--app-id", "-a", help="Check an existing content item by ID or GUID.")
+@click.option(
+    "--guid",
+    type=ContentGuidParamType(),
+    help="Check an existing content item by GUID. Cannot be used with --new or --app-id.",
+)
+@click.option("--app-id", "-a", help="Check an existing content item by GUID. Prefer --guid.")
 @click.option("--runtime", type=click.Choice(["python", "nodejs"]), default="python", show_default=True)
 @click.option("--node", type=click.Path(exists=True, dir_okay=False), help="Node.js executable for --runtime nodejs.")
 @cli_exception_handler
@@ -1365,6 +1396,7 @@ def preflight(
     directory: str,
     fix: bool,
     new: bool,
+    guid: Optional[str],
     app_id: Optional[str],
     runtime: str,
     node: Optional[str],
@@ -1382,6 +1414,7 @@ def preflight(
     validation.require_posix("Deployment preflight")
     logger.log(VERBOSE, "Checking %s runtime availability.", runtime)
     _validate_preflight_options(ctx)
+    app_id = _resolve_guid_option(new, app_id, guid)
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
@@ -2868,7 +2901,7 @@ def deploy_pyproject(
         "Connect will regularly poll the repository for updates."
         "\n\n"
         "This command creates a new git-backed content item. To update an existing git-backed "
-        "content item, use the --app-id option with the content's GUID."
+        "content item, use the --guid option with the content's GUID."
     ),
 )
 @server_args

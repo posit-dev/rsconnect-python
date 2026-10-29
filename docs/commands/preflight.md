@@ -61,11 +61,11 @@ Operational errors exit with status 1. Their JSON contains `status: error`, `run
 Invalid command syntax exits with status 2 and prints diagnostics to stderr.
 Use `-v` or `-vv` for diagnostics on stderr; stdout remains reserved for the JSON result.
 
-Use `--new` to check a new content item when the project has a deployment record. Use `--app-id` to check a content item by its identifier (ID) or globally unique identifier (GUID). Do not combine these options.
+Use `--new` to check a new content item when the project has a deployment record. Use `--guid` to check a content item by its globally unique identifier (GUID). Do not combine these options.
 
 ```{.bash filename="Terminal"}
 rsconnect preflight --name myserver ./project --new
-rsconnect preflight --name myserver ./project --app-id 00000000-0000-0000-0000-000000000000
+rsconnect preflight --name myserver ./project --guid 00000000-0000-0000-0000-000000000000
 ```
 
 For content deployed from a notebook, manifest, bundle, or Quarto file, pass that file to select its deployment record:
@@ -76,10 +76,10 @@ rsconnect preflight --name myserver ./project/report.ipynb
 
 Preflight reads project metadata and local prerequisites from the file's parent directory.
 An unreadable content item or ambiguous deployment record returns `unknown`; inspect its actions before deploying.
-If a directory contains file deployment history, pass the exact deployed file or `--app-id` to resolve the target.
+If a directory contains file deployment history, pass the exact deployed file or `--guid` to resolve the target.
 An unresolved target prevents `--fix` from creating a Python pin.
 Symlinked, non-regular, or oversized deployment records also return `unknown`.
-Inspect the suggested actions and repair the record, or pass `--app-id` to select the existing content directly.
+Inspect the suggested actions and repair the record, or pass `--guid` to select the existing content directly.
 
 ## Add a Python version pin
 
