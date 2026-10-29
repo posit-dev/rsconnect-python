@@ -824,8 +824,8 @@ def make_notebook_html_bundle(
             cmd.append("--TagRemovePreprocessor.remove_input_tags=['hide_input']")
     try:
         output = check_output(cmd)
-    except subprocess.CalledProcessError:
-        raise
+    except subprocess.CalledProcessError as error:
+        raise RSConnectException(f"Rendering {filename} with nbconvert failed (see output above)") from error
 
     nb_name = basename(filename)
     filename = splitext(nb_name)[0] + ".html"

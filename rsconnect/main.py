@@ -2195,7 +2195,6 @@ def deploy_notebook(
     environment = Environment.create_python_environment(
         base_dir,
         requirements_file=requirements_file,
-        app_file=file,
         python=python,
         override_python_version=override_python_version,
         package_manager=package_installer,
@@ -3981,7 +3980,6 @@ def write_manifest_notebook(
             requirements_file=requirements_file,
             python=python,
             override_python_version=override_python_version,
-            app_file=file,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
@@ -4104,7 +4102,7 @@ def write_manifest_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("Checking arguments"):
-        base_dir = dirname(path)
+        base_dir = path if isdir(path) else dirname(path)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -4117,7 +4115,6 @@ def write_manifest_voila(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
-            app_file=path,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
@@ -5688,7 +5685,6 @@ def remove_content_build(
     metavar="TEXT",
     help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 # todo: --format option (json, text)
 @click.pass_context
 def list_content_build(
