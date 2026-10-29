@@ -2067,8 +2067,11 @@ that is installed in Connect, For example, this command:</p>
 </code></pre></div>
 <p>will deploy the content in <code>my-api</code> while requesting that Connect
 use Python version 3.11.5.
-The <code>--override-python-version</code> option requires a full version, including the
-patch component; for example, use <code>3.11.5</code> rather than <code>3.11</code>.</p>
+On modern Connect versions, a major and minor version such as <code>3.11</code> requests
+the latest available patch release in that series. The manifest records the
+local Python version separately for compatibility. Older Connect versions that
+do not support version constraints use that local version instead, so specify a
+full version such as <code>3.11.5</code> when deploying to those servers.</p>
 <blockquote>
 <p><strong>Note</strong>
 The packages and package versions listed in <code>requirements.txt</code> must be
