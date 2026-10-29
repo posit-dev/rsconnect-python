@@ -144,12 +144,6 @@ def test_filter_generated_requirements():
             "rsconnect-python-extra==1.0",
             "demo @ file:///work/rsconnect-demo",
             "# Editable install with no version control (demo==1.0)",
-            "-e /work/rsconnect-demo",
-            "-e ./local-project",
-            "--editable=file:///work/project",
-            "-e git+file:///work/repo#egg=project",
-            "-e git+file:/work/repo#egg=project",
-            "-e C:\\work\\project",
             "-e git+https://example.com/repo.git#egg=remote",
             "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
             "-e bzr+lp:project#egg=remote-bzr",
@@ -168,6 +162,49 @@ def test_filter_generated_requirements():
         "-e git+https:repo#egg=remote-git",
         "# my rsconnect project",
     ]
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "-e /work/rsconnect-demo",
+        "-e ./local-project",
+        "--editable=file:///work/project",
+        "-e git+file:///work/repo#egg=project",
+        "-e git+file:/work/repo#egg=project",
+        "-e C:\\work\\project",
+    ],
+)
+def test_filter_generated_requirements_rejects_local_editables(requirement):
+    with pytest.raises(EnvironmentException) as error:
+        filter_pip_freeze_output(f"# Editable install with no version control (demo==1.0)\n{requirement}\n")
+
+    assert requirement in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+def test_filter_generated_requirements_reports_all_local_editables():
+    with pytest.raises(EnvironmentException) as error:
+        filter_pip_freeze_output("-e /work/one\n-e /work/two")
+
+    assert "-e /work/one" in str(error.value)
+    assert "-e /work/two" in str(error.value)
+
+
+def test_inspect_environment_reports_local_editable(tmp_path: Path, monkeypatch):
+    pip_dir = tmp_path / "pip"
+    pip_dir.mkdir()
+    (pip_dir / "__init__.py").write_text("")
+    (pip_dir / "__main__.py").write_text(
+        "print('# Editable install with no version control (demo==1.0)')\nprint('-e /work/demo')\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(tmp_path), str(Path(__file__).resolve().parents[1])]))
+
+    with pytest.raises(RSConnectException, match="Local editable dependencies cannot be installed on Connect") as error:
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file=None)
+
+    assert "-e /work/demo" in str(error.value)
+    assert "requirements file" in str(error.value)
 
 
 def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):

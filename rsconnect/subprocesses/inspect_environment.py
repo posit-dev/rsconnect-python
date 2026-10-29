@@ -312,13 +312,20 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
 
 
 def filter_pip_freeze_output(pip_stdout: str):
+    local_editables = [line.strip() for line in pip_stdout.split("\n") if is_local_editable(line)]
+    if local_editables:
+        raise EnvironmentException(
+            "Local editable dependencies cannot be installed on Connect:\n"
+            + "\n".join(local_editables)
+            + "\nProvide a requirements file with installable dependencies, "
+            "or replace these installs with packages available to Connect."
+        )
     return "\n".join(
         line
         for line in pip_stdout.split("\n")
         if not rsconnect_requirement_re.match(line)
         and not line.startswith("[notice]")
         and not line.startswith("# Editable install with no version control (")
-        and not is_local_editable(line)
     )
 
 
