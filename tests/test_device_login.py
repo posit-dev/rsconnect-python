@@ -738,14 +738,18 @@ def test_pending_state_owned_by_another_user_is_rejected(login_env: Any, monkeyp
     device_login.start_connect_login(SERVER, "work")
     original_fstat = os.fstat
 
+    class OtherOwnerStat:
+        # Delegate every attribute except st_uid so other os.fstat callers
+        # (e.g. pytest's output capture) still see a complete stat result.
+        def __init__(self, info: os.stat_result):
+            self._info = info
+            self.st_uid = info.st_uid + 1
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._info, name)
+
     def other_owner(descriptor: int) -> Any:
-        info = original_fstat(descriptor)
-        return SimpleNamespace(
-            st_mode=info.st_mode,
-            st_uid=info.st_uid + 1,
-            st_dev=info.st_dev,
-            st_ino=info.st_ino,
-        )
+        return OtherOwnerStat(original_fstat(descriptor))
 
     monkeypatch.setattr(device_login.os, "fstat", other_owner)
     with pytest.raises(RSConnectException, match="owner-only"):
