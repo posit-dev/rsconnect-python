@@ -792,6 +792,33 @@ class RSConnectClientDeployGitTestCase(TestCase):
         self.assertIn("not enabled", str(ctx.exception))
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_missing_content_suggests_omitting_guid(self):
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"code": 4, "error": "Requested object does not exist."}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        with self.assertRaises(RSConnectException) as ctx:
+            client.deploy_git(
+                app_id="abc-123",
+                name="my-app",
+                repository="https://github.com/user/repo",
+                branch="main",
+                subdirectory="",
+                title="My App",
+                env_vars=None,
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("Omit --guid/--app-id to create new content", message)
+        self.assertNotIn("--new", message)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_git_updates_existing_content(self):
         """Test that deploy_git updates existing git-managed content when app_id is provided."""
         server = RSConnectServer("http://test-server", "api_key")

@@ -929,7 +929,8 @@ class RSConnectClient(BearerTokenHTTPServer):
             try:
                 app = self.content_get(app_id)
             except RSConnectException as e:
-                raise RSConnectException(f"{e} Try setting the --new flag or omit --guid to create new content.") from e
+                # app_id may have come from either --guid or --app-id (publish_args folds them together).
+                raise RSConnectException(f"{e} Omit --guid/--app-id to create new content instead.") from e
 
         app_guid = app["guid"]
 
