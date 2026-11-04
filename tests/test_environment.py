@@ -84,7 +84,7 @@ class TestEnvironment(TestCase):
             )
 
             assert result.filename.endswith("custom.txt")
-            assert result.contents == "foo==1.0\nbar>=2.0\nrsconnect==0.1\n"
+            assert result.contents == "foo==1.0\nbar>=2.0\n"
             assert result.source == "file"
 
     def test_pip_freeze(self):
@@ -139,12 +139,15 @@ def test_filter_generated_requirements():
     raw = "\n".join(
         [
             "rsconnect-python==1.0",
+            "rsconnect==1.0",
+            "RSCONNECT @ https://example.com/rsconnect.whl",
             "RSCONNECT_PYTHON @ https://example.com/rsconnect.whl",
             "rsconnect.python>=1",
             "rsconnect-python",
             "  Rsconnect_-Python[extra] ; python_version >= '3.8'",
             "-rsconnect-python",
             "my-rsconnect-utils==0.1",
+            "rsconnect-utils==0.1",
             "rsconnect-python-extra==1.0",
             "demo @ file:///work/rsconnect-demo",
             "# Editable install with no version control (demo==1.0)",
@@ -162,6 +165,7 @@ def test_filter_generated_requirements():
     assert filter_pip_freeze_output(raw).splitlines() == [
         "-rsconnect-python",
         "my-rsconnect-utils==0.1",
+        "rsconnect-utils==0.1",
         "rsconnect-python-extra==1.0",
         "demo @ file:///work/rsconnect-demo",
         "-e git+https://example.com/repo.git#egg=remote",
@@ -217,12 +221,16 @@ def test_filter_generated_requirements_drops_editable_rsconnect():
         [
             "six==1.17.0",
             "-e git+https://github.com/posit-dev/rsconnect-python.git@abc123#egg=rsconnect_python",
+            "-e git+https://example.com/rsconnect.git#egg=RSCONNECT",
+            "-e git+https://example.com/rsconnect-utils.git#egg=rsconnect-utils",
             "# Editable install with no version control (rsconnect-python==1.0)",
             f"-e {rsconnect_project_dir}",
         ]
     )
 
-    assert filter_pip_freeze_output(raw) == "six==1.17.0"
+    assert filter_pip_freeze_output(raw) == (
+        "six==1.17.0\n-e git+https://example.com/rsconnect-utils.git#egg=rsconnect-utils"
+    )
 
 
 def test_check_editables_reports_all_unbundleable_editables(tmp_path: Path):
@@ -254,7 +262,7 @@ def test_inspect_environment_reports_local_editable(tmp_path: Path, monkeypatch)
 
 def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):
     (tmp_path / "requirements.txt").write_bytes(
-        b"RSCONNECT_PYTHON==1.0\r\nmy-rsconnect-utils==0.1\r\n"
+        b"RSCONNECT_PYTHON==1.0\r\nrsconnect==1.0\r\nmy-rsconnect-utils==0.1\r\n"
         b"demo @ file:///work/rsconnect-demo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
     )
 

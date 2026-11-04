@@ -36,6 +36,7 @@ except ImportError:
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
 rsconnect_project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+excluded_distributions = {"rsconnect", "rsconnect-python"}
 
 
 @dataclass(frozen=True)
@@ -345,7 +346,7 @@ def is_rsconnect_requirement(line: str) -> bool:
         requirement = Requirement(line.strip())
     except InvalidRequirement:
         return False
-    return canonicalize_name(requirement.name) == "rsconnect-python"
+    return canonicalize_name(requirement.name) in excluded_distributions
 
 
 def editable_target(line: str) -> Optional[str]:
@@ -363,7 +364,7 @@ def is_rsconnect_editable(target: str) -> bool:
     # pip freeze names VCS editables with an #egg= fragment; local checkouts are only identifiable by path.
     egg = parse_qs(url.fragment).get("egg")
     if egg:
-        return canonicalize_name(egg[0]) == "rsconnect-python"
+        return canonicalize_name(egg[0]) in excluded_distributions
     return is_path(target) and os.path.isdir(target) and os.path.samefile(target, rsconnect_project_dir)
 
 
