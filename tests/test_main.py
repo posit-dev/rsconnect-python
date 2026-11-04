@@ -1377,7 +1377,9 @@ class TestMain:
             "--guid",
             "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
         ]
-        result = CliRunner().invoke(cli, args)
+        # Integration CI exports CONNECT_API_KEY/CONNECT_SERVER, which would trip the
+        # Connect-vs-shinyapps option conflict check before the --guid check.
+        result = CliRunner().invoke(cli, args, env={"CONNECT_API_KEY": None, "CONNECT_SERVER": None})
         assert result.exit_code == 1, result.output
         assert "--guid applies only to Posit Connect" in result.output
 
