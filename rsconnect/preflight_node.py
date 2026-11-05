@@ -311,7 +311,7 @@ def _existing_content_version(
     client: RSConnectClient, app_id: str, warnings: List[str], actions: List[str]
 ) -> Tuple[Optional[str], bool]:
     try:
-        content = client.get_content_by_id(app_id)
+        content = client.content_get(app_id)
     except RSConnectException as err:
         warnings.append(f"Could not read existing content's Node.js version: {err}")
         if err.status == 404:
@@ -483,7 +483,7 @@ def run_node_preflight(executor: RSConnectExecutor, project: str, node: Optional
     exists, app_id, target_issue = _deployment_target(executor, target)
     if target_issue:
         warnings.append(target_issue)
-        actions.append("Resolve the local deployment record with --app-id or use --new for a separate content item.")
+        actions.append("Resolve the local deployment record with --guid or use --new for a separate content item.")
     compatibility = "unknown" if target_issue else _server_compatibility(info, not exists, evaluation)
     existing_content, content_readable = _existing_content(
         client, exists, app_id, compatibility, warnings, actions, target_issue

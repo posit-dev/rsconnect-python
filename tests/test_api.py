@@ -2,6 +2,7 @@ import io
 import json
 import os
 import sys
+import tempfile
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -19,6 +20,8 @@ from rsconnect.api import (
     verify_api_key,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
+from rsconnect.metadata import AppStore
+from rsconnect.models import AppModes
 
 from .utils import require_api_key, require_connect
 
@@ -402,7 +405,7 @@ class RSConnectClientTestCase(TestCase):
     def test_deploy_existing_application_with_failure(self):
         with patch.object(RSConnectClient, "__init__", lambda _, server, cookies, timeout: None):
             client = RSConnectClient(Mock(), Mock(), Mock())
-            client.app_get = Mock(side_effect=RSConnectException(""))
+            client.content_get = Mock(side_effect=RSConnectException(""))
             client._server = Mock(spec=RSConnectServer)
             app_id = Mock()
             with self.assertRaises(RSConnectException):
@@ -650,6 +653,57 @@ class SPCSConnectServerTestCase(TestCase):
             server.exchange_token()
 
 
+class SPCSExplicitAppIdTestCase(TestCase):
+    """An explicit --app-id/--guid against Connect in SPCS is resolved like any Connect server."""
+
+    GUID = "11111111-2222-3333-4444-555555555555"
+
+    def _executor(self, app_id):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.logger = None
+        executor.ctx = None
+        executor.remote_server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
+        executor.app_store = AppStore(app_path)
+        executor.app_store_version = None
+        executor.path = app_path
+        executor.new = False
+        executor.app_id = app_id
+        executor.app_mode = None
+        return executor
+
+    @patch("rsconnect.api.SPCSConnectServer.exchange_token", return_value="snowflake-token")
+    def test_validate_app_mode_looks_up_existing_content_by_guid(self, _exchange_token):
+        executor = self._executor(self.GUID)
+        content = {"guid": self.GUID, "app_mode": AppModes.PYTHON_SHINY.ordinal()}
+        with patch.object(RSConnectClient, "content_get", return_value=content) as content_get:
+            executor.validate_app_mode(AppModes.PYTHON_SHINY)
+
+        content_get.assert_called_once_with(self.GUID)
+        self.assertEqual(executor.app_id, self.GUID)
+        self.assertEqual(executor.app_mode, AppModes.PYTHON_SHINY)
+
+    @patch("rsconnect.api.SPCSConnectServer.exchange_token", return_value="snowflake-token")
+    def test_validate_app_mode_rejects_mismatched_existing_mode(self, _exchange_token):
+        executor = self._executor(self.GUID)
+        content = {"guid": self.GUID, "app_mode": AppModes.STREAMLIT_APP.ordinal()}
+        with patch.object(RSConnectClient, "content_get", return_value=content):
+            with self.assertRaises(RSConnectException) as ctx:
+                executor.validate_app_mode(AppModes.PYTHON_SHINY)
+
+        self.assertIn("existing deployment has mode", str(ctx.exception))
+
+    def test_validate_explicit_app_id_rejects_numeric_id(self):
+        executor = self._executor("1234")
+        with self.assertRaises(RSConnectException) as ctx:
+            executor.validate_explicit_app_id()
+
+        self.assertIn("must be a content GUID", str(ctx.exception))
+
+
 class RSConnectClientDeployGitTestCase(TestCase):
     """Tests for RSConnectClient.deploy_git() method."""
 
@@ -790,6 +844,33 @@ class RSConnectClientDeployGitTestCase(TestCase):
             )
 
         self.assertIn("not enabled", str(ctx.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_missing_content_suggests_omitting_guid(self):
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"code": 4, "error": "Requested object does not exist."}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        with self.assertRaises(RSConnectException) as ctx:
+            client.deploy_git(
+                app_id="abc-123",
+                name="my-app",
+                repository="https://github.com/user/repo",
+                branch="main",
+                subdirectory="",
+                title="My App",
+                env_vars=None,
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("Omit --guid/--app-id to create new content", message)
+        self.assertNotIn("--new", message)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_git_updates_existing_content(self):

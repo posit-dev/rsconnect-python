@@ -920,7 +920,7 @@ def test_incomplete_appstore_record_returns_actionable_unknown_without_fixing(
     assert report["status"] == "unknown"
     assert report["changed_files"] == []
     assert report["warnings"]
-    assert any("--new" in action or "--app-id" in action for action in report["actions"])  # type: ignore[union-attr]
+    assert any("--new" in action or "--guid" in action for action in report["actions"])  # type: ignore[union-attr]
     assert not (project / ".python-version").exists()
 
 
