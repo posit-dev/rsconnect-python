@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Getting-started documentation recommends `rsconnect login` for Posit Connect,
+  with API keys as an alternative.
 - `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
   requests with your login. `--refresh` gets a new token after the server rejects

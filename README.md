@@ -24,12 +24,10 @@ python -m pip install rsconnect-python
 
 ## Usage with Posit Connect
 
-[Get an API key from your Posit Connect server](https://docs.posit.co/connect/user/api-keys/) with at least publisher privileges:
-
-Store your credentials:
+Log in to your Posit Connect server:
 
 ```bash
-rsconnect add --server https://connect.example.com --api-key <YOUR-CONNECT-API-KEY> --name production
+rsconnect login https://connect.example.com --name production
 ```
 
 Deploy your application:
@@ -37,6 +35,16 @@ Deploy your application:
 ```bash
 rsconnect deploy shiny app.py --title "my shiny app"
 ```
+
+Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
+remote containers, or other sessions where the browser cannot reach the CLI's
+local callback, use `--use-device-code` with Connect 2026.06.0 or later.
+
+For older servers, or automation that cannot use identity tokens, [get an API
+key](https://docs.posit.co/connect/user/api-keys/) and store it with
+`rsconnect add --server https://connect.example.com --api-key <YOUR-CONNECT-API-KEY> --name production`.
+See the [authentication guide](https://docs.posit.co/rsconnect-python/#managing-server-information)
+for identity token requirements and other login options.
 
 [Read more about publisher and admin capabilities on the docs site.](https://docs.posit.co/rsconnect-python)
 
