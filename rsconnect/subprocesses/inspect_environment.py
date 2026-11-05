@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 try:
     import tomllib
@@ -174,15 +175,33 @@ def output_file(dirname: str, filename: str, package_manager: str):
 
 
 def pip_freeze():
-    """Inspect the environment using `pip freeze --disable-pip-version-check version`.
+    """Inspect the environment using `pip freeze`.
 
     Returns a dictionary containing the filename
     (always 'requirements.txt') and contents if successful,
     or a dictionary containing 'error' on failure.
     """
+    pip_version = get_version("pip")
+    if Version(pip_version) < Version("20.3"):
+        raise EnvironmentException(
+            f"Generating requirements requires pip 20.3 or later (found {pip_version}). "
+            f"Upgrade pip with '{sys.executable} -m pip install --upgrade pip', "
+            "or provide a requirements file."
+        )
+
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "freeze", "--disable-pip-version-check"],
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "freeze",
+                "--disable-pip-version-check",
+                "--exclude",
+                "rsconnect-python",
+                "--exclude",
+                "rsconnect",
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,

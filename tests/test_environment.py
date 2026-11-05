@@ -246,7 +246,12 @@ def test_inspect_environment_reports_local_editable(tmp_path: Path, monkeypatch)
     pip_dir.mkdir()
     (pip_dir / "__init__.py").write_text("")
     (pip_dir / "__main__.py").write_text(
-        "print('# Editable install with no version control (demo==1.0)')\nprint('-e /work/demo')\n"
+        "import sys\n"
+        "if '--version' in sys.argv:\n"
+        "    print('pip 20.3')\n"
+        "else:\n"
+        "    print('# Editable install with no version control (demo==1.0)')\n"
+        "    print('-e /work/demo')\n"
     )
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(tmp_path), str(Path(__file__).resolve().parents[1])]))
 
@@ -257,6 +262,20 @@ def test_inspect_environment_reports_local_editable(tmp_path: Path, monkeypatch)
         Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file=None)
 
     assert "-e /work/demo" in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+def test_inspect_environment_rejects_old_pip_for_generated_requirements(tmp_path: Path, monkeypatch):
+    pip_dir = tmp_path / "pip"
+    pip_dir.mkdir()
+    (pip_dir / "__init__.py").write_text("")
+    (pip_dir / "__main__.py").write_text("print('pip 20.2.4')\n")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(tmp_path), str(Path(__file__).resolve().parents[1])]))
+
+    with pytest.raises(RSConnectException, match=r"requires pip 20\.3 or later \(found 20\.2\.4\)") as error:
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file=None)
+
+    assert "install --upgrade pip" in str(error.value)
     assert "requirements file" in str(error.value)
 
 
