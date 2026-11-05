@@ -1488,16 +1488,14 @@ pip:</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/posit-dev/rsconnect-python.git
 </code></pre></div>
 <h3 id="using-the-rsconnect-cli">Using the rsconnect CLI<a class="headerlink" href="#using-the-rsconnect-cli" title="Permanent link">#</a></h3>
-<p>Here's an example command that deploys a Jupyter notebook to Posit Connect.</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>my-notebook.ipynb
+<p>Log in to Posit Connect, then deploy a Jupyter notebook:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>login<span class="w"> </span>https://connect.example.org
+rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
 <blockquote>
 <p><strong>Note</strong>
 The examples here use long command line options, but there are short
-options (<code>-s</code>, <code>-k</code>, etc.) available also. Run <code>rsconnect deploy notebook --help</code>
+options available also. Run <code>rsconnect deploy notebook --help</code>
 for details.</p>
 </blockquote>
 <h3 id="setting-up-rsconnect-cli-auto-completion">Setting up <code>rsconnect</code> CLI auto-completion<a class="headerlink" href="#setting-up-rsconnect-cli-auto-completion" title="Permanent link">#</a></h3>
@@ -1520,38 +1518,41 @@ autoload<span class="w"> </span>-Uz<span class="w"> </span>compinit
 compinit
 </code></pre></div>
 <h3 id="managing-server-information">Managing Server Information<a class="headerlink" href="#managing-server-information" title="Permanent link">#</a></h3>
-<p>The information used by the <code>rsconnect</code> command to communicate with a Posit Connect
-server can be tedious to repeat on every command. To help, the CLI supports the idea
-of saving this information, making it usable by a simple nickname.</p>
-<blockquote>
-<p><strong>Warning</strong>
-One item of information saved is the API key used to authenticate with
-Posit Connect. Although the file where this information is saved is marked as
-accessible by the owner only, it's important to remember that the key is present
-in the file as plain text so care must be taken to prevent any unauthorized access
-to the server information file.</p>
-</blockquote>
+<p>The CLI can save Posit Connect server information under a nickname, so you don't
+need to repeat it on every command.</p>
 <h4 id="remembering-server-information">Remembering Server Information<a class="headerlink" href="#remembering-server-information" title="Permanent link">#</a></h4>
-<p>Use the <code>add</code> command to store information about a Posit Connect server:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>add<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--name<span class="w"> </span>myserver
+<p>Use <code>login</code> to authenticate and save a server:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>login<span class="w"> </span>https://connect.example.org
 </code></pre></div>
-<blockquote>
-<p><strong>Note</strong>
-The <code>rsconnect</code> CLI will verify that the serve URL and API key
-are valid. If either is found not to be, no information will be saved.</p>
-</blockquote>
-<p>If any of the access information for the server changes, simply rerun the
-<code>add</code> command with the new information and it will replace the original
-information.</p>
-<p>Once the server's information is saved, you can refer to it by its nickname:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>my-notebook.ipynb
-</code></pre></div>
-<p>If there is information for only one server saved, this will work too:</p>
+<p>Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
+remote containers, or other sessions where the browser cannot reach the CLI's
+local callback, use <code>--use-device-code</code>; this requires Connect 2026.06.0 or later.
+The <code>--no-wait</code> device flow also requires Connect 2026.06.0 or later.</p>
+<p>For automation, <code>--identity-token</code> and <code>--identity-token-file</code> require Connect
+2026.08.0 or later, or Connect 2026.02.0 or later with identity federation.</p>
+<p>Login sets the server as the default unless <code>--no-set-default</code> is supplied.
+Later commands can use that default:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
+<p>See the <a href="commands/login/"><code>login</code></a>, <a href="commands/logout/"><code>logout</code></a>, and
+<a href="commands/token/"><code>token</code></a> references for more options.</p>
+<p>As an alternative for servers older than Connect 2026.02.0 or automation that
+cannot use identity tokens, <a href="https://docs.posit.co/connect/user/api-keys/">create an API key</a>
+and save it with <code>add</code>:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>add<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--name<span class="w"> </span>myserver
+</code></pre></div>
+<p>You can also pass <code>--api-key</code> or set <code>CONNECT_API_KEY</code> on individual commands.
+The CLI verifies the server URL and API key before saving them.</p>
+<blockquote>
+<p><strong>Warning</strong>
+Saved API keys are stored as plain text in the server information file.
+The file is accessible only by its owner; protect it from unauthorized access.
+See <a href="deploying/#stored-information-files">Stored Information Files</a> for
+OAuth token storage.</p>
+</blockquote>
 <h4 id="listing-server-information">Listing Server Information<a class="headerlink" href="#listing-server-information" title="Permanent link">#</a></h4>
 <p>You can see the list of saved server information with:</p>
 <div class="highlight"><pre><span></span><code>rsconnect list
