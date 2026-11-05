@@ -84,6 +84,9 @@ Use `login` to authenticate and save a server:
 rsconnect login https://connect.example.org --name myserver
 ```
 
+The `--name` option is optional; without it, the nickname defaults to the
+server's hostname.
+
 Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
 remote containers, or other sessions where the browser cannot reach the CLI's
 local callback, use `--use-device-code`; this requires Connect 2026.06.0 or later.
