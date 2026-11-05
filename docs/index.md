@@ -81,11 +81,8 @@ need to repeat it on every command.
 Use `login` to authenticate and save a server:
 
 ```bash
-rsconnect login https://connect.example.org --name myserver
+rsconnect login https://connect.example.org
 ```
-
-The `--name` option is optional; without it, the nickname defaults to the
-server's hostname.
 
 Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
 remote containers, or other sessions where the browser cannot reach the CLI's
@@ -96,10 +93,10 @@ For automation, `--identity-token` and `--identity-token-file` require Connect
 2026.08.0 or later, or Connect 2026.02.0 or later with identity federation.
 
 Login sets the server as the default unless `--no-set-default` is supplied.
-Later commands can omit `--name`, or select a saved server by nickname:
+Later commands can use that default:
 
 ```bash
-rsconnect deploy notebook --name myserver my-notebook.ipynb
+rsconnect deploy notebook my-notebook.ipynb
 ```
 
 See the [`login`](commands/login.md), [`logout`](commands/logout.md), and

@@ -27,7 +27,7 @@ python -m pip install rsconnect-python
 Log in to your Posit Connect server:
 
 ```bash
-rsconnect login https://connect.example.com --name production
+rsconnect login https://connect.example.com
 ```
 
 Deploy your application:
@@ -42,7 +42,7 @@ or other sessions where the browser cannot reach the CLI's local callback, use
 
 For older servers, or automation that cannot use identity tokens, [get an API
 key](https://docs.posit.co/connect/user/api-keys/) and store it with
-`rsconnect add --server https://connect.example.com --api-key <YOUR-CONNECT-API-KEY> --name production`.
+`rsconnect add`.
 See the [authentication guide](https://docs.posit.co/rsconnect-python/#managing-server-information)
 for identity token requirements and other login options.
 
