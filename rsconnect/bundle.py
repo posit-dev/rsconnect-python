@@ -513,7 +513,15 @@ def make_hasher():
 
 def file_checksum(path: str | Path) -> str:
     """Calculate the md5 hex digest of the specified file"""
-    with open(path, "rb") as f:
+    try:
+        file = open(path, "rb")
+    except FileNotFoundError as exc:
+        if os.path.islink(path):
+            raise RSConnectException(
+                f"Cannot bundle dangling symlink '{path}'. Fix or exclude it and try again."
+            ) from exc
+        raise
+    with file as f:
         m = make_hasher()
         chunk_size = 64 * 1024
 
@@ -818,14 +826,14 @@ def make_notebook_html_bundle(
     try:
         output = check_output(cmd, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError as error:
+        if error.stderr:
+            sys.__stderr__.write(error.stderr.decode("utf-8", errors="replace"))
         if error.stderr and b"No module named nbconvert" in error.stderr:
             raise RSConnectException(
                 f"nbconvert is not installed in the selected Python environment ({python}). "
                 "Install nbconvert in that environment to deploy a static notebook."
             ) from error
-        if error.stderr:
-            sys.stderr.write(error.stderr.decode("utf-8", errors="replace"))
-        raise
+        raise RSConnectException(f"Rendering {filename} with nbconvert failed (see output above)") from error
 
     nb_name = basename(filename)
     filename = splitext(nb_name)[0] + ".html"

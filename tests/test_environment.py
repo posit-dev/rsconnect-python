@@ -495,7 +495,7 @@ def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, m
     (project / "requirements.txt").write_text("project-package==1.0\n")
     existing = Environment.create_python_environment(str(project), python=str(python))
     assert existing.pip is None
-    assert existing.contents == "project-package==1.0\n"
+    assert existing.contents.splitlines() == ["project-package==1.0"]
     uv_environment = Environment.create_python_environment(
         str(project), python=str(python), package_manager=PackageInstaller.UV
     )
