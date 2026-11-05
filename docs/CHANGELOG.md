@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Generating requirements from an environment now requires pip 20.3 or later.
+  Older environments can upgrade pip or provide a requirements file.
+- Reports editable dependencies outside the deployment directory, which Posit Connect
+  cannot install, in both generated and user-provided requirements. Requirement
+  filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
 - Getting-started documentation recommends `rsconnect login` for Posit Connect,
   with API keys as an alternative.
 - `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a

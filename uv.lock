@@ -5532,7 +5532,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.0.0" },
     { name = "keyring", marker = "extra == 'keyring'", specifier = ">=23.0.0" },
     { name = "packaging", specifier = ">=20.0" },
-    { name = "pip", specifier = ">=10.0.0" },
+    { name = "pip", specifier = ">=20.3" },
     { name = "pyjwt", marker = "python_full_version < '3.9'", specifier = ">=2.4.0" },
     { name = "pyjwt", marker = "python_full_version >= '3.9'", specifier = ">=2.15.0" },
     { name = "semver", specifier = ">=2.0.0,<4.0.0" },
