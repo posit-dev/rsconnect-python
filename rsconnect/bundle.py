@@ -828,6 +828,7 @@ def make_notebook_html_bundle(
     except subprocess.CalledProcessError as error:
         if error.stderr:
             sys.__stderr__.write(error.stderr.decode("utf-8", errors="replace"))
+            sys.__stderr__.flush()
         if error.stderr and b"No module named nbconvert" in error.stderr:
             raise RSConnectException(
                 f"nbconvert is not installed in the selected Python environment ({python}). "
