@@ -30,7 +30,7 @@ pip install git+https://github.com/posit-dev/rsconnect-python.git
 Log in to Posit Connect, then deploy a Jupyter notebook:
 
 ```bash
-rsconnect login https://connect.example.org --name myserver
+rsconnect login https://connect.example.org
 rsconnect deploy notebook my-notebook.ipynb
 ```
 
