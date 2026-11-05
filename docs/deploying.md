@@ -38,7 +38,8 @@ ensuring that you use the same Python that you use to run your Jupyter Notebook:
 /path/to/python -m pip list --format=freeze
 ```
 
-If the environment does not have pip, use `uv pip freeze --python /path/to/python` instead.
+If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
+requirements. To inspect it manually, use `uv pip freeze --python /path/to/python`.
 
 #### Python Version
 

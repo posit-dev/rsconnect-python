@@ -3,7 +3,7 @@
 Given a directory and a Python executable, this module inspects the environment
 and returns information about the Python version and the environment itself.
 
-The selected interpreter runs the environment inspector as an isolated subprocess.
+The CLI runs the inspector and queries the selected project interpreter.
 """
 
 import typing
@@ -176,7 +176,9 @@ class Environment:
 
         if environment.package_manager == PackageInstaller.UV:
             try:
-                uv_version = subprocess.check_output([_uv_bin(), "--version"], text=True).strip().split()
+                uv_version = (
+                    subprocess.check_output([environment.uv_executable, "--version"], text=True).strip().split()
+                )
                 if len(uv_version) >= 2 and uv_version[0] == "uv":
                     environment.uv = uv_version[1]
             except (OSError, subprocess.SubprocessError):
@@ -221,30 +223,26 @@ class Environment:
         requirements_file: typing.Optional[str] = "requirements.txt",
         check_output: typing.Callable[..., bytes] = subprocess.check_output,
     ) -> "Environment":
-        """Run the environment inspector using the specified python binary.
+        """Run the environment inspector against the specified python binary.
 
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        args = [python, "-I", inspect_environment.__file__, "--uv", _uv_bin()]
+        uv_executable = _uv_bin()
+        args = [
+            sys.executable,
+            "-I",
+            inspect_environment.__file__,
+            "--python",
+            os.path.abspath(python),
+            "--uv",
+            uv_executable,
+        ]
         args.extend(["--requirements-file", requirements_file or "none"])
         args.append(directory)
 
-        options: typing.Dict[str, typing.Any] = {"text": True}
-        if requirements_file and os.path.basename(requirements_file) == "pyproject.toml":
-            path = os.path.join(directory, requirements_file)
-            if os.path.exists(path):
-                try:
-                    with open(path, encoding="utf-8-sig") as project_file:
-                        project = pyproject.tomllib.loads(project_file.read())
-                except Exception as e:
-                    raise RSConnectException(f"Error reading {requirements_file}: {e}") from e
-                args.append("--pyproject-stdin")
-                dependencies = project.get("project", {}).get("dependencies", [])
-                options["input"] = json.dumps({"dependencies": dependencies}, default=str)
-
         try:
-            environment_json = check_output(args, **options)
+            environment_json = check_output(args, text=True)
         except Exception as e:
             raise RSConnectException(f"Error inspecting environment with Python {python} (subprocess failed)") from e
 
@@ -259,7 +257,9 @@ class Environment:
                 raise RSConnectException(f"Error creating environment: {system_error_message}")
 
         try:
-            return cls.from_dict(environment_data, python_interpreter=python)
+            environment = cls.from_dict(environment_data, python_interpreter=python)
+            environment.uv_executable = uv_executable
+            return environment
         except TypeError as e:
             raise RSConnectException("Error constructing environment object") from e
 
