@@ -531,7 +531,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         verify_invoked = []
@@ -542,7 +542,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            re.compile(r"http://fake_server/content/1234-5678-9012-3456/"),
+            re.compile(r"http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/"),
             body=get_content_callback,
         )
 
