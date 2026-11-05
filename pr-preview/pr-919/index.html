@@ -1522,10 +1522,8 @@ compinit
 need to repeat it on every command.</p>
 <h4 id="remembering-server-information">Remembering Server Information<a class="headerlink" href="#remembering-server-information" title="Permanent link">#</a></h4>
 <p>Use <code>login</code> to authenticate and save a server:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>login<span class="w"> </span>https://connect.example.org<span class="w"> </span>--name<span class="w"> </span>myserver
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>login<span class="w"> </span>https://connect.example.org
 </code></pre></div>
-<p>The <code>--name</code> option is optional; without it, the nickname defaults to the
-server's hostname.</p>
 <p>Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
 remote containers, or other sessions where the browser cannot reach the CLI's
 local callback, use <code>--use-device-code</code>; this requires Connect 2026.06.0 or later.
@@ -1533,8 +1531,8 @@ The <code>--no-wait</code> device flow also requires Connect 2026.06.0 or later.
 <p>For automation, <code>--identity-token</code> and <code>--identity-token-file</code> require Connect
 2026.08.0 or later, or Connect 2026.02.0 or later with identity federation.</p>
 <p>Login sets the server as the default unless <code>--no-set-default</code> is supplied.
-Later commands can omit <code>--name</code>, or select a saved server by nickname:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>my-notebook.ipynb
+Later commands can use that default:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
 <p>See the <a href="commands/login/"><code>login</code></a>, <a href="commands/logout/"><code>logout</code></a>, and
 <a href="commands/token/"><code>token</code></a> references for more options.</p>
