@@ -1924,6 +1924,12 @@ from an alternative Python executable specified via the <code>--python</code> op
 ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
+<p>Generating requirements from an environment requires pip 20.3 or later in the
+selected Python environment. Pip 20.3 introduced named <code>pip freeze --exclude</code>
+options and supports Python 3.8, the oldest Python version supported by
+rsconnect-python. Upgrade pip in older environments or supply a requirements
+file. Newer Python versions may need a later pip release. This requirement
+applies to inspection, not the installer used by Posit Connect.</p>
 <h4 id="python-version">Python Version<a class="headerlink" href="#python-version" title="Permanent link">#</a></h4>
 <p>When deploying Python content to Posit Connect,
 the server will require a version of Python that matches the content
