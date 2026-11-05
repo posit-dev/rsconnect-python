@@ -36,9 +36,9 @@ Deploy your application:
 rsconnect deploy shiny app.py --title "my shiny app"
 ```
 
-Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
-remote containers, or other sessions where the browser cannot reach the CLI's
-local callback, use `--use-device-code` with Connect 2026.06.0 or later.
+Browser login requires Posit Connect 2026.02.0 or later. In remote containers,
+or other sessions where the browser cannot reach the CLI's local callback, use
+`--use-device-code` with Connect 2026.06.0 or later.
 
 For older servers, or automation that cannot use identity tokens, [get an API
 key](https://docs.posit.co/connect/user/api-keys/) and store it with
