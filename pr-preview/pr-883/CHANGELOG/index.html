@@ -15,7 +15,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -23,10 +23,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -967,6 +967,34 @@
     
   
     system
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/token/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    token
   
 
     
@@ -2945,17 +2973,29 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
-<li>When client credentials can't publish to a Posit Connect Cloud account because the
+<li><code>rsconnect token</code> prints the OAuth access token stored by <code>rsconnect login</code> for a
+  Posit Connect server, so other tools, such as the Connect SDKs, can make API
+  requests with your login. <code>--refresh</code> gets a new token after the server rejects
+  the current one, and <code>--format json</code> prints machine-readable output. It exits
+  with status 4 when you need to log in again, and it never prints API keys.</li>
+<li>
+<p>OAuth token refreshes are serialized across processes, so concurrent commands
+  don't invalidate each other's rotated refresh tokens. A command whose token was
+  already refreshed by another process uses the new token without refreshing again.</p>
+</li>
+<li>
+<p>When client credentials can't publish to a Posit Connect Cloud account because the
   account requires single sign-on (SSO), the error now says so, instead of
-  suggesting the publisher role.</li>
+  suggesting the publisher role.</p>
+</li>
 <li><code>rsconnect bootstrap</code> uses the <code>/__api__/v1/bootstrap</code> endpoint, falling back to
   the deprecated <code>/__api__/v1/experimental/bootstrap</code> endpoint on Posit Connect
   versions before 2024.05.0. (#594)</li>
 <li><code>rsconnect deploy</code> deploys and activates rendered and static content (R Markdown,
   Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
   first. Activating a draft makes Connect render it a second time, and if the
-  render fails, Connect keeps serving the previously-active bundle. <code>--draft</code>
-  still deploys a draft and verifies it. (#872)</li>
+  render fails, Connect keeps serving the previously-active bundle. With <code>--draft</code>,
+  rendered and static content is deployed as a draft but not verified. (#872)</li>
 </ul>
 <h2 id="1320-2026-10-16">[1.32.0] - 2026-10-16<a class="headerlink" href="#1320-2026-10-16" title="Permanent link">#</a></h2>
 <ul>
@@ -3923,10 +3963,10 @@ rsconnect deploy html -n local ./ -e second.html
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
