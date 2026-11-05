@@ -90,8 +90,7 @@ local callback, use `--use-device-code`; this requires Connect 2026.06.0 or late
 The `--no-wait` device flow also requires Connect 2026.06.0 or later.
 
 For automation, `--identity-token` and `--identity-token-file` require Connect
-2026.08.0 or later, or Connect 2026.02.0 or later with identity federation
-enabled by an administrator (Early Access).
+2026.08.0 or later, or Connect 2026.02.0 or later with identity federation.
 
 Login sets the server as the default unless `--no-set-default` is supplied.
 Later commands can omit `--name`, or select a saved server by nickname:
