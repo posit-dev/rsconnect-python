@@ -2721,14 +2721,13 @@ for shinyapps.io. See command help for further details."
         app_mode = self.bundle_manifest().get("metadata", {}).get("appmode")
         return app_mode in _RENDERED_APP_MODES
 
-    def should_verify(self, draft: bool, no_verify: bool) -> bool:
+    def should_verify(self, no_verify: bool) -> bool:
         """Whether to verify the deployed content.
 
-        Rendered content is only verified when it was deployed as an explicit draft.
+        Rendered content is never verified, even as a draft: requesting a draft's
+        rendered output only serves what the deploy task already rendered.
         """
-        if no_verify:
-            return False
-        return draft or not self.is_rendered_content
+        return not no_verify and not self.is_rendered_content
 
     def should_deploy_as_draft(self, draft: bool, no_verify: bool) -> bool:
         """Whether the bundle should be deployed without activating it.
@@ -2747,14 +2746,14 @@ for shinyapps.io. See command help for further details."
                 # would be the opposite of what the user asked for, so fail loudly.
                 raise RSConnectException("Deploying as a draft requires Posit Connect 2025.06.0 or later.")
             return True
-        if not self.should_verify(draft, no_verify):
+        if not self.should_verify(no_verify):
             return False
         return self.supports_verify_before_activate
 
     def verify_and_activate(self, draft: bool, no_verify: bool):
         """Verify the deployed content, then activate it if it was deployed as a
         draft only so that it could be verified first."""
-        if not self.should_verify(draft, no_verify):
+        if not self.should_verify(no_verify):
             return self
         self.verify_deployment()
         if not draft and self.deployed_info and self.deployed_info.get("draft_url"):

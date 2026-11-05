@@ -530,10 +530,13 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    @pytest.mark.parametrize("draft", [False, True])
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_rendered_content_activates_without_verifying(self, caplog):
+    def test_deploy_rendered_content_without_verifying(self, caplog, draft):
         # #872: Connect renders a draft and renders it again on activation, so rendered
         # content is deployed and activated in one step, without verifying a draft.
+        # With --draft it is deployed as a draft, but still not verified: the draft
+        # URL only serves what the deploy task already rendered.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -570,14 +573,19 @@ class TestMain:
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
+            if draft:
+                args.append("--draft")
             with mock.patch(
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
                 new=lambda self_, *args, **kwargs: self_,
             ), caplog.at_level("INFO"):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
-            # A single deploy that activates: no "activate" field is sent.
-            assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
+            if draft:
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID", "activate": False}]
+            else:
+                # A single deploy that activates: no "activate" field is sent.
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
             assert verify_invoked == []
             assert "Verifying deployed content..." not in caplog.text
             assert "Activating deployed content..." not in caplog.text

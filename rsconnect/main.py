@@ -736,14 +736,15 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         help=(
             "Don't access the deployed content to verify that it started correctly. "
             "Implies activating the new bundle immediately rather than verifying it first. "
-            "Rendered and static content is never verified unless deployed with --draft."
+            "Rendered and static content is never verified."
         ),
     )
     @click.option(
         "--draft",
         is_flag=True,
         help=(
-            "Deploy the application as a draft and verify it, but do not activate it. "
+            "Deploy the application as a draft and verify it (unless it is rendered or static content), "
+            "but do not activate it. "
             "The previous bundle will continue to be served until the draft is published."
         ),
     )
