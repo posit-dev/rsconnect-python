@@ -610,6 +610,20 @@ def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch)
     assert which_python(directory=os.path.join("..", "sibling")) == sys.executable
 
 
+def test_project_environment_lookup_includes_ancestors_outside_content_project(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    content = tmp_path / "project" / "content"
+    content.mkdir(parents=True)
+    (tmp_path / "project" / "pyproject.toml").write_text("[project]\nname = 'example'\n")
+    python = tmp_path / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    python.chmod(0o755)
+
+    assert which_python(directory=str(content)) == str(python)
+
+
 def test_inspect_environment_without_bundled_uv(monkeypatch):
     monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
     environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
@@ -765,7 +779,7 @@ def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path
             [str(python), "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], text=True
         ).strip()
     )
-    for name in ("rsconnect-python", "rsconnect-utils"):
+    for name in ("rsconnect-python", "rsconnect-utils", "pip", "setuptools", "wheel", "distribute"):
         dist = site / f"{name.replace('-', '_')}-1.0.dist-info"
         dist.mkdir()
         (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n")
@@ -778,6 +792,9 @@ def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path
     environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
     assert "rsconnect-utils==1.0" in environment.contents.splitlines()
     assert "rsconnect-python==1.0" not in environment.contents.splitlines()
+    assert "pip==1.0" not in environment.contents.splitlines()
+    for name in ("setuptools", "wheel", "distribute"):
+        assert (f"{name}==1.0" in environment.contents.splitlines()) == (sys.version_info >= (3, 12))
 
     local = tmp_path / "editable project"
     local.mkdir()

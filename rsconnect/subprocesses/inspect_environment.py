@@ -94,7 +94,7 @@ def detect_environment(
     result: dict[str, Any]
     if requirements_file is None:
         # --force-generate sets requirements_file to None
-        result = pip_freeze(python, uv_path, pip_version)
+        result = pip_freeze(python, uv_path, pip_version, python_version)
     elif os.path.basename(requirements_file) == "uv.lock":
         result = uv_export(dirname, requirements_file, uv_path)
     elif os.path.basename(requirements_file) == "pyproject.toml":
@@ -187,7 +187,7 @@ def output_file(dirname: str, filename: str, package_manager: str):
         raise EnvironmentException("Error reading %s: %s" % (filename, str(exception)))
 
 
-def pip_freeze(python: str, uv_path: str, pip_version: Optional[str]):
+def pip_freeze(python: str, uv_path: str, pip_version: Optional[str], python_version: str):
     """Inspect the environment using `pip freeze`.
 
     Returns a dictionary containing the filename
@@ -195,6 +195,11 @@ def pip_freeze(python: str, uv_path: str, pip_version: Optional[str]):
     or a dictionary containing 'error' on failure.
     """
     try:
+        # Older pip suppresses these bootstrap packages; current pip suppresses
+        # only pip itself on Python 3.12 and later.
+        bootstrap_packages = {"pip"}
+        if pip_version is not None or Version(python_version) < Version("3.12"):
+            bootstrap_packages.update({"setuptools", "wheel", "distribute"})
         command = (
             [
                 python,
@@ -206,7 +211,15 @@ def pip_freeze(python: str, uv_path: str, pip_version: Optional[str]):
                 *(arg for name in sorted(excluded_distributions) for arg in ("--exclude", name)),
             ]
             if pip_version and Version(pip_version) >= Version("20.3")
-            else [uv_path, "pip", "freeze", "--no-cache", "--python", python]
+            else [
+                uv_path,
+                "pip",
+                "freeze",
+                "--no-cache",
+                "--python",
+                python,
+                *(arg for name in sorted(bootstrap_packages) for arg in ("--exclude", name)),
+            ]
         )
         proc = subprocess.Popen(
             command,

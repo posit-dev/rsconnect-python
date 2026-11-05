@@ -31,7 +31,7 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
     shutil.copytree(base_site / "pip", site / "pip")
     for metadata in base_site.glob("pip-*.dist-info"):
         shutil.copytree(metadata, site / metadata.name)
-    for name in ("rsconnect", "rsconnect-python", "rsconnect-utils", "demo-url"):
+    for name in ("rsconnect", "rsconnect-python", "rsconnect-utils", "demo-url", "setuptools", "wheel", "distribute"):
         dist = site / f"{name.replace('-', '_')}-1.0.dist-info"
         dist.mkdir()
         (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n")
@@ -71,6 +71,11 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
     assert "demo-url @ https://example.com/rsconnect/demo.whl" in lines
     assert "rsconnect==1.0" not in lines
     assert "rsconnect-python==1.0" not in lines
+    pip_lines = subprocess.check_output([python, "-m", "pip", "freeze"], text=True, env=env).splitlines()
+    for name in ("pip", "setuptools", "wheel", "distribute"):
+        assert any(line.startswith(f"{name}==") for line in lines) == any(
+            line.startswith(f"{name}==") for line in pip_lines
+        )
 
     local = tmp_path / "rsconnect-local"
     local.mkdir()
