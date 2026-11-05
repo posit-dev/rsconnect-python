@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reports editable dependencies outside the deployment directory, which Posit Connect
   cannot install, in both generated and user-provided requirements. Requirement
   filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
+- Getting-started documentation recommends `rsconnect login` for Posit Connect,
+  with API keys as an alternative.
 - `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
   requests with your login. `--refresh` gets a new token after the server rejects
@@ -27,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `rsconnect bootstrap` uses the `/__api__/v1/bootstrap` endpoint, falling back to
   the deprecated `/__api__/v1/experimental/bootstrap` endpoint on Posit Connect
   versions before 2024.05.0. (#594)
+- `rsconnect deploy` deploys and activates rendered and static content (R Markdown,
+  Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
+  first. Activating a draft makes Connect render it a second time, and if the
+  render fails, Connect keeps serving the previously-active bundle. With `--draft`,
+  rendered and static content is deployed as a draft but not verified. (#872)
 
 ## [1.32.0] - 2026-10-16
 
