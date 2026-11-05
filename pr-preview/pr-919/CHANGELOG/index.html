@@ -2993,6 +2993,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>rsconnect bootstrap</code> uses the <code>/__api__/v1/bootstrap</code> endpoint, falling back to
   the deprecated <code>/__api__/v1/experimental/bootstrap</code> endpoint on Posit Connect
   versions before 2024.05.0. (#594)</li>
+<li><code>rsconnect deploy</code> deploys and activates rendered and static content (R Markdown,
+  Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
+  first. Activating a draft makes Connect render it a second time, and if the
+  render fails, Connect keeps serving the previously-active bundle. With <code>--draft</code>,
+  rendered and static content is deployed as a draft but not verified. (#872)</li>
 </ul>
 <h2 id="1320-2026-10-16">[1.32.0] - 2026-10-16<a class="headerlink" href="#1320-2026-10-16" title="Permanent link">#</a></h2>
 <ul>
