@@ -723,6 +723,37 @@ def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, m
     assert pyproject.pip is None
 
 
+def test_inspection_when_rsconnect_is_importable_only_from_pythonpath(tmp_path):
+    # Mirrors `pip install --user` and PYTHONPATH installs: the interpreter running the CLI has
+    # no packages of its own, so the inspector must inherit the CLI's import path.
+    cli_env = tmp_path / "cli-env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(cli_env)], check=True)
+    cli_python = cli_env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "requirements.txt").write_text("project-package==1.0\n")
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(path for path in sys.path if path)
+    result = subprocess.run(
+        [
+            str(cli_python),
+            "-c",
+            "import json, sys; from rsconnect.environment import Environment; "
+            "e = Environment.create_python_environment(sys.argv[1], python=sys.argv[2]); "
+            "print(json.dumps(e.contents))",
+            str(project),
+            str(cli_python),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1]).splitlines() == ["project-package==1.0"]
+
+
 @pytest.mark.parametrize("fallback", [False, True])
 def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path, monkeypatch, fallback):
     uv_path = uv.find_uv_bin()

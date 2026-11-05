@@ -47,7 +47,6 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
         result = subprocess.run(
             [
                 sys.executable,
-                "-I",
                 str(repo / "rsconnect/subprocesses/inspect_environment.py"),
                 "--python",
                 python,

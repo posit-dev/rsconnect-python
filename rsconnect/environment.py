@@ -229,9 +229,10 @@ class Environment:
         or containing an "error" field if an error occurred.
         """
         uv_executable = _uv_bin()
+        # No -I/-E/-s: the inspector imports rsconnect's dependencies, which may live in user
+        # site-packages or on PYTHONPATH just like the running CLI's.
         args = [
             sys.executable,
-            "-I",
             inspect_environment.__file__,
             "--python",
             os.path.abspath(python),
