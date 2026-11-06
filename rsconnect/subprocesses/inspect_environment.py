@@ -262,6 +262,7 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
     lock_path = lock_filename
     if not os.path.isabs(lock_filename):
         lock_path = os.path.join(dirname, lock_filename)
+    lock_path = os.path.abspath(lock_path)
 
     if not os.path.exists(lock_path):
         raise EnvironmentException("uv.lock not found: %s" % lock_filename)

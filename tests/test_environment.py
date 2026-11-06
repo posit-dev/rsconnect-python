@@ -321,7 +321,8 @@ def test_requirements_file_rejects_editable_outside_bundle(tmp_path: Path):
 
 
 @pytest.mark.parametrize("fallback", [False, True])
-def test_uv_lock_export(tmp_path, monkeypatch, fallback):
+@pytest.mark.parametrize("lock_location", ["absolute_dir", "bare", "relative", "absolute_lock"])
+def test_uv_lock_export(tmp_path, monkeypatch, fallback, lock_location):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
@@ -398,7 +399,14 @@ requires-dist = [
         monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
     else:
         monkeypatch.setenv("PATH", "")
-    env = Environment.create_python_environment(str(project_dir), requirements_file="uv.lock", python=str(python))
+    monkeypatch.chdir(project_dir)
+    dirname, lock_file = {
+        "absolute_dir": (str(project_dir), "uv.lock"),
+        "bare": ("", "uv.lock"),
+        "relative": (".", "./uv.lock"),
+        "absolute_lock": ("", str(project_dir / "uv.lock")),
+    }[lock_location]
+    env = Environment.create_python_environment(dirname, requirements_file=lock_file, python=str(python))
 
     assert env.filename == "requirements.txt.lock"
     assert "aiofiles==24.1.0" in env.contents
