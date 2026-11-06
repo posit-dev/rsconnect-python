@@ -1067,7 +1067,10 @@ class TestEnvironmentDeprecations:
 
         assert result.python == ".".join(str(part) for part in sys.version_info[:3])
         assert result.python_version_requirement == "==3.8.*"
-        assert any("local Python version instead" in call.args[0] for call in mock_warning.call_args_list)
+        assert any(
+            "Posit Connect versions before 2025.03.0 will use the local Python version instead" in call.args[0]
+            for call in mock_warning.call_args_list
+        )
 
     def test_python_interpreter(self):
         current_python_version = ".".join((str(v) for v in sys.version_info[:3]))

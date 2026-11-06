@@ -154,7 +154,7 @@ class Environment:
             suffix = ".*" if override_python_version.count(".") == 1 else ""
             if suffix:
                 logger.warning(
-                    "Older Posit Connect versions without Python version constraint support will use the "
+                    "Posit Connect versions before 2025.03.0 will use the "
                     "local Python version instead of the minor-only override. Specify a full patch version "
                     "for those servers."
                 )
