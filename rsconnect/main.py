@@ -122,7 +122,7 @@ from .bundle import (
 )
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
-from .environment import Environment, PackageInstaller, fake_module_file_from_directory
+from .environment import Environment, PackageInstaller, fake_module_file_from_directory, which_python
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
 from .json_web_token import (
@@ -2226,15 +2226,23 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
-    environment = Environment.create_python_environment(
-        base_dir,
-        requirements_file=requirements_file,
-        python=python,
-        override_python_version=override_python_version,
-        package_manager=package_installer,
-    )
-    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+    python_interpreter: Optional[str] = None
+    environment: Optional[Environment] = None
+    r_environment: Optional[REnvironment] = None
+    if static:
+        # The notebook is rendered locally and the bundle holds only the HTML, so Connect
+        # never builds an environment for it. Only an interpreter to run nbconvert is needed.
+        python_interpreter = which_python(python)
+    else:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        environment = Environment.create_python_environment(
+            base_dir,
+            requirements_file=requirements_file,
+            python=python,
+            override_python_version=override_python_version,
+            package_manager=package_installer,
+        )
+        r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2265,16 +2273,17 @@ def deploy_notebook(
     ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
-    if app_mode == AppModes.STATIC:
-        assert environment.python_interpreter is not None
+    if static:
+        assert python_interpreter is not None
         ce.make_bundle(
             make_notebook_html_bundle,
             file,
-            environment.python_interpreter,
+            python_interpreter,
             hide_all_input,
             hide_tagged_input,
         )
     else:
+        assert environment is not None
         ce.make_bundle(
             make_notebook_source_bundle,
             file,

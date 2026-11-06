@@ -6,7 +6,6 @@ import shutil
 import sys
 import venv
 from os.path import join
-from types import SimpleNamespace
 from unittest import TestCase, mock
 
 import click
@@ -306,32 +305,63 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
-    def test_deploy_notebook_static_passes_interpreter_not_version(self):
-        # Regression test for #721: deploy_notebook must hand make_notebook_html_bundle
-        # the local interpreter *path* (used to run nbconvert), not environment.python,
-        # which is only a version string and made nbconvert fail with "No such file or
-        # directory".
-        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=sys.executable)
+    @pytest.mark.parametrize(
+        "extra_files",
+        [
+            pytest.param({}, id="notebook-only"),
+            # An renv.lock that R dependency detection rejects. requirements.txt is present
+            # so this case fails on R detection, not on the missing requirements file.
+            pytest.param(
+                {"requirements.txt": "", "renv.lock": json.dumps({"R": {"Version": "4.4.1"}})},
+                id="incompatible-renv-lock",
+            ),
+        ],
+    )
+    def test_deploy_notebook_static_needs_no_environment(self, tmp_path, extra_files):
+        # Regression test for #923: the static bundle holds only the rendered HTML, so
+        # deploying it must not require a requirements file or resolve Python or R
+        # dependencies. Also covers #721: make_notebook_html_bundle gets the local
+        # interpreter *path* (used to run nbconvert), not a Python version string.
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        for name, contents in extra_files.items():
+            (tmp_path / name).write_text(contents)
 
-        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
-            "rsconnect.main.RSConnectExecutor"
-        ) as MockExecutor:
-            ce = MockExecutor.return_value
-
-            runner = CliRunner()
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
             args = apply_common_args(
-                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
-            args += ["--static", "--no-verify"]
-            result = runner.invoke(cli, args)
+            result = CliRunner().invoke(cli, args)
 
         assert result.exit_code == 0, result.output
         # make_bundle(make_notebook_html_bundle, file, <python>, hide_all, hide_tagged)
-        bundle_args = ce.make_bundle.call_args.args
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == sys.executable
+        assert sorted(p.name for p in tmp_path.iterdir()) == sorted(["nb.ipynb", *extra_files])
+
+    def test_deploy_notebook_static_renders_with_python_option(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # Never run: make_bundle is mocked. --python only has to name an executable file.
+        python = tmp_path / "python"
+        python.write_text("")
+        python.chmod(0o755)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", str(python)],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == str(python)
 
     @pytest.mark.parametrize(
         ("contents", "diagnostic", "missing_nbconvert"),
@@ -368,14 +398,11 @@ class TestMain:
             env_dir = tmp_path / "empty-env"
             venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(env_dir)
             interpreter = str(env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
-        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=interpreter)
 
-        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
-            "rsconnect.main.RSConnectExecutor"
-        ) as mock_executor:
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
             mock_executor.return_value.make_bundle.side_effect = lambda func, *args: func(*args)
             args = apply_common_args(
-                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", interpreter],
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )

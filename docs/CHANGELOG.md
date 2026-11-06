@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `deploy notebook --static` no longer requires a requirements file or
+  `--force-generate`, and no longer reads `renv.lock`. The static bundle contains
+  only the rendered HTML, so the only requirement is a Python interpreter with
+  `nbconvert`, the current one or the one given with `--python`. That interpreter
+  no longer needs rsconnect installed. (#923)
 - **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
   a numeric Connect content ID fails with an error explaining how to find the
   content's GUID, and rsconnect-python no longer calls the legacy
