@@ -25,7 +25,10 @@ rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
 keyring = ["keyring>=23.0.0"]
-snowflake = ["snowflake-cli"]
+snowflake = [
+    "snowflake-cli>=2.8.2; python_version < '3.10'",
+    "snowflake-cli>=3.23.0; python_version >= '3.10'",
+]
 
 [dependency-groups]
 test = [
