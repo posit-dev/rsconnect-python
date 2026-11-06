@@ -281,6 +281,8 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
                     "--offline",
                     "--no-header",
                     "--no-emit-project",
+                    "--no-dev",
+                    "--no-default-groups",
                     "--output-file",
                     output_path,
                 ],
