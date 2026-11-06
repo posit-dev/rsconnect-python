@@ -685,10 +685,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#finding-the-app-id" class="md-nav__link">
+  <a href="#finding-the-guid" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Finding the App ID
+        Finding the GUID
       
     </span>
   </a>
@@ -1812,10 +1812,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#finding-the-app-id" class="md-nav__link">
+  <a href="#finding-the-guid" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Finding the App ID
+        Finding the GUID
       
     </span>
   </a>
@@ -1915,15 +1915,21 @@ after the notebook file:</p>
 be included in the bundle. It must specify the package dependencies needed to execute
 the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.</p>
-<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the <code>--python</code> option:</p>
+<p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
+selected Python environment. It checks <code>--python</code>, <code>VIRTUAL_ENV</code>, a non-base
+<code>CONDA_PREFIX</code>, a project environment (<code>.venv</code> in the
+content directory or any parent directory), and a base <code>CONDA_PREFIX</code>, in that order,
+like <code>uv pip</code>. If none is available, it uses the Python interpreter running
+rsconnect-python.</p>
+<p>To select a Python executable explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
 <p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
 ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
+<p>If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
+requirements. To inspect it manually, use <code>uv pip freeze --python /path/to/python</code>.</p>
 <h4 id="python-version">Python Version<a class="headerlink" href="#python-version" title="Permanent link">#</a></h4>
 <p>When deploying Python content to Posit Connect,
 the server will require a version of Python that matches the content
@@ -1962,12 +1968,13 @@ option. This will cause <code>rsconnect</code> to execute your notebook locally 
 file, then publish the HTML file to the Posit Connect server:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--static<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
+<p>Install <code>nbconvert</code> in the selected Python environment to render static notebooks.</p>
 <h3 id="creating-a-manifest-for-future-deployment">Creating a Manifest for Future Deployment<a class="headerlink" href="#creating-a-manifest-for-future-deployment" title="Permanent link">#</a></h3>
 <p>You can create a <code>manifest.json</code> file for a Jupyter Notebook, then use that manifest
 in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
 <p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
 not already exist or the <code>--force-generate</code> option is specified. It will contain the
-package dependencies from the current Python environment, or from an alternative
+package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the <code>--python</code> option.</p>
 <p>Here is an example of the <code>write-manifest</code> command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
@@ -2042,15 +2049,15 @@ venv
 included in the bundle. It must specify the package dependencies needed to execute
 the API or application. Posit Connect will reconstruct the Python environment using
 the specified package list.</p>
-<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the <code>--python</code> option:</p>
+<p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
+selected Python environment. Use <code>--python</code> to select an interpreter explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-api/
 </code></pre></div>
 <p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
 ensuring that you use the same Python that you use to run your API or application:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
+<p>If the environment does not have pip, use <code>uv pip freeze --python /path/to/python</code> instead.</p>
 <h4 id="python-version_1">Python Version<a class="headerlink" href="#python-version_1" title="Permanent link">#</a></h4>
 <p>When deploying Python content to Posit Connect,
 the server will require matching <code>&lt;MAJOR.MINOR&gt;</code> versions of Python. For example,
@@ -2067,11 +2074,11 @@ that is installed in Connect, For example, this command:</p>
 </code></pre></div>
 <p>will deploy the content in <code>my-api</code> while requesting that Connect
 use Python version 3.11.5.
-On modern Connect versions, a major and minor version such as <code>3.11</code> requests
-the latest available patch release in that series. The manifest records the
-local Python version separately for compatibility. Older Connect versions that
-do not support version constraints use that local version instead, so specify a
-full version such as <code>3.11.5</code> when deploying to those servers.</p>
+On Connect 2025.03.0 and later, a major and minor version such as <code>3.11</code>
+requests the latest available patch release in that series. The manifest records
+the local Python version separately for compatibility. Connect versions before
+2025.03.0 use that local version instead, so specify a full version such as
+<code>3.11.5</code> when deploying to those servers.</p>
 <blockquote>
 <p><strong>Note</strong>
 The packages and package versions listed in <code>requirements.txt</code> must be
@@ -2108,7 +2115,7 @@ supported; only <code>RENV_PATHS_LOCKFILE</code> and the default location are co
 manifest in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
 <p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
 not already exist or the <code>--force-generate</code> option is specified. It will contain
-the package dependencies from the current Python environment, or from an alternative
+the package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the <code>--python</code> option.</p>
 <p>Here is an example of the <code>write-manifest</code> command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>api<span class="w"> </span>my-api/
@@ -2298,9 +2305,11 @@ deployments must name a target.</p>
 </code></pre></div>
 <h4 id="updating-a-different-deployment">Updating a Different Deployment<a class="headerlink" href="#updating-a-different-deployment" title="Permanent link">#</a></h4>
 <p>If you want to update an existing deployment but don't have the saved deployment data,
-you can provide the app's numeric ID or GUID on the command line:</p>
-<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--app-id<span class="w"> </span><span class="m">123456</span><span class="w"> </span>my-notebook.ipynb
+you can provide the content's GUID on the command line:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--guid<span class="w"> </span><span class="m">00000000</span>-0000-0000-0000-000000000000<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
+<p>To update existing content on Posit Connect Cloud or shinyapps.io, pass the
+application's ID with <code>--app-id</code> instead.</p>
 <p>You must be the owner of the target deployment, or a collaborator with permission to
 change the content. The type of content (static notebook, notebook with source code,
 API, or application) must match the existing deployment.</p>
@@ -2310,16 +2319,13 @@ There is no confirmation required to update a deployment. If you do so
 accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
 activate the previous version and remove the erroneous one.</p>
 </blockquote>
-<h5 id="finding-the-app-id">Finding the App ID<a class="headerlink" href="#finding-the-app-id" title="Permanent link">#</a></h5>
-<p>The App ID associated with a piece of content you have previously deployed from the
+<h5 id="finding-the-guid">Finding the GUID<a class="headerlink" href="#finding-the-guid" title="Permanent link">#</a></h5>
+<p>The GUID associated with a piece of content you have previously deployed from the
 <code>rsconnect</code> command line interface can be found easily by querying the deployment
 information using the <code>info</code> command. For more information, see the
 <a href="#showing-the-deployment-information">Showing the Deployment Information</a> section.</p>
-<p>If the content was deployed elsewhere or <code>info</code> does not return the correct App ID,
-but you can open the content on Posit Connect, find the content and open it in a
-browser. The URL in your browser's location bar will contain <code>#/apps/NNN</code> where <code>NNN</code>
-is your App ID. The GUID identifier for the app may be found on the <strong>Info</strong> tab for
-the content in the Posit Connect UI.</p>
+<p>If the content was deployed elsewhere, find it with <code>rsconnect content search</code>, or
+open it in the Posit Connect UI and look on its <strong>Info</strong> tab.</p>
 <h4 id="showing-the-deployment-information">Showing the Deployment Information<a class="headerlink" href="#showing-the-deployment-information" title="Permanent link">#</a></h4>
 <p>You can see the information that the <code>rsconnect</code> command has saved for the most recent
 deployment with the <code>info</code> command:</p>
@@ -2387,8 +2393,7 @@ Generated from <code>rsconnect-python 1.32.1.dev1</code>
 <span class="w">    </span>--hide-tagged-input<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>my-notebook.ipynb
 </code></pre></div>
-<p>By default, rsconnect-python does not install Jupyter notebook-related depenencies.
-To use these hide input features in rsconnect-python you need to install these extra dependencies:</p>
+<p>To use these hide input features, install these dependencies in the selected Python environment:</p>
 <div class="highlight"><pre><span></span><code>notebook
 nbformat
 nbconvert&gt;=5.6.1

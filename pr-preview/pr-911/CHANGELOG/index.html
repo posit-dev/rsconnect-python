@@ -2973,6 +2973,28 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
+<li>Inspects activated or project virtual environments, including with <code>uv tool install</code>.
+  Global installations now inspect activated environments. <code>rsconnect preflight</code> checks
+  the same environment's Python version. Use <code>--python</code> to override selection. (#889)</li>
+<li><strong>Breaking:</strong> Posit Connect content can be targeted only by GUID. <code>--app-id</code> with
+  a numeric Connect content ID fails with an error explaining how to find the
+  content's GUID, and rsconnect-python no longer calls the legacy
+  <code>/__api__/applications/{id}</code> endpoint. Connect Cloud and shinyapps.io application
+  IDs are unaffected. (#881)</li>
+<li>The <code>deploy</code> commands and <code>preflight</code> accept <code>--guid</code> to target an existing
+  Posit Connect content item, matching the <code>--guid</code> option on the <code>content</code>
+  commands. <code>--app-id</code> continues to work, and is the option to use for Connect
+  Cloud and shinyapps.io. (#885)</li>
+<li>Deploying to Posit Connect in Snowflake (SPCS) with <code>--app-id</code> or <code>--guid</code>
+  updates the existing content item instead of failing with "Unable to infer
+  Connect client."</li>
+<li>Generating requirements from an environment now requires pip 20.3 or later.
+  Older environments can upgrade pip or provide a requirements file.</li>
+<li>Reports editable dependencies outside the deployment directory, which Posit Connect
+  cannot install, in both generated and user-provided requirements. Requirement
+  filtering no longer drops unrelated packages whose name or path contains <code>rsconnect</code>.</li>
+<li>Getting-started documentation recommends <code>rsconnect login</code> for Posit Connect,
+  with API keys as an alternative.</li>
 <li><code>rsconnect token</code> prints the OAuth access token stored by <code>rsconnect login</code> for a
   Posit Connect server, so other tools, such as the Connect SDKs, can make API
   requests with your login. <code>--refresh</code> gets a new token after the server rejects
@@ -2991,6 +3013,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>rsconnect bootstrap</code> uses the <code>/__api__/v1/bootstrap</code> endpoint, falling back to
   the deprecated <code>/__api__/v1/experimental/bootstrap</code> endpoint on Posit Connect
   versions before 2024.05.0. (#594)</li>
+<li><code>rsconnect deploy</code> deploys and activates rendered and static content (R Markdown,
+  Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
+  first. Activating a draft makes Connect render it a second time, and if the
+  render fails, Connect keeps serving the previously-active bundle. With <code>--draft</code>,
+  rendered and static content is deployed as a draft but not verified. (#872)</li>
 </ul>
 <h2 id="1320-2026-10-16">[1.32.0] - 2026-10-16<a class="headerlink" href="#1320-2026-10-16" title="Permanent link">#</a></h2>
 <ul>

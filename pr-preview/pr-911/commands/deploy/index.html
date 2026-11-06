@@ -1654,9 +1654,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -1666,11 +1672,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -1741,8 +1749,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -1798,9 +1805,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -1810,11 +1823,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -1885,8 +1900,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -1942,9 +1956,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -1954,11 +1974,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2036,9 +2058,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2048,11 +2076,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2123,8 +2153,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -2180,9 +2209,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2192,11 +2227,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2267,8 +2304,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -2324,9 +2360,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2336,11 +2378,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2411,8 +2455,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -2443,7 +2486,7 @@ contents before deployment.</p>
 </code></pre></div>
 <h2 id="deploy-git">deploy git<a class="headerlink" href="#deploy-git" title="Permanent link">#</a></h2>
 <p>Deploy content to Posit Connect directly from a remote Git repository. The repository must contain a manifest.json file (in the root or specified subdirectory). Connect will regularly poll the repository for updates.</p>
-<p>This command creates a new git-backed content item. To update an existing git-backed content item, use the --app-id option with the content's GUID.</p>
+<p>This command creates a new git-backed content item. To update an existing git-backed content item, use the --guid option with the content's GUID.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy git [OPTIONS]
 </code></pre></div>
@@ -2469,9 +2512,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2481,11 +2530,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   -r, --repository TEXT           URL of the Git repository (https:// URLs
                                   only).  [required]
   -b, --branch TEXT               Branch to deploy from. [default: main]
@@ -2525,9 +2576,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2537,11 +2594,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2612,8 +2671,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -2669,9 +2727,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2681,11 +2745,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2771,9 +2837,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2783,11 +2855,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2865,9 +2939,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2877,11 +2957,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -2965,9 +3047,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2977,11 +3065,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3037,8 +3127,7 @@ contents before deployment.</p>
                                   include the notebook source. Static
                                   notebooks cannot be re-run on the server.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -3105,9 +3194,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3117,11 +3212,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3192,8 +3289,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -3249,9 +3345,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3261,11 +3363,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3356,9 +3460,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3368,11 +3478,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3431,8 +3543,7 @@ contents before deployment.</p>
                                   repeated.
   -q, --quarto PATH               Path to Quarto installation.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -3488,9 +3599,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3500,11 +3617,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3575,8 +3694,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -3632,9 +3750,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3644,11 +3768,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3719,8 +3845,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
@@ -3777,9 +3902,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3789,11 +3920,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3844,9 +3977,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3856,11 +3995,13 @@ contents before deployment.</p>
   --no-verify                     Don't access the deployed content to verify
                                   that it started correctly. Implies
                                   activating the new bundle immediately rather
-                                  than verifying it first.
+                                  than verifying it first. Rendered and static
+                                  content is never verified.
   --draft                         Deploy the application as a draft and verify
-                                  it, but do not activate it. The previous
-                                  bundle will continue to be served until the
-                                  draft is published.
+                                  it (unless it is rendered or static
+                                  content), but do not activate it. The
+                                  previous bundle will continue to be served
+                                  until the draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
                                   bundle upload. Use format: key=value. May be
                                   specified multiple times. Use key= (empty
@@ -3901,8 +4042,7 @@ contents before deployment.</p>
                                   to quote the pattern. This option may be
                                   repeated.
   -p, --python PATH               Path to Python interpreter whose environment
-                                  should be used. The Python environment must
-                                  have the rsconnect package installed.
+                                  should be used.
   --override-python-version PYTHON-VERSION
                                   An optional python version to use instead of
                                   the version from the detected environment.
