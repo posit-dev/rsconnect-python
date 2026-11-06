@@ -1061,15 +1061,15 @@ class TestEnvironmentDeprecations:
         )
         assert result.python_version_requirement == "==3.8.1"
 
-    def test_minor_python_override_warns_about_legacy_connect(self):
+    def test_minor_python_override(self):
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
             result = Environment.create_python_environment(get_dir("pip1-no-version"), override_python_version="3.8")
 
         assert result.python == ".".join(str(part) for part in sys.version_info[:3])
         assert result.python_version_requirement == "==3.8.*"
-        assert any(
-            "Posit Connect versions before 2025.03.0 will use the local Python version instead" in call.args[0]
-            for call in mock_warning.call_args_list
+        mock_warning.assert_called_once_with(
+            "The --override-python-version option is deprecated, "
+            "please use a .python-version file to force a specific interpreter version."
         )
 
     def test_python_interpreter(self):

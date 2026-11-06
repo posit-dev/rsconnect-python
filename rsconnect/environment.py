@@ -152,12 +152,6 @@ class Environment:
                 "please use a .python-version file to force a specific interpreter version."
             )
             suffix = ".*" if override_python_version.count(".") == 1 else ""
-            if suffix:
-                logger.warning(
-                    "Posit Connect versions before 2025.03.0 will use the "
-                    "local Python version instead of the minor-only override. Specify a full patch version "
-                    "for those servers."
-                )
             python_version_requirement = f"=={override_python_version}{suffix}"
 
         # with cli_feedback("Inspecting Python environment"):

@@ -2144,7 +2144,10 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -2338,7 +2341,10 @@ def deploy_notebook(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3035,7 +3041,10 @@ def deploy_git(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3521,7 +3530,10 @@ def generate_deploy_python(
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",
@@ -3899,7 +3911,10 @@ def write_manifest():
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4019,7 +4034,10 @@ def write_manifest_notebook(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4175,7 +4193,10 @@ def write_manifest_voila(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4597,7 +4618,10 @@ def generate_write_manifest_python(
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",
