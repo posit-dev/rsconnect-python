@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Inspects activated or project virtual environments, including with `uv tool install`.
+  Global installations now inspect activated environments. `rsconnect preflight` checks
+  the same environment's Python version. Use `--python` to override selection. (#889)
 - **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
   a numeric Connect content ID fails with an error explaining how to find the
   content's GUID, and rsconnect-python no longer calls the legacy
