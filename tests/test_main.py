@@ -12,6 +12,7 @@ import click
 import httpretty
 import pytest
 from click.testing import CliRunner
+from packaging.specifiers import SpecifierSet
 
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
@@ -46,6 +47,14 @@ def _load_json(data):
     if isinstance(data, bytes):
         return json.loads(data.decode())
     return json.loads(data)
+
+
+@pytest.mark.parametrize("command", [["deploy", "notebook"], ["deploy", "api"], ["write-manifest", "notebook"]])
+def test_python_option_help_does_not_require_rsconnect_in_target_environment(command):
+    result = CliRunner().invoke(cli, [*command, "--help"])
+    assert result.exit_code == 0
+    assert "--python" in result.output
+    assert "must have the rsconnect" not in result.output
 
 
 class TestMain:
@@ -364,6 +373,55 @@ class TestMain:
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == str(python)
 
+    def test_deploy_notebook_static_rejects_invalid_python_option(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # click rejects a missing --python path, and every existing file is executable on
+        # Windows. A directory is the invalid value that reaches which_python everywhere.
+        python = tmp_path / "not-python"
+        python.mkdir()
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", str(python)],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 1
+        assert f"The path '{python}' is a directory. Expected a Python executable." in result.output
+        mock_executor.return_value.make_bundle.assert_not_called()
+
+    def test_deploy_notebook_static_renders_with_notebook_project_venv(self, tmp_path, monkeypatch):
+        project = tmp_path / "project"
+        notebook = project / "nb.ipynb"
+        project.mkdir()
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # Never run: make_bundle is mocked. Discovery only needs an executable file.
+        python = project / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        python.chmod(0o755)
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+        monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == str(python)
+
     @pytest.mark.parametrize(
         ("options", "ignored"),
         [
@@ -468,7 +526,10 @@ class TestMain:
         stderr = capfd.readouterr().err
         assert result.exit_code == 1
         assert diagnostic in re.sub(r"\x1b\[[0-9;]*m", "", stderr)
-        assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
+        if missing_nbconvert:
+            assert f"nbconvert is not installed in the selected Python environment ({interpreter})" in result.output
+        else:
+            assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
         assert "Traceback (most recent call last)" not in result.output
         assert "Internal error" not in result.output + stderr
         assert "subprocess.CalledProcessError" not in result.output + stderr
@@ -1829,6 +1890,43 @@ class TestMain:
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
+    @pytest.mark.parametrize("minor_only", [False, True])
+    def test_deploy_api_with_python_override(self, tmp_path, minor_only):
+        require_connect_version("2025.03.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        installations = client.python_settings()["installations"]
+        candidates = []
+        for item in installations:
+            version = item["version"]
+            match = re.fullmatch(r"(3)\.(\d+)\.(\d+)", version)
+            if not match or item.get("publishable") is False:
+                continue
+            major, minor, patch = map(int, match.groups())
+            if minor >= 8 and patch > 0:
+                candidates.append((major, minor, patch))
+
+        if not candidates:
+            pytest.skip("Connect needs a publishable Python >= 3.8 with a nonzero patch")
+
+        major, minor, patch = max(candidates)
+        version = f"{major}.{minor}" if minor_only else f"{major}.{minor}.{patch}"
+
+        source = get_api_path("flask")
+        (tmp_path / "app.py").write_text(
+            "import sys\n"
+            "from flask import Flask\n"
+            f"assert sys.version_info[:3] == ({major}, {minor}, {patch}), sys.version\n"
+            "app = Flask(__name__)\n"
+            "@app.route('/ping')\n"
+            "def ping():\n"
+            "    return 'ok'\n"
+        )
+        shutil.copy(join(source, "requirements.txt"), tmp_path)
+        args = self.create_deploy_args("api", str(tmp_path))
+        args.extend(["--entrypoint", "app:app", "--exclude-renv", "--override-python-version", version])
+        result = CliRunner().invoke(cli, args)
+        assert result.exit_code == 0, result.output
+
     def test_deploy_api_fail_verify(self):
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
@@ -2451,6 +2549,47 @@ class TestWriteManifestNodeJS:
 
 
 class TestWriteManifestFramework:
+    @pytest.mark.parametrize(
+        "version, expected_requirement, matching, nonmatching",
+        [
+            ("3.11", "==3.11.*", "3.11.15", "3.12.0"),
+            ("3.11.0", "==3.11.0", "3.11.0", "3.11.15"),
+            ("3.11.15", "==3.11.15", "3.11.15", "3.11.14"),
+        ],
+    )
+    def test_override_python_version(self, tmp_path, version, expected_requirement, matching, nonmatching):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+
+        result = CliRunner().invoke(
+            cli,
+            [
+                "write-manifest",
+                "api",
+                "--entrypoint",
+                "app:app",
+                "--exclude-renv",
+                "--override-python-version",
+                version,
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        expected_version = ".".join(str(part) for part in sys.version_info[:3]) if version == "3.11" else version
+        assert manifest["python"]["version"] == expected_version
+        requirement = manifest["environment"]["python"]["requires"]
+        assert requirement == expected_requirement
+        assert matching in SpecifierSet(requirement)
+        assert nonmatching not in SpecifierSet(requirement)
+
+    def test_invalid_python_override_is_rejected(self, tmp_path):
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "--override-python-version", "3", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "expected major.minor or major.minor.patch" in result.output
+        assert not (tmp_path / "manifest.json").exists()
+
     def test_dangling_symlink_reports_clear_error(self, tmp_path):
         (tmp_path / "app.py").write_text("app = object()\n")
         (tmp_path / "requirements.txt").write_text("flask\n")

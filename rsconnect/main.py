@@ -312,6 +312,8 @@ def _validate_preflight_options(ctx: click.Context) -> None:
     if params["runtime"] == "nodejs":
         if params["fix"]:
             raise click.UsageError("--fix applies only to Python projects; Node.js metadata is left unchanged.")
+        if params["python"]:
+            raise click.UsageError("--python applies only to --runtime python.")
     elif params["node"]:
         raise click.UsageError("--node requires --runtime nodejs.")
 
@@ -1388,6 +1390,11 @@ def details(
 @click.option("--app-id", "-a", help="Check an existing content item by GUID. Prefer --guid.")
 @click.option("--runtime", type=click.Choice(["python", "nodejs"]), default="python", show_default=True)
 @click.option("--node", type=click.Path(exists=True, dir_okay=False), help="Node.js executable for --runtime nodejs.")
+@click.option(
+    "--python",
+    type=click.Path(exists=True),
+    help="Path to the Python interpreter whose version is checked. Defaults to the project environment.",
+)
 @cli_exception_handler
 @preflight_exception_handler
 @click.pass_context
@@ -1400,6 +1407,7 @@ def preflight(
     app_id: Optional[str],
     runtime: str,
     node: Optional[str],
+    python: Optional[str],
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1433,7 +1441,7 @@ def preflight(
 
         result = run_node_preflight(ce, directory, node)
     else:
-        result = run_preflight(ce, directory, fix)
+        result = run_preflight(ce, directory, fix, python)
     click.echo(json.dumps(result))
     if result["status"] == "incompatible":
         sys.exit(3)
@@ -2166,15 +2174,15 @@ def _warn_on_options_ignored_by_static_notebook(ctx: click.Context, extra_files:
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -2268,7 +2276,7 @@ def deploy_notebook(
         # The notebook is rendered locally and the bundle holds only the HTML, so Connect
         # never builds an environment for it. Only an interpreter to run nbconvert is needed.
         _warn_on_options_ignored_by_static_notebook(ctx, extra_files)
-        python_interpreter = which_python(python)
+        python_interpreter = which_python(python, base_dir)
     else:
         requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
         environment = Environment.create_python_environment(
@@ -2373,15 +2381,15 @@ def deploy_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3073,15 +3081,15 @@ def deploy_git(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3177,6 +3185,7 @@ def deploy_quarto(
             environment = Environment.create_python_environment(
                 base_dir,
                 requirements_file=requirements_file,
+                python=python,
                 override_python_version=override_python_version,
             )
 
@@ -3561,15 +3570,15 @@ def generate_deploy_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
-        ),
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",
@@ -3942,13 +3951,15 @@ def write_manifest():
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4063,13 +4074,15 @@ def write_manifest_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4220,13 +4233,15 @@ def write_manifest_voila(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4643,13 +4658,15 @@ def generate_write_manifest_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help="Path to Python interpreter whose environment should be used. "
-        + "The Python environment must have the rsconnect-python package installed.",
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",

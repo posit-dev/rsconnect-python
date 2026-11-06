@@ -9,12 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `deploy notebook --static` no longer requires a requirements file or
   `--force-generate`, and no longer reads `renv.lock`. The static bundle contains
-  only the rendered HTML, so the only requirement is a Python interpreter with
-  `nbconvert`, the current one or the one given with `--python`. That interpreter
-  no longer needs rsconnect installed. (#923)
+  only the rendered HTML, so the selected Python environment only needs `nbconvert`,
+  `ipykernel`, and the packages the notebook imports. That environment no longer
+  needs rsconnect installed. (#923)
 - `deploy notebook --static` warns about options that have no effect on the
   rendered HTML, such as `--requirements-file`, `--force-generate`, `--image`, and
   the environment management options, and about extra files, which aren't included.
+- `--override-python-version` with a major and minor version, such as `3.11`,
+  requests the latest Python patch release in that series instead of `3.11.0`.
+  This requires Posit Connect 2025.03.0 or later; older servers use the local
+  Python version, so pass a full version such as `3.11.5` for those. (#901)
+- Inspects activated or project virtual environments, including with `uv tool install`.
+  Global installations now inspect activated environments. `rsconnect preflight` checks
+  the same environment's Python version. Use `--python` to override selection. (#889)
 - **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
   a numeric Connect content ID fails with an error explaining how to find the
   content's GUID, and rsconnect-python no longer calls the legacy

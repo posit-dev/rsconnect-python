@@ -20,9 +20,14 @@ be included in the bundle. It must specify the package dependencies needed to ex
 the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.
 
-If there is no `requirements.txt` file or the `--force-generate` option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option:
+With `--force-generate`, rsconnect-python determines package dependencies from the
+selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a non-base
+`CONDA_PREFIX`, a project environment (`.venv` in the
+content directory or any parent directory), and a base `CONDA_PREFIX`, in that order,
+like `uv pip`. If none is available, it uses the Python interpreter running
+rsconnect-python.
+
+To select a Python executable explicitly:
 
 ```bash
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
@@ -35,12 +40,8 @@ ensuring that you use the same Python that you use to run your Jupyter Notebook:
 /path/to/python -m pip list --format=freeze
 ```
 
-Generating requirements from an environment requires pip 20.3 or later in the
-selected Python environment. Pip 20.3 introduced named `pip freeze --exclude`
-options and supports Python 3.8, the oldest Python version supported by
-rsconnect-python. Upgrade pip in older environments or supply a requirements
-file. Newer Python versions may need a later pip release. This requirement
-applies to inspection, not the installer used by Posit Connect.
+If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
+requirements. To inspect it manually, use `uv pip freeze --python /path/to/python`.
 
 #### Python Version
 
@@ -91,6 +92,8 @@ file, then publish the HTML file to the Posit Connect server:
 rsconnect deploy notebook --static my-notebook.ipynb
 ```
 
+Install `nbconvert` in the selected Python environment to render static notebooks.
+
 ### Creating a Manifest for Future Deployment
 
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
@@ -98,7 +101,7 @@ in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain the
-package dependencies from the current Python environment, or from an alternative
+package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
@@ -203,9 +206,8 @@ included in the bundle. It must specify the package dependencies needed to execu
 the API or application. Posit Connect will reconstruct the Python environment using
 the specified package list.
 
-If there is no `requirements.txt` file or the `--force-generate` option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option:
+With `--force-generate`, rsconnect-python determines package dependencies from the
+selected Python environment. Use `--python` to select an interpreter explicitly:
 
 ```bash
 rsconnect deploy api --python /path/to/python my-api/
@@ -217,6 +219,8 @@ ensuring that you use the same Python that you use to run your API or applicatio
 ```bash
 /path/to/python -m pip list --format=freeze
 ```
+
+If the environment does not have pip, use `uv pip freeze --python /path/to/python` instead.
 
 #### Python Version
 
@@ -239,6 +243,11 @@ rsconnect deploy api --override-python-version 3.11.5 my-api/
 
 will deploy the content in `my-api` while requesting that Connect
 use Python version 3.11.5.
+On Connect 2025.03.0 and later, a major and minor version such as `3.11`
+requests the latest available patch release in that series. The manifest records
+the local Python version separately for compatibility. Connect versions before
+2025.03.0 use that local version instead, so specify a full version such as
+`3.11.5` when deploying to those servers.
 
 > **Note**
 > The packages and package versions listed in `requirements.txt` must be
@@ -284,7 +293,7 @@ manifest in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain
-the package dependencies from the current Python environment, or from an alternative
+the package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
@@ -643,8 +652,7 @@ rsconnect deploy notebook \
     my-notebook.ipynb
 ```
 
-By default, rsconnect-python does not install Jupyter notebook-related depenencies.
-To use these hide input features in rsconnect-python you need to install these extra dependencies:
+To use these hide input features, install these dependencies in the selected Python environment:
 
 ```
 notebook
