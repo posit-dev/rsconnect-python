@@ -2,20 +2,36 @@
 
 import json
 import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from packaging.version import Version
+import uv
 
 
 @pytest.mark.skipif(not os.environ.get("RSCONNECT_COMPAT_PYTHON"), reason="No compatibility interpreter selected")
 def test_dependency_inspection_with_selected_pip(tmp_path: Path):
-    python = os.path.abspath(os.environ["RSCONNECT_COMPAT_PYTHON"])
+    base_python = os.path.abspath(os.environ["RSCONNECT_COMPAT_PYTHON"])
     repo = Path(__file__).resolve().parents[1]
-    site = tmp_path / "site"
-    site.mkdir()
-    for name in ("rsconnect", "rsconnect-python", "rsconnect-utils", "demo-url"):
+    env_dir = tmp_path / "env"
+    subprocess.run([base_python, "-m", "venv", "--without-pip", str(env_dir)], check=True)
+    python = str(env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    site = Path(
+        subprocess.check_output(
+            [python, "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], text=True
+        ).strip()
+    )
+    base_site = Path(
+        subprocess.check_output(
+            [base_python, "-c", "import os,pip; print(os.path.dirname(os.path.dirname(pip.__file__)))"], text=True
+        ).strip()
+    )
+    shutil.copytree(base_site / "pip", site / "pip")
+    for metadata in base_site.glob("pip-*.dist-info"):
+        shutil.copytree(metadata, site / metadata.name)
+    for name in ("rsconnect", "rsconnect-python", "rsconnect-utils", "demo-url", "setuptools", "wheel", "distribute"):
         dist = site / f"{name.replace('-', '_')}-1.0.dist-info"
         dist.mkdir()
         (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n")
@@ -25,12 +41,21 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
             )
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join((str(repo), str(site)))
     env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
 
     def inspect(requirements_file):
         result = subprocess.run(
-            [python, "-m", "rsconnect.subprocesses.inspect_environment", "-r", requirements_file, str(tmp_path)],
+            [
+                sys.executable,
+                str(repo / "rsconnect/subprocesses/inspect_environment.py"),
+                "--python",
+                python,
+                "--uv",
+                uv.find_uv_bin(),
+                "-r",
+                requirements_file,
+                str(tmp_path),
+            ],
             capture_output=True,
             text=True,
             check=True,
@@ -39,27 +64,28 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
         )
         return json.loads(result.stdout)
 
-    version = subprocess.check_output([python, "-m", "pip", "--version"], text=True).split()[1]
     generated = inspect("none")
-    if Version(version) < Version("20.3"):
-        assert f"requires pip 20.3 or later (found {version})" in generated["error"]
-        assert "install --upgrade pip" in generated["error"]
-    else:
-        lines = generated["contents"].splitlines()
-        assert "rsconnect-utils==1.0" in lines
-        assert "demo-url @ https://example.com/rsconnect/demo.whl" in lines
-        assert "rsconnect==1.0" not in lines
-        assert "rsconnect-python==1.0" not in lines
+    assert generated["pip"] == subprocess.check_output([python, "-m", "pip", "--version"], text=True).split()[1]
+    lines = generated["contents"].splitlines()
+    assert "rsconnect-utils==1.0" in lines
+    assert "demo-url @ https://example.com/rsconnect/demo.whl" in lines
+    assert "rsconnect==1.0" not in lines
+    assert "rsconnect-python==1.0" not in lines
+    pip_lines = subprocess.check_output([python, "-m", "pip", "freeze"], text=True, env=env).splitlines()
+    for name in ("pip", "setuptools", "wheel", "distribute"):
+        assert any(line.startswith(f"{name}==") for line in lines) == any(
+            line.startswith(f"{name}==") for line in pip_lines
+        )
 
-        local = tmp_path / "rsconnect-local"
-        metadata = local / "demo_local.egg-info"
-        metadata.mkdir(parents=True)
-        (metadata / "PKG-INFO").write_text("Metadata-Version: 2.1\nName: demo-local\nVersion: 1.0\n")
-        (site / "demo-local.egg-link").write_text(f"{local}\n.\n")
-        env["PYTHONPATH"] += os.pathsep + str(local)
-        rejected = inspect("none")
-        assert "Editable dependencies outside the deployment directory" in rejected["error"]
-        assert str(local.resolve()) in rejected["error"]
+    local = tmp_path / "rsconnect-local"
+    local.mkdir()
+    metadata = site / "demo_local-1.0.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text("Metadata-Version: 2.1\nName: demo-local\nVersion: 1.0\n")
+    (metadata / "direct_url.json").write_text(json.dumps({"url": local.as_uri(), "dir_info": {"editable": True}}))
+    rejected = inspect("none")
+    assert "Editable dependencies outside the deployment directory" in rejected["error"]
+    assert "rsconnect-local" in rejected["error"]
 
     (tmp_path / "requirements.txt").write_text(
         "rsconnect==1.0\nrsconnect-python==1.0\nrsconnect-utils==1.0\n"
