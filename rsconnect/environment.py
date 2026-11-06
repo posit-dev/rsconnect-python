@@ -160,6 +160,11 @@ class Environment:
         )
         environment.python_version_requirement = python_version_requirement
 
+        if environment.source == "pip_freeze":
+            mismatch = pyproject.local_python_mismatch(python_version_requirement, environment.python)
+            if mismatch:
+                warn_user(mismatch)
+
         if override_python_version and override_python_version.count(".") == 2:
             # Retaing backward compatibility with old Connect versions
             # that didn't support environment.python.requires

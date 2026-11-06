@@ -58,6 +58,83 @@ def test_python_option_help_does_not_require_rsconnect_in_target_environment(com
     assert "must have the rsconnect" not in result.output
 
 
+@pytest.mark.parametrize(
+    "filename,contents,requirement",
+    [
+        (".python-version", "2.7\n", "~=2.7.0"),
+        ("pyproject.toml", '[project]\nrequires-python = "<3"\n', "<3"),
+        ("setup.cfg", "[options]\npython_requires = <3\n", "<3"),
+    ],
+)
+def test_write_manifest_warns_when_frozen_python_does_not_match_project(tmp_path, filename, contents, requirement):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / filename).write_text(contents)
+    result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path), "--force-generate"])
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    warning = (
+        f"Local Python {version} does not satisfy the project requirement {requirement}; "
+        "dependency compatibility has not been tested."
+    )
+    assert result.exit_code == 0, result.output
+    assert warning in result.output
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["python"]["version"] == version
+    assert manifest["environment"]["python"]["requires"] == requirement
+
+
+@pytest.mark.parametrize("source", ["compatible", "file", "invalid"])
+def test_write_manifest_does_not_warn_without_a_valid_frozen_mismatch(tmp_path, source):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    requirement = ">=3" if source == "compatible" else ("invalid" if source == "invalid" else "<3")
+    (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{requirement}"\n')
+    args = ["write-manifest", "api", str(tmp_path)]
+    if source == "file":
+        (tmp_path / "requirements.txt").write_text("flask\n")
+    else:
+        args.append("--force-generate")
+
+    result = CliRunner().invoke(cli, args)
+
+    assert result.exit_code == 0, result.output
+    assert "does not satisfy the project requirement" not in result.output
+
+
+def test_deploy_warns_before_server_connection_when_freezing_incompatible_python(tmp_path, monkeypatch):
+    from rsconnect.exception import RSConnectException
+
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / ".python-version").write_text("2.7\n")
+
+    def stop_before_server_connection(*args, **kwargs):
+        raise RSConnectException("Stopped before server connection")
+
+    monkeypatch.setattr("rsconnect.main.RSConnectExecutor", stop_before_server_connection)
+    try:
+        result = CliRunner().invoke(cli, ["deploy", "api", str(tmp_path), "--force-generate", "--quiet"])
+    finally:
+        rs_logger.set_quiet(False)
+        rs_logger.setLevel(logging.INFO)
+        console_logger.setLevel(logging.DEBUG)
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    assert result.exit_code != 0
+    assert "Stopped before server connection" in result.output
+    assert f"Local Python {version} does not satisfy the project requirement ~=2.7.0" in result.output
+
+
+def test_override_warns_using_frozen_python_before_manifest_version_override(tmp_path):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    result = CliRunner().invoke(
+        cli, ["write-manifest", "api", str(tmp_path), "--force-generate", "--override-python-version", "2.7.1"]
+    )
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    assert result.exit_code == 0, result.output
+    assert f"Local Python {version} does not satisfy the project requirement ==2.7.1" in result.output
+    assert json.loads((tmp_path / "manifest.json").read_text())["python"]["version"] == "2.7.1"
+
+
 class TestMain:
     # Every env var ``metadata.config_dirname()`` consults. ``HOME`` alone only
     # isolates macOS: Linux prefers ``XDG_CONFIG_HOME`` and Windows prefers
