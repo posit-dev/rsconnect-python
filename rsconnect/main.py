@@ -138,6 +138,7 @@ from .models import (
     AppMode,
     AppModes,
     BuildStatus,
+    ContentGuidParamType,
     ContentGuidWithBundle,
     ContentGuidWithBundleParamType,
     KeyValueParamType,
@@ -292,13 +293,27 @@ def preflight_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
+def _resolve_guid_option(new: Optional[bool], app_id: Optional[str], guid: Optional[str]) -> Optional[str]:
+    """Fold --guid into the app_id that the deploy plumbing understands."""
+    if guid is None:
+        return app_id
+    if app_id:
+        raise click.UsageError("Specify only one of --guid or --app-id.")
+    if new:
+        raise click.UsageError("Specify only one of --new or --guid.")
+    return guid
+
+
 def _validate_preflight_options(ctx: click.Context) -> None:
     params = ctx.params
     if params["new"] and params["app_id"]:
         raise click.UsageError("Specify only one of --new or --app-id.")
+    _resolve_guid_option(params["new"], params["app_id"], params["guid"])
     if params["runtime"] == "nodejs":
         if params["fix"]:
             raise click.UsageError("--fix applies only to Python projects; Node.js metadata is left unchanged.")
+        if params["python"]:
+            raise click.UsageError("--python applies only to --runtime python.")
     elif params["node"]:
         raise click.UsageError("--node requires --runtime nodejs.")
 
@@ -711,13 +726,22 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help=(
             "Force a new deployment, even if there is saved metadata from a "
-            "previous deployment. Cannot be used with --app-id."
+            "previous deployment. Cannot be used with --guid or --app-id."
         ),
+    )
+    @click.option(
+        "--guid",
+        type=ContentGuidParamType(),
+        help="GUID of an existing Connect content item to replace. Cannot be used with --new or --app-id.",
     )
     @click.option(
         "--app-id",
         "-a",
-        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+        help=(
+            "ID of an existing Connect Cloud or shinyapps.io application to replace. "
+            "For Posit Connect, use --guid (--app-id also accepts a Connect content GUID). "
+            "Cannot be used with --new."
+        ),
     )
     @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
     @click.option(
@@ -735,19 +759,25 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help=(
             "Don't access the deployed content to verify that it started correctly. "
-            "Implies activating the new bundle immediately rather than verifying it first."
+            "Implies activating the new bundle immediately rather than verifying it first. "
+            "Rendered and static content is never verified."
         ),
     )
     @click.option(
         "--draft",
         is_flag=True,
         help=(
-            "Deploy the application as a draft and verify it, but do not activate it. "
+            "Deploy the application as a draft and verify it (unless it is rendered or static content), "
+            "but do not activate it. "
             "The previous bundle will continue to be served until the draft is published."
         ),
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
+        guid = cast(Optional[str], kwargs.pop("guid"))
+        kwargs["app_id"] = _resolve_guid_option(
+            cast(Optional[bool], kwargs.get("new")), cast(Optional[str], kwargs.get("app_id")), guid
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -1352,9 +1382,19 @@ def details(
 @click.argument("directory", default=".", type=click.Path(exists=True))
 @click.option("--fix", is_flag=True, help="For new content without a constraint, create a suggested .python-version.")
 @click.option("--new", is_flag=True, help="Check a new content item even when a deployment record exists.")
-@click.option("--app-id", "-a", help="Check an existing content item by ID or GUID.")
+@click.option(
+    "--guid",
+    type=ContentGuidParamType(),
+    help="Check an existing content item by GUID. Cannot be used with --new or --app-id.",
+)
+@click.option("--app-id", "-a", help="Check an existing content item by GUID. Prefer --guid.")
 @click.option("--runtime", type=click.Choice(["python", "nodejs"]), default="python", show_default=True)
 @click.option("--node", type=click.Path(exists=True, dir_okay=False), help="Node.js executable for --runtime nodejs.")
+@click.option(
+    "--python",
+    type=click.Path(exists=True),
+    help="Path to the Python interpreter whose version is checked. Defaults to the project environment.",
+)
 @cli_exception_handler
 @preflight_exception_handler
 @click.pass_context
@@ -1363,9 +1403,11 @@ def preflight(
     directory: str,
     fix: bool,
     new: bool,
+    guid: Optional[str],
     app_id: Optional[str],
     runtime: str,
     node: Optional[str],
+    python: Optional[str],
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1380,6 +1422,7 @@ def preflight(
     validation.require_posix("Deployment preflight")
     logger.log(VERBOSE, "Checking %s runtime availability.", runtime)
     _validate_preflight_options(ctx)
+    app_id = _resolve_guid_option(new, app_id, guid)
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
@@ -1398,7 +1441,7 @@ def preflight(
 
         result = run_node_preflight(ce, directory, node)
     else:
-        result = run_preflight(ce, directory, fix)
+        result = run_preflight(ce, directory, fix, python)
     click.echo(json.dumps(result))
     if result["status"] == "incompatible":
         sys.exit(3)
@@ -2096,10 +2139,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -2253,11 +2293,7 @@ def deploy_notebook(
             r_environment=r_environment,
         )
     ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2297,10 +2333,7 @@ def deploy_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -2427,11 +2460,7 @@ def deploy_voila(
         r_environment=r_environment,
         multi_notebook=multi_notebook,
     ).deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2535,11 +2564,7 @@ def deploy_manifest(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2642,11 +2667,7 @@ def deploy_bundle(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2869,11 +2890,7 @@ def deploy_pyproject(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2886,7 +2903,7 @@ def deploy_pyproject(
         "Connect will regularly poll the repository for updates."
         "\n\n"
         "This command creates a new git-backed content item. To update an existing git-backed "
-        "content item, use the --app-id option with the content's GUID."
+        "content item, use the --guid option with the content's GUID."
     ),
 )
 @server_args
@@ -3013,10 +3030,7 @@ def deploy_git(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -3117,6 +3131,7 @@ def deploy_quarto(
             environment = Environment.create_python_environment(
                 base_dir,
                 requirements_file=requirements_file,
+                python=python,
                 override_python_version=override_python_version,
             )
 
@@ -3174,11 +3189,7 @@ def deploy_quarto(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3286,11 +3297,7 @@ def deploy_tensorflow(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3429,11 +3436,7 @@ def deploy_html(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3513,10 +3516,7 @@ def generate_deploy_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
-        ),
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
@@ -3681,11 +3681,7 @@ def generate_deploy_python(
         ce.save_deployed_info()
         ce.emit_task_log()
 
-        if not no_verify:
-            ce.verify_deployment()
-            if not draft and ce.supports_verify_before_activate:
-                # The draft bundle verified successfully, so activate it.
-                ce.activate_deployment().emit_task_log()
+        ce.verify_and_activate(draft, no_verify)
         ce.emit_content_url()
 
     return deploy_app
@@ -3847,11 +3843,7 @@ def deploy_nodejs(
     ce.save_deployed_info()
     ce.emit_task_log()
 
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3902,8 +3894,7 @@ def write_manifest():
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4023,8 +4014,7 @@ def write_manifest_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4180,8 +4170,7 @@ def write_manifest_voila(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
@@ -4603,8 +4592,7 @@ def generate_write_manifest_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help="Path to Python interpreter whose environment should be used. "
-        + "The Python environment must have the rsconnect-python package installed.",
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",

@@ -50,6 +50,14 @@ def _load_json(data):
     return json.loads(data)
 
 
+@pytest.mark.parametrize("command", [["deploy", "notebook"], ["deploy", "api"], ["write-manifest", "notebook"]])
+def test_python_option_help_does_not_require_rsconnect_in_target_environment(command):
+    result = CliRunner().invoke(cli, [*command, "--help"])
+    assert result.exit_code == 0
+    assert "--python" in result.output
+    assert "must have the rsconnect" not in result.output
+
+
 class TestMain:
     # Every env var ``metadata.config_dirname()`` consults. ``HOME`` alone only
     # isolates macOS: Linux prefers ``XDG_CONFIG_HOME`` and Windows prefers
@@ -184,10 +192,10 @@ class TestMain:
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -195,14 +203,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -210,28 +218,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "id": "1234-5678-9012-3456",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "app5",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -240,7 +234,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps(
                 {
                     "id": "FAKE_BUNDLE_ID",
@@ -265,7 +259,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
 
@@ -280,26 +274,20 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456/config",
-            body=json.dumps({}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
 
-        expected_content_url = "http://fake_server/content/1234-5678-9012-3456"
-        expected_draft_url = "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
+        expected_content_url = "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+        expected_draft_url = (
+            "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/draft/FAKE_BUNDLE_ID"
+        )
         try:
             runner = CliRunner()
             args = apply_common_args(["deploy", command, target], server="http://fake_server", key="FAKE_API_KEY")
@@ -405,7 +393,10 @@ class TestMain:
         stderr = capfd.readouterr().err
         assert result.exit_code == 1
         assert diagnostic in re.sub(r"\x1b\[[0-9;]*m", "", stderr)
-        assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
+        if missing_nbconvert:
+            assert f"nbconvert is not installed in the selected Python environment ({interpreter})" in result.output
+        else:
+            assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
         assert "Traceback (most recent call last)" not in result.output
         assert "Internal error" not in result.output + stderr
         assert "subprocess.CalledProcessError" not in result.output + stderr
@@ -442,10 +433,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -457,14 +448,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -480,7 +471,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -500,7 +491,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/content/1234-5678-9012-3456/_bundleFAKE_BUNDLE_ID/",
+            "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/_bundleFAKE_BUNDLE_ID/",
             body=get_bundle_preview_callback,
         )
 
@@ -525,6 +516,71 @@ class TestMain:
             assert len(verify_invoked) == 1
             assert "Verifying deployed content..." in caplog.text
             assert "Activating deployed content..." in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @pytest.mark.parametrize("draft", [False, True])
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rendered_content_without_verifying(self, caplog, draft):
+        # #872: Connect renders a draft and renders it again on activation, so rendered
+        # content is deployed and activated in one step, without verifying a draft.
+        # With --draft it is deployed as a draft, but still not verified: the draft
+        # URL only serves what the deploy task already rendered.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0})
+        )
+        deploy_bodies = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_bodies.append(_load_json(request.body))
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
+            body=post_application_deploy_callback,
+        )
+        verify_invoked = []
+
+        def get_content_callback(request, uri, response_headers):
+            verify_invoked.append(uri)
+            return [200, {"Content-Type": "text/html"}, "<html></html>"]
+
+        httpretty.register_uri(
+            httpretty.GET,
+            re.compile(r"http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/"),
+            body=get_content_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            if draft:
+                args.append("--draft")
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            if draft:
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID", "activate": False}]
+            else:
+                # A single deploy that activates: no "activate" field is sent.
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
+            assert verify_invoked == []
+            assert "Verifying deployed content..." not in caplog.text
+            assert "Activating deployed content..." not in caplog.text
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
@@ -563,10 +619,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -578,14 +634,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -599,7 +655,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -619,7 +675,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/content/1234-5678-9012-3456/",
+            "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/",
             body=get_active_content_callback,
         )
 
@@ -688,7 +744,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
 
@@ -722,10 +778,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -758,28 +814,28 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=json.dumps({"task_id": "FAKE_TASK_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -803,9 +859,9 @@ class TestMain:
         )
         target = get_dir(join("pip1", "dummy.ipynb"))
         expected_url = (
-            "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
+            "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/draft/FAKE_BUNDLE_ID"
             if draft
-            else "http://fake_server/content/1234-5678-9012-3456"
+            else "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         )
         try:
             runner = CliRunner()
@@ -870,14 +926,15 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            re.compile(r"http://fake_server/content/1234-5678-9012-3456/"),
+            re.compile(r"http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/"),
             body="",
             status=502,
         )
-        target = get_dir(join("pip1", "dummy.ipynb"))
+        # Rendered content such as a notebook isn't verified, so deploy an app.
+        target = get_manifest_path("pyshiny_with_manifest", "")
         try:
             runner = CliRunner(mix_stderr=False)
-            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args = apply_common_args(["deploy", "manifest", target], server="http://fake_server", key="FAKE_API_KEY")
             args += ["--quiet"]
             with mock.patch(
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
@@ -958,10 +1015,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -973,14 +1030,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -995,7 +1052,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=post_bundle_callback,
         )
 
@@ -1009,7 +1066,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -1146,7 +1203,7 @@ class TestMain:
         # deploy; under an API key it would silently rename the content.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1176,7 +1233,7 @@ class TestMain:
         # title should still be updated (the pre-#835-fix behavior, preserved).
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1206,7 +1263,7 @@ class TestMain:
         # for `deploy bundle --app-id`.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
         bundle_path = join("tests", "testdata", "bundle.tar.gz")
 
@@ -1236,7 +1293,7 @@ class TestMain:
         # generic path-based fallback ("manifest").
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1259,6 +1316,84 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_redeploy_with_guid(self, caplog):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+        patch_calls = []
+
+        try:
+            deploy_api_invoked = self._register_deploy_endpoints(guid, "My Curated Title", patch_calls)
+
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args += ["--guid", guid, "--no-verify"]
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @pytest.mark.parametrize(
+        ("extra_args", "message"),
+        [
+            (["--guid", "1234"], "is not a content GUID"),
+            (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--app-id", "other"], "--guid or --app-id"),
+            (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--new"], "--new or --guid"),
+        ],
+    )
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_guid_usage_errors(self, extra_args, message):
+        args = apply_common_args(
+            ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+            server="http://fake_server",
+            key="FAKE_API_KEY",
+        )
+        result = CliRunner().invoke(cli, args + extra_args)
+        assert result.exit_code == 2, result.output
+        assert message in result.output
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rejects_numeric_app_id_for_connect(self):
+        args = apply_common_args(
+            ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+            server="http://fake_server",
+            key="FAKE_API_KEY",
+        )
+        result = CliRunner().invoke(cli, args + ["--app-id", "1234"])
+        assert result.exit_code == 1, result.output
+        assert "numeric content IDs are no longer supported" in result.output
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rejects_guid_for_shinyapps(self):
+        args = [
+            "deploy",
+            "manifest",
+            get_manifest_path("shinyapp"),
+            "--account",
+            "some-account",
+            "--token",
+            "someToken",
+            "--secret",
+            "c29tZVNlY3JldAo=",
+            "--guid",
+            "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+        ]
+        # Integration CI exports CONNECT_API_KEY/CONNECT_SERVER, which would trip the
+        # Connect-vs-shinyapps option conflict check before the --guid check.
+        result = CliRunner().invoke(cli, args, env={"CONNECT_API_KEY": None, "CONNECT_SERVER": None})
+        assert result.exit_code == 1, result.output
+        assert "--guid applies only to Posit Connect" in result.output
 
     # noinspection SpellCheckingInspection
     @pytest.mark.skip(reason="Skipping R manifest test (requires R 3.5, docker containers have moved on).")

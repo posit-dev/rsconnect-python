@@ -86,7 +86,6 @@ from .models import (
     BootstrapOutputDTO,
     BuildOutputDTO,
     BundleMetadata,
-    ContentItemV0,
     ContentItemV1,
     DeleteInputDTO,
     DeleteOutputDTO,
@@ -106,6 +105,7 @@ from .models import (
     ServerSettings,
     TaskStatusV1,
     UserRecord,
+    is_content_guid,
 )
 from .snowflake import generate_jwt, get_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
@@ -492,6 +492,16 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
         return False
 
 
+# App modes that Connect renders (or serves as-is) at deploy time rather than running
+# as a process. See RSConnectExecutor.is_rendered_content.
+_RENDERED_APP_MODES = {
+    AppModes.RMD.name(),
+    AppModes.STATIC.name(),
+    AppModes.JUPYTER_NOTEBOOK.name(),
+    AppModes.STATIC_QUARTO.name(),
+}
+
+
 def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
     """
     Check if the server supports deploying a bundle as a draft and activating it
@@ -635,11 +645,6 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = self.get("v1/server_settings/nodejs")
         return cast(typing.Dict[str, Any], self._server.handle_bad_response(response))
 
-    def app_get(self, app_id: str) -> ContentItemV0:
-        response = cast(Union[ContentItemV0, HTTPResponse], self.get(f"applications/{app_id}"))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def add_environment_vars(self, content_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch(f"v1/content/{content_guid}/environment", body=env_body)
@@ -694,22 +699,6 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_content_by_id(self, id: str) -> ContentItemV1:
-        """
-        Get content by ID, which can be either a numeric ID (legacy) or GUID.
-
-        :param app_id: Either a numeric ID (e.g., "1234") or GUID (e.g., "abc-def-123")
-        :return: ContentItemV1 data
-        """
-        # Check if it looks like a GUID (contains hyphens)
-        if "-" in str(id):
-            return self.content_get(id)
-        else:
-            # Legacy numeric ID - get v0 content first to get GUID
-            app_v0 = self.app_get(id)
-            # TODO: deprecation warning here
-            return self.content_get(app_v0["guid"])
-
     def content_create(self, name: str) -> ContentItemV1:
         response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
         response = self._server.handle_bad_response(response)
@@ -721,10 +710,10 @@ class RSConnectClient(BearerTokenHTTPServer):
         """
         Upload a bundle to the server.
 
-        :param app_id: Application ID
+        :param content_guid: Content GUID
         :param tarball: Bundle tarball file object
         :param metadata: Optional metadata dictionary (e.g., git metadata)
-        :return: ContentItemV0 with bundle information
+        :return: BundleMetadata for the uploaded bundle
         """
         if metadata:
             # Use multipart form upload when metadata is provided
@@ -922,7 +911,7 @@ class RSConnectClient(BearerTokenHTTPServer):
         Creates or updates a git-backed content item in Posit Connect. Connect will clone
         the repository and regularly poll it for updates.
 
-        :param app_id: Existing content ID/GUID to update, or None to create new content
+        :param app_id: Existing content GUID to update, or None to create new content
         :param name: Name for the content item (used if creating new)
         :param repository: URL of the git repository (https:// only)
         :param branch: Branch to deploy from
@@ -938,11 +927,10 @@ class RSConnectClient(BearerTokenHTTPServer):
             app = self.content_create(name)
         else:
             try:
-                app = self.get_content_by_id(app_id)
+                app = self.content_get(app_id)
             except RSConnectException as e:
-                raise RSConnectException(
-                    f"{e} Try setting the --new flag or omit --app-id to create new content."
-                ) from e
+                # app_id may have come from either --guid or --app-id (publish_args folds them together).
+                raise RSConnectException(f"{e} Omit --guid/--app-id to create new content instead.") from e
 
         app_guid = app["guid"]
 
@@ -1138,8 +1126,7 @@ class RSConnectClient(BearerTokenHTTPServer):
         else:
             # assume content exists. if it was deleted then Connect will raise an error
             try:
-                # app_id could be a numeric ID (legacy) or GUID
-                app = self.get_content_by_id(app_id)
+                app = self.content_get(app_id)
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
@@ -1415,6 +1402,7 @@ class RSConnectExecutor:
             infer_target=(path is not None) if infer_target is None else infer_target,
         )
         self.setup_client(cookies)
+        self.validate_explicit_app_id()
 
     @classmethod
     def fromConnectServer(
@@ -1470,6 +1458,22 @@ class RSConnectExecutor:
             subdirectory=subdirectory,
             polling=polling,
         )
+
+    def validate_explicit_app_id(self) -> None:
+        """Check an explicit --guid or --app-id against the kind of server it targets."""
+        if self.app_id is None:
+            return
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+            if not is_content_guid(str(self.app_id)):
+                raise RSConnectException(
+                    "--app-id must be a content GUID; numeric content IDs are no longer supported. "
+                    "Find the GUID in the content's Info panel in Connect or with `rsconnect content search`."
+                )
+        elif self.ctx is not None and self.ctx.params.get("guid"):
+            raise RSConnectException(
+                "--guid applies only to Posit Connect. "
+                "Use --app-id to target existing Connect Cloud or shinyapps.io content."
+            )
 
     def output_overlap_header(self, previous: bool) -> bool:
         if self.logger and not previous:
@@ -2698,12 +2702,33 @@ for shinyapps.io. See command help for further details."
             self._draft_deploy_supported = server_supports_draft_deploy(server_version)
         return self._draft_deploy_supported
 
+    @property
+    def is_rendered_content(self) -> bool:
+        """Whether the bundle is rendered or static content rather than a running app.
+
+        Connect renders a document when its bundle is deployed and renders it again
+        when a draft is activated, so verifying a draft first would render it twice.
+        Requesting the rendered output also can't catch anything the deploy task's
+        render didn't already, and Connect reverts to the previous bundle if an
+        activating render fails.
+        """
+        app_mode = self.bundle_manifest().get("metadata", {}).get("appmode")
+        return app_mode in _RENDERED_APP_MODES
+
+    def should_verify(self, no_verify: bool) -> bool:
+        """Whether to verify the deployed content.
+
+        Rendered content is never verified, even as a draft: requesting a draft's
+        rendered output only serves what the deploy task already rendered.
+        """
+        return not no_verify and not self.is_rendered_content
+
     def should_deploy_as_draft(self, draft: bool, no_verify: bool) -> bool:
         """Whether the bundle should be deployed without activating it.
 
         An explicit ``--draft`` always deploys a draft. Otherwise we deploy a draft only
         when we are going to verify it before activating, which requires server support.
-        With ``--no-verify`` we activate immediately.
+        With ``--no-verify``, or for rendered content, we activate immediately.
         """
         if draft:
             if not isinstance(self.client, RSConnectClient):
@@ -2715,9 +2740,20 @@ for shinyapps.io. See command help for further details."
                 # would be the opposite of what the user asked for, so fail loudly.
                 raise RSConnectException("Deploying as a draft requires Posit Connect 2025.06.0 or later.")
             return True
-        if no_verify:
+        if not self.should_verify(no_verify):
             return False
         return self.supports_verify_before_activate
+
+    def verify_and_activate(self, draft: bool, no_verify: bool):
+        """Verify the deployed content, then activate it if it was deployed as a
+        draft only so that it could be verified first."""
+        if not self.should_verify(no_verify):
+            return self
+        self.verify_deployment()
+        if not draft and self.deployed_info and self.deployed_info.get("draft_url"):
+            # The draft bundle verified successfully, so activate it.
+            self.activate_deployment().emit_task_log()
+        return self
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):
@@ -2806,10 +2842,10 @@ for shinyapps.io. See command help for further details."
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
                 # to get this from the remote.
-                if isinstance(self.remote_server, RSConnectServer):
+                if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
                     try:
                         with RSConnectClient(self.remote_server) as client:
-                            content = client.get_content_by_id(app_id)
+                            content = client.content_get(app_id)
                             existing_app_mode = AppModes.get_by_ordinal(content["app_mode"], True)
                     except RSConnectException as e:
                         raise RSConnectException(
@@ -4299,8 +4335,7 @@ def emit_task_log(
     with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         result = connect_server.handle_bad_response(result)
-        # Get content (handles both numeric IDs and GUIDs)
-        content = client.get_content_by_id(app_id)
+        content = client.content_get(app_id)
         app_url = content["dashboard_url"]
         return (app_url, *result)
 

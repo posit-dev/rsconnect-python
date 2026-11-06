@@ -1,20 +1,24 @@
 import re
 import sys
 import os
+import json
 import tempfile
 import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 from unittest import TestCase
 from unittest import mock
 
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
-from rsconnect.environment import Environment, which_python
+from rsconnect.environment import Environment, PackageInstaller, which_python
 from rsconnect.subprocesses.inspect_environment import (
     EnvironmentException,
     detect_environment,
+    check_editables_are_bundleable,
     filter_pip_freeze_output,
+    rsconnect_project_dir,
     get_default_locale,
     get_python_version,
 )
@@ -22,6 +26,7 @@ from rsconnect.subprocesses.inspect_environment import (
 from .utils import get_dir
 
 import pytest
+import uv
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 TESTDATA = os.path.join(os.path.dirname(__file__), "testdata")
@@ -75,7 +80,7 @@ class TestEnvironment(TestCase):
             os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
             custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
             with open(custom_requirements, "w", newline="\n") as f:
-                f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
+                f.write("foo==1.0\nbar>=2.0\nrsconnect-python==0.1\nrsconnect==0.1\n")
 
             result = Environment.create_python_environment(
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
@@ -133,7 +138,190 @@ class TestEnvironment(TestCase):
         self.assertEqual(filtered, expected)
 
 
-def test_uv_lock_export(tmp_path):
+def test_filter_generated_requirements():
+    raw = "\n".join(
+        [
+            "rsconnect-python==1.0",
+            "rsconnect==1.0",
+            "RSCONNECT @ https://example.com/rsconnect.whl",
+            "RSCONNECT_PYTHON @ https://example.com/rsconnect.whl",
+            "rsconnect.python>=1",
+            "rsconnect-python",
+            "  Rsconnect_-Python[extra] ; python_version >= '3.8'",
+            "-rsconnect-python",
+            "my-rsconnect-utils==0.1",
+            "rsconnect-utils==0.1",
+            "rsconnect-python-extra==1.0",
+            "demo @ file:///work/rsconnect-demo",
+            "# Editable install with no version control (demo==1.0)",
+            "-e git+https://example.com/repo.git#egg=remote",
+            "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+            "-e bzr+lp:project#egg=remote-bzr",
+            "-e git+https:repo#egg=remote-git",
+            "-e hg+http://example.com/repo#egg=remote-hg",
+            "--editable=svn+svn://example.com/repo#egg=remote-svn",
+            "-e https://example.com/project.tar.gz#egg=remote-archive",
+            "# my rsconnect project",
+        ]
+    )
+
+    assert filter_pip_freeze_output(raw).splitlines() == [
+        "-rsconnect-python",
+        "my-rsconnect-utils==0.1",
+        "rsconnect-utils==0.1",
+        "rsconnect-python-extra==1.0",
+        "demo @ file:///work/rsconnect-demo",
+        "-e git+https://example.com/repo.git#egg=remote",
+        "-e git+ssh://git@example.com/repo.git#egg=remote-ssh",
+        "-e bzr+lp:project#egg=remote-bzr",
+        "-e git+https:repo#egg=remote-git",
+        "-e hg+http://example.com/repo#egg=remote-hg",
+        "--editable=svn+svn://example.com/repo#egg=remote-svn",
+        "-e https://example.com/project.tar.gz#egg=remote-archive",
+        "# my rsconnect project",
+    ]
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "-e /work/rsconnect-demo",
+        "-e ../outside-project",
+        "-e ./libs/../../outside-project",
+        "--editable=file:///work/project",
+        "-e git+file:///work/repo#egg=project",
+        "-e git+file:/work/repo#egg=project",
+        "-e C:\\work\\project",
+        "-e D:/work/project",
+        "-e FILE:///work/project",
+    ],
+)
+def test_check_editables_rejects_editables_outside_bundle(tmp_path: Path, requirement):
+    with pytest.raises(EnvironmentException) as error:
+        check_editables_are_bundleable(f"six==1.17.0\n{requirement}\n", str(tmp_path))
+
+    assert requirement in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "-e ./libs/foo",
+        "-e libs/foo",
+        "--editable=.",
+        "-e git+https://example.com/repo.git#egg=remote",
+        "-e bzr+lp:project#egg=remote-bzr",
+        "six @ file:///work/six",
+    ],
+)
+def test_check_editables_allows_bundleable_requirements(tmp_path: Path, requirement):
+    check_editables_are_bundleable(f"{requirement}\r\n", str(tmp_path))
+
+
+def test_filter_generated_requirements_drops_editable_rsconnect():
+    raw = "\n".join(
+        [
+            "six==1.17.0",
+            "-e git+https://github.com/posit-dev/rsconnect-python.git@abc123#egg=rsconnect_python",
+            "-e git+https://example.com/rsconnect.git#egg=RSCONNECT",
+            "-e git+https://example.com/rsconnect-utils.git#egg=rsconnect-utils",
+            "# Editable install with no version control (rsconnect-python==1.0)",
+            f"-e {rsconnect_project_dir}",
+        ]
+    )
+
+    assert filter_pip_freeze_output(raw) == (
+        "six==1.17.0\n-e git+https://example.com/rsconnect-utils.git#egg=rsconnect-utils"
+    )
+
+
+def test_check_editables_reports_all_unbundleable_editables(tmp_path: Path):
+    with pytest.raises(EnvironmentException) as error:
+        check_editables_are_bundleable("-e /work/one\n-e /work/two", str(tmp_path))
+
+    assert "-e /work/one" in str(error.value)
+    assert "-e /work/two" in str(error.value)
+
+
+def missing_bundled_uv():
+    raise FileNotFoundError("uv")
+
+
+def make_environment_with_fake_pip(tmp_path: Path, version: str):
+    env_dir = tmp_path / "env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    site = Path(
+        subprocess.check_output(
+            [str(python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], text=True
+        ).strip()
+    )
+    pip_dir = site / "pip"
+    pip_dir.mkdir()
+    (pip_dir / "__init__.py").write_text("")
+    (pip_dir / "__main__.py").write_text(
+        "import sys\n"
+        "if '--version' in sys.argv:\n"
+        f"    print('pip {version}')\n"
+        "else:\n"
+        "    assert '--exclude' in sys.argv and 'rsconnect-python' in sys.argv and 'rsconnect' in sys.argv\n"
+        "    print('# Editable install with no version control (demo==1.0)')\n"
+        "    print('-e /work/demo')\n"
+    )
+    return python, site
+
+
+def test_inspect_environment_reports_local_editable(tmp_path: Path):
+    python, _ = make_environment_with_fake_pip(tmp_path, "20.3")
+
+    with pytest.raises(
+        RSConnectException,
+        match="Editable dependencies outside the deployment directory cannot be installed on Connect",
+    ) as error:
+        Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
+
+    assert "-e /work/demo" in str(error.value)
+    assert "requirements file" in str(error.value)
+
+
+def test_inspect_environment_uses_uv_for_old_pip(tmp_path: Path):
+    python, site = make_environment_with_fake_pip(tmp_path, "20.2.4")
+    package = site / "demo_package-1.0.dist-info"
+    package.mkdir()
+    (package / "METADATA").write_text("Metadata-Version: 2.1\nName: demo-package\nVersion: 1.0\n")
+
+    environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
+
+    assert environment.pip == "20.2.4"
+    assert "demo-package==1.0" in environment.contents.splitlines()
+
+
+def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_bytes(
+        b"RSCONNECT_PYTHON==1.0\r\nrsconnect==1.0\r\nmy-rsconnect-utils==0.1\r\n"
+        b"demo @ file:///work/rsconnect-demo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
+    )
+
+    env = Environment.create_python_environment(str(tmp_path))
+
+    assert env.contents == "my-rsconnect-utils==0.1\r\ndemo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
+
+
+def test_requirements_file_rejects_editable_outside_bundle(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_text("six\n-e /Users/me/localpkg\n")
+
+    with pytest.raises(
+        RSConnectException,
+        match="Editable dependencies outside the deployment directory cannot be installed on Connect",
+    ) as error:
+        Environment.create_python_environment(str(tmp_path))
+
+    assert "-e /Users/me/localpkg" in str(error.value)
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_uv_lock_export(tmp_path, monkeypatch, fallback):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
@@ -198,7 +386,19 @@ requires-dist = [
         encoding="utf-8",
     )
 
-    env = detect_environment(str(project_dir), requirements_file="uv.lock")
+    from rsconnect.bundle import Manifest
+
+    uv_path = uv.find_uv_bin()
+    expected_uv_version = subprocess.check_output([uv_path, "--version"], text=True).split()[1]
+    env_dir = project_dir / ".venv"
+    subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if fallback:
+        monkeypatch.setenv("PATH", os.path.dirname(uv_path))
+        monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
+    else:
+        monkeypatch.setenv("PATH", "")
+    env = Environment.create_python_environment(str(project_dir), requirements_file="uv.lock", python=str(python))
 
     assert env.filename == "requirements.txt.lock"
     assert "aiofiles==24.1.0" in env.contents
@@ -206,6 +406,8 @@ requires-dist = [
     assert "annotated-types==0.7.0" in env.contents
     assert env.source == "uv_lock"
     assert env.package_manager == "uv"
+    assert env.pip is None
+    assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
@@ -312,6 +514,17 @@ def test_pyproject_dependencies_no_project_table(tmp_path):
 
 
 class WhichPythonTestCase(TestCase):
+    def setUp(self):
+        # which_python() falls back to sys.executable only without an active or project environment.
+        environ = {name: value for name, value in os.environ.items() if name not in ("VIRTUAL_ENV", "CONDA_PREFIX")}
+        patcher = mock.patch.dict(os.environ, environ, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        workdir = tempfile.TemporaryDirectory()
+        self.addCleanup(workdir.cleanup)
+        self.addCleanup(os.chdir, os.getcwd())
+        os.chdir(workdir.name)
+
     def test_default(self):
         self.assertEqual(which_python(), sys.executable)
 
@@ -337,6 +550,342 @@ class WhichPythonTestCase(TestCase):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
+
+
+def test_python_environment_lookup_order(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+
+    def make_interpreter(environment, conda=False):
+        executable = (
+            "python.exe" if os.name == "nt" and conda else "Scripts/python.exe" if os.name == "nt" else "bin/python"
+        )
+        path = environment / executable
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("")
+        path.chmod(0o755)
+        return str(path)
+
+    project = tmp_path / "project"
+    nested = project / "content" / "nested"
+    nested.mkdir(parents=True)
+    activated = make_interpreter(tmp_path / "active")
+    parent = make_interpreter(project / ".venv")
+    nearest = make_interpreter(project / "content" / ".venv")
+    conda = make_interpreter(tmp_path / "conda", conda=True)
+
+    assert which_python(directory=str(nested)) == nearest
+    assert which_python(directory=str(project)) == parent
+    monkeypatch.setenv("CONDA_PREFIX", str(tmp_path / "conda"))
+    assert which_python(directory=str(nested)) == conda
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "active"))
+    assert which_python(directory=str(nested)) == activated
+    assert which_python(sys.executable, directory=str(nested)) == sys.executable
+    monkeypatch.delenv("VIRTUAL_ENV")
+    monkeypatch.delenv("CONDA_PREFIX")
+    assert which_python(directory=str(nested)) == nearest
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses the POSIX environment layout")
+def test_conda_environment_ranks_by_kind_like_uv(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "_CONDA_ROOT", "CONDA_DEFAULT_ENV"):
+        monkeypatch.delenv(name, raising=False)
+
+    def make_interpreter(environment):
+        path = environment / "bin/python"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("")
+        path.chmod(0o755)
+        return str(path)
+
+    project = tmp_path / "project"
+    project.mkdir()
+    venv = make_interpreter(project / ".venv")
+    prefix = tmp_path / "envs" / "analysis"
+    conda = make_interpreter(prefix)
+    monkeypatch.setenv("CONDA_PREFIX", str(prefix))
+
+    # No CONDA_DEFAULT_ENV, so the prefix is treated as a path-based (non-base) environment.
+    assert which_python(directory=str(project)) == conda
+
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "analysis")
+    assert which_python(directory=str(project)) == conda
+
+    # A base environment ranks below the project environment.
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "base")
+    assert which_python(directory=str(project)) == venv
+
+    monkeypatch.setenv("_CONDA_ROOT", str(prefix))
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "analysis")
+    assert which_python(directory=str(project)) == venv
+
+    # Without a project environment, the base environment is still used.
+    (project / ".venv" / "bin" / "python").unlink()
+    assert which_python(directory=str(project)) == conda
+
+
+def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    current = tmp_path / "current"
+    (tmp_path / "sibling").mkdir()
+    python = current / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    python.chmod(0o755)
+    monkeypatch.chdir(current)
+
+    assert which_python(directory=os.path.join("..", "sibling")) == sys.executable
+
+
+def test_project_environment_lookup_includes_ancestors_outside_content_project(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    content = tmp_path / "project" / "content"
+    content.mkdir(parents=True)
+    (tmp_path / "project" / "pyproject.toml").write_text("[project]\nname = 'example'\n")
+    python = tmp_path / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    python.chmod(0o755)
+
+    assert which_python(directory=str(content)) == str(python)
+
+
+def test_inspect_environment_without_bundled_uv(monkeypatch):
+    monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
+    environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
+    assert environment.source == "file"
+
+
+def test_inspect_environment_reports_invalid_pyproject(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project\n")
+    with pytest.raises(RSConnectException, match="Error reading pyproject.toml"):
+        Environment._inspect_environment(sys.executable, str(tmp_path), requirements_file="pyproject.toml")
+
+
+@pytest.mark.parametrize("output", [b"banner\n", b""])
+def test_inspection_json_errors_name_interpreter(tmp_path, output):
+    with pytest.raises(RSConnectException, match="Error parsing environment JSON from Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=lambda *args, **kwargs: output)
+
+
+def test_inspection_subprocess_errors_name_interpreter(tmp_path):
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    with pytest.raises(RSConnectException, match="Error inspecting environment with Python /selected/python"):
+        Environment._inspect_environment("/selected/python", str(tmp_path), check_output=fail)
+
+
+def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, monkeypatch, caplog):
+    from rsconnect.bundle import Manifest
+
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+    project = tmp_path / "project"
+    project.mkdir()
+    environment_dir = project / ".venv"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(environment_dir)], check=True)
+    python = environment_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    wheel = tmp_path / "example_project_dependency-1.2.3-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("example_project_dependency.py", "")
+        archive.writestr(
+            "example_project_dependency-1.2.3.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: example-project-dependency\nVersion: 1.2.3\n",
+        )
+        archive.writestr(
+            "example_project_dependency-1.2.3.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        )
+        archive.writestr("example_project_dependency-1.2.3.dist-info/RECORD", "")
+    subprocess.run(
+        [
+            uv.find_uv_bin(),
+            "pip",
+            "install",
+            "--offline",
+            "--no-index",
+            "--find-links",
+            str(tmp_path),
+            "--python",
+            str(python),
+            "example-project-dependency==1.2.3",
+        ],
+        check=True,
+    )
+    foreign_path = tmp_path / "foreign"
+    foreign_path.mkdir()
+    (foreign_path / "pip.py").write_text("raise RuntimeError('foreign pip must not be imported')\n")
+    monkeypatch.setenv("PYTHONPATH", str(foreign_path))
+    assert (
+        subprocess.run(
+            [
+                str(python),
+                "-I",
+                "-c",
+                "import importlib.util; assert not any(importlib.util.find_spec(x) for x in ('pip', 'rsconnect'))",
+            ],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+    monkeypatch.setenv("PATH", "")
+    with caplog.at_level("INFO"):
+        generated = Environment.create_python_environment(str(project), requirements_file=None)
+    assert generated.python_interpreter == str(python)
+    assert f"Using Python: {python}" in caplog.text
+    assert (
+        generated.python
+        == subprocess.check_output(
+            [str(python), "-I", "-c", "import sys; print('%d.%d.%d' % sys.version_info[:3])"], text=True
+        ).strip()
+    )
+    assert generated.pip is None
+    assert "example-project-dependency==1.2.3" in generated.contents
+    assert "click==" not in generated.contents
+    assert Manifest(environment=generated).data["python"]["package_manager"]["version"] == ""
+
+    (project / "requirements.txt").write_text("project-package==1.0\n")
+    monkeypatch.chdir(tmp_path)
+    existing = Environment.create_python_environment(str(project), python=os.path.relpath(python))
+    assert existing.pip is None
+    assert existing.contents.splitlines() == ["project-package==1.0"]
+    uv_environment = Environment.create_python_environment(
+        str(project), python=str(python), package_manager=PackageInstaller.UV
+    )
+    expected_uv_version = subprocess.check_output([uv.find_uv_bin(), "--version"], text=True).split()[1]
+    assert Manifest(environment=uv_environment).data["python"]["package_manager"]["version"] == expected_uv_version
+
+    (project / "pyproject.toml").write_text('[project]\nname = "demo"\ndependencies = ["other-package>=2"]\n')
+    pyproject = Environment.create_python_environment(str(project), requirements_file="pyproject.toml")
+    assert "other-package>=2" in pyproject.contents
+    assert pyproject.pip is None
+
+
+def test_inspection_when_rsconnect_is_importable_only_from_pythonpath(tmp_path):
+    # Mirrors `pip install --user` and PYTHONPATH installs: the interpreter running the CLI has
+    # no packages of its own, so the inspector must inherit the CLI's import path.
+    cli_env = tmp_path / "cli-env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(cli_env)], check=True)
+    cli_python = cli_env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "requirements.txt").write_text("project-package==1.0\n")
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(path for path in sys.path if path)
+    result = subprocess.run(
+        [
+            str(cli_python),
+            "-c",
+            "import json, sys; from rsconnect.environment import Environment; "
+            "e = Environment.create_python_environment(sys.argv[1], python=sys.argv[2]); "
+            "print(json.dumps(e.contents))",
+            str(project),
+            str(cli_python),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1]).splitlines() == ["project-package==1.0"]
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path, monkeypatch, fallback):
+    uv_path = uv.find_uv_bin()
+    env_dir = tmp_path / "env"
+    subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    site = Path(
+        subprocess.check_output(
+            [str(python), "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], text=True
+        ).strip()
+    )
+    for name in ("rsconnect-python", "rsconnect-utils", "pip", "setuptools", "wheel", "distribute"):
+        dist = site / f"{name.replace('-', '_')}-1.0.dist-info"
+        dist.mkdir()
+        (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n")
+    if fallback:
+        monkeypatch.setenv("PATH", os.path.dirname(uv_path))
+        monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
+    else:
+        monkeypatch.setenv("PATH", "")
+
+    environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
+    assert "rsconnect-utils==1.0" in environment.contents.splitlines()
+    assert "rsconnect-python==1.0" not in environment.contents.splitlines()
+    assert "pip==1.0" not in environment.contents.splitlines()
+    for name in ("setuptools", "wheel", "distribute"):
+        assert (f"{name}==1.0" in environment.contents.splitlines()) == (sys.version_info >= (3, 12))
+
+    local = tmp_path / "editable project"
+    local.mkdir()
+    dist = site / "editable_project-1.0.dist-info"
+    dist.mkdir()
+    (dist / "METADATA").write_text("Metadata-Version: 2.1\nName: editable-project\nVersion: 1.0\n")
+    (dist / "direct_url.json").write_text(json.dumps({"url": local.as_uri(), "dir_info": {"editable": True}}))
+    with pytest.raises(RSConnectException, match="Editable dependencies outside the deployment directory"):
+        Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
+
+
+def test_filter_uv_editable_rsconnect_file_url():
+    line = f"-e {Path(rsconnect_project_dir).as_uri()}"
+    assert filter_pip_freeze_output(line) == ""
+
+
+def test_uv_freeze_does_not_create_relative_cache_in_inspector_directory(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = project / ".venv"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(env_dir)], check=True)
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    inspector_dir = tmp_path / "inspector"
+    inspector_dir.mkdir()
+    inspector = inspector_dir / "inspect_environment.py"
+    shutil.copyfile(rsconnect.environment.inspect_environment.__file__, inspector)
+    monkeypatch.setattr(rsconnect.environment.inspect_environment, "__file__", str(inspector))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UV_CACHE_DIR", ".cache/uv")
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.source == "pip_freeze"
+    assert not (inspector_dir / ".cache").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Requires a POSIX user site directory")
+def test_isolated_inspection_finds_pip_in_user_site(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    env_dir = tmp_path / "environment"
+    subprocess.run(
+        [uv.find_uv_bin(), "venv", "--system-site-packages", "--python", sys.executable, str(env_dir)], check=True
+    )
+    python = env_dir / "bin/python"
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("PYTHONUSERBASE", raising=False)
+    user_site = Path(
+        subprocess.check_output(
+            [str(python), "-E", "-c", "import site; print(site.getusersitepackages())"], text=True
+        ).strip()
+    )
+    pip = user_site / "pip"
+    pip.mkdir(parents=True)
+    (pip / "__init__.py").write_text("")
+    (pip / "__main__.py").write_text(
+        "import sys\nprint('pip 50.0' if '--version' in sys.argv else 'user-project-dependency==1.2.3')\n"
+    )
+
+    result = Environment.create_python_environment(str(project), requirements_file=None, python=str(python))
+
+    assert result.pip == "50.0"
+    assert "user-project-dependency==1.2.3" in result.contents
 
 
 class TestPythonVersionRequirements:
@@ -471,7 +1020,7 @@ def test_get_python_env_info(
     expected_python,
     expected_environment,
 ):
-    def fake_which_python(python, env=os.environ):
+    def fake_which_python(python, directory):
         return expected_python
 
     def fake_inspect_environment(
@@ -530,12 +1079,7 @@ class TestEnvironmentDeprecations:
 
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
             result = Environment.create_python_environment(get_dir("pip1"), python=sys.executable)
-        assert mock_warning.call_count == 1
-        mock_warning.assert_called_once_with(
-            "On modern Posit Connect versions, the --python option won't influence "
-            "the Python version used to deploy the application anymore. "
-            "Please use a .python-version file to force a specific interpreter version."
-        )
+        mock_warning.assert_not_called()
         assert result.python == current_python_version
 
 
