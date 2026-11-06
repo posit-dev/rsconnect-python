@@ -24,6 +24,7 @@ from .pyproject import (
     TOMLDecodeError,
     detect_python_version_requirement,
     get_python_version_requirement_parser,
+    local_python_mismatch,
     lookup_metadata_file,
 )
 
@@ -484,20 +485,6 @@ def _unknown_advice(
         actions.append("Check the project's Python metadata and server availability before publishing.")
 
 
-def _warn_local_python_mismatch(constraint: Optional[str], local_python: str, warnings: list[str]) -> None:
-    if constraint is None:
-        return
-    try:
-        matches_local = SpecifierSet(constraint).contains(local_python)
-    except (InvalidSpecifier, TypeError):
-        return
-    if not matches_local:
-        warnings.append(
-            f"Local Python {local_python} does not satisfy the project requirement {constraint}; "
-            "dependency compatibility has not been tested."
-        )
-
-
 def _local_python_version(project_dir: str, python: Optional[str]) -> str:
     interpreter = which_python(python, project_dir)
     if interpreter == sys.executable:
@@ -541,7 +528,9 @@ def _python_project_metadata(
     project_dir = str(target_path.parent) if target_path.is_file() else target
     local_python = _local_python_version(project_dir, python)
     constraint, invalid_metadata = _project_constraint(project_dir, warnings)
-    _warn_local_python_mismatch(constraint, local_python, warnings)
+    mismatch = local_python_mismatch(constraint, local_python)
+    if mismatch:
+        warnings.append(mismatch)
     return project_dir, local_python, constraint, invalid_metadata
 
 

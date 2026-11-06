@@ -12,6 +12,9 @@ import re
 import typing
 from collections.abc import Mapping
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion
+
 from .log import logger
 from .models import AppMode, AppModes
 
@@ -29,6 +32,20 @@ except ImportError:
 
 PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
 VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"
+
+
+def local_python_mismatch(constraint: typing.Optional[str], version: str) -> typing.Optional[str]:
+    if constraint is None:
+        return None
+    try:
+        if SpecifierSet(constraint).contains(version):
+            return None
+    except (InvalidSpecifier, InvalidVersion, TypeError):
+        return None
+    return (
+        f"Local Python {version} does not satisfy the project requirement {constraint}; "
+        "dependency compatibility has not been tested."
+    )
 
 
 def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]) -> typing.Optional[str]:
