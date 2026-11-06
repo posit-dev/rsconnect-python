@@ -410,6 +410,41 @@ requires-dist = [
     assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
+@pytest.mark.parametrize("default_groups", ["", '[tool.uv]\ndefault-groups = ["dev", "lint"]\n'])
+def test_uv_lock_export_excludes_dependency_groups(tmp_path, default_groups):
+    packages = {
+        "runtime-pkg": [],
+        "dev-pkg": ["transitive-pkg"],
+        "transitive-pkg": [],
+        "lint-pkg": [],
+        "other-pkg": [],
+    }
+    for name, dependencies in packages.items():
+        package_dir = tmp_path / name
+        package_dir.mkdir()
+        (package_dir / "pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "1.0.0"\ndependencies = {dependencies!r}\n'
+            + ('[tool.uv.sources]\ntransitive-pkg = { path = "../transitive-pkg" }\n' if dependencies else ""),
+            encoding="utf-8",
+        )
+
+    sources = "".join(f'{name} = {{ path = "{name}" }}\n' for name in packages)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "demo"\nversion = "1.0.0"\n'
+        'dependencies = ["runtime-pkg"]\n'
+        '[dependency-groups]\ndev = ["dev-pkg"]\nlint = ["lint-pkg"]\nother = ["other-pkg"]\n'
+        f"{default_groups}[tool.uv.sources]\n{sources}",
+        encoding="utf-8",
+    )
+    subprocess.run([uv.find_uv_bin(), "lock", "--offline"], cwd=tmp_path, check=True)
+
+    env = Environment.create_python_environment(str(tmp_path), requirements_file="uv.lock", python=sys.executable)
+
+    assert "./runtime-pkg" in env.contents
+    for name in ("dev-pkg", "transitive-pkg", "lint-pkg", "other-pkg"):
+        assert name not in env.contents
+
+
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
 def test_pyproject_dependencies(tmp_path, encoding):
     project_dir = tmp_path / "project"
