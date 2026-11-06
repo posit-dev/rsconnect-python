@@ -41,6 +41,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import urlsplit
 
 from . import metadata
 
@@ -60,6 +61,7 @@ from .exception import RSConnectException
 from .log import VERBOSE, logger, warn_user
 from .models import AppMode, AppModes, GlobSet
 from .shiny_express import escape_to_var_name, is_express_app
+from .subprocesses.inspect_environment import editable_target, is_path
 
 if TYPE_CHECKING:
     from .actions import QuartoInspectResult
@@ -570,6 +572,20 @@ def bundle_add_buffer(bundle: tarfile.TarFile, filename: str, contents: str | by
     bundle.addfile(file_info, buf)
 
 
+def _check_single_notebook_editables(environment: Environment) -> None:
+    local = []
+    for line in environment.contents.splitlines():
+        target = editable_target(line)
+        if target and (is_path(target) or urlsplit(target).scheme.lower() == "file"):
+            local.append(line.strip())
+    if local:
+        raise RSConnectException(
+            "Local editable dependencies are not included in a single-notebook bundle:\n"
+            + "\n".join(local)
+            + "\nDeploy a directory containing the packages, or use a package index or VCS URL."
+        )
+
+
 def write_manifest(
     relative_dir: str,
     nb_name: str,
@@ -588,6 +604,7 @@ def write_manifest(
 
     Returns the list of filenames written.
     """
+    _check_single_notebook_editables(environment)
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(
         AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image, env_management_py, env_management_r
@@ -673,6 +690,7 @@ def make_notebook_source_bundle(
 
     :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     """
+    _check_single_notebook_editables(environment)
     if extra_files is None:
         extra_files = []
     base_dir = dirname(file)
@@ -2136,6 +2154,7 @@ def write_notebook_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    _check_single_notebook_editables(environment)
     directory = dirname(entry_point_file)
     config_dir = _resolved_config_dir()
     _ensure_content_root_is_safe(directory, config_dir)
@@ -2224,6 +2243,8 @@ def create_voila_manifest(
     """
     if not path:
         raise RSConnectException("A valid path must be provided.")
+    if isfile(path):
+        _check_single_notebook_editables(environment)
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
 

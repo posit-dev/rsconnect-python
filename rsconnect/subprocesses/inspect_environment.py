@@ -22,7 +22,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Callable, List, Optional, cast
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import url2pathname
 
 from packaging.requirements import InvalidRequirement, Requirement
@@ -109,7 +109,7 @@ def detect_environment(
         result = file_result
 
     if result is not None:
-        check_editables_are_bundleable(result["contents"] or "", dirname)
+        result["contents"] = normalize_editables(result["contents"] or "", dirname)
         result["python"] = python_version
         result["pip"] = pip_version
         result["locale"] = get_default_locale()
@@ -386,6 +386,27 @@ def check_editables_are_bundleable(requirements: str, dirname: str):
         )
 
 
+def normalize_editables(requirements: str, dirname: str) -> str:
+    check_editables_are_bundleable(requirements, dirname)
+    lines = []
+    for line in requirements.split("\n"):
+        target = editable_target(line)
+        if target:
+            relative = bundleable_editable_path(target, dirname)
+            if relative is not None:
+                extras = re.search(r"\[[a-zA-Z0-9_,.\-\s]+\]$", relative)
+                suffix = extras.group() if extras else ""
+                path = relative[: extras.start()] if extras else relative
+                escaped = quote(path, safe="/")
+                if escaped != path:
+                    relative = f"file:{escaped}{suffix}"
+                line_ending = "\r" if line.endswith("\r") else ""
+                comment = re.search(r"\s+#.*$", line.rstrip("\r"))
+                line = f"-e {relative}{comment.group() if comment else ''}{line_ending}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def is_rsconnect_requirement(line: str) -> bool:
     target = editable_target(line)
     if target is not None:
@@ -398,7 +419,7 @@ def is_rsconnect_requirement(line: str) -> bool:
 
 
 def editable_target(line: str) -> Optional[str]:
-    line = line.strip()
+    line = re.split(r"\s+#", line.strip(), maxsplit=1)[0].rstrip()
     if line.startswith("--editable="):
         return line[len("--editable=") :].strip()
     for flag in ("-e", "--editable"):
@@ -422,14 +443,35 @@ def is_unbundleable_editable(line: str, dirname: str) -> bool:
     target = editable_target(line)
     if not target:
         return False
+    if is_path(target) or urlsplit(target).scheme.lower() == "file":
+        return bundleable_editable_path(target, dirname) is None
+    return urlsplit(target).scheme.lower().endswith("+file")
+
+
+def bundleable_editable_path(target: str, dirname: str) -> Optional[str]:
     if not is_path(target):
-        scheme = urlsplit(target).scheme.lower()
-        return scheme == "file" or scheme.endswith("+file")
-    # Requirements may come from Windows or POSIX publishers; either kind of absolute path only exists locally.
-    if posixpath.isabs(target) or ntpath.isabs(target):
-        return True
-    bundle_dir = os.path.abspath(dirname)
-    return os.path.commonpath([bundle_dir, os.path.abspath(os.path.join(bundle_dir, target))]) != bundle_dir
+        url = urlsplit(target)
+        if url.scheme.lower() != "file" or url.netloc not in ("", "localhost") or url.query or url.fragment:
+            return None
+        target = url2pathname(url.path)
+
+    extras = re.search(r"\[[a-zA-Z0-9_,.\-\s]+\]$", target)
+    suffix = extras.group() if extras else ""
+    if extras:
+        target = target[: extras.start()]
+
+    # Reject paths in another platform's absolute path syntax.
+    if (posixpath.isabs(target) or ntpath.isabs(target)) and not os.path.isabs(target):
+        return None
+    bundle_dir = os.path.realpath(dirname)
+    path = os.path.realpath(os.path.join(bundle_dir, target))
+    try:
+        if os.path.commonpath([bundle_dir, path]) != bundle_dir:
+            return None
+    except ValueError:
+        return None
+    relative = os.path.relpath(path, bundle_dir).replace(os.sep, "/")
+    return ("." if relative == "." else f"./{relative}") + suffix
 
 
 def is_path(target: str) -> bool:

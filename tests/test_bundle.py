@@ -4001,6 +4001,32 @@ def make_generated_environment(contents: str) -> Environment:
     return environment
 
 
+@pytest.mark.parametrize("requirement", ["-e .", "-e file:./local%20package"])
+@pytest.mark.parametrize("kind", ["notebook_bundle", "notebook_manifest", "voila_file"])
+def test_single_notebook_rejects_local_editable(tmp_path: Path, requirement: str, kind: str):
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    environment = make_generated_environment(f"{requirement}\n")
+
+    with pytest.raises(RSConnectException, match="Local editable dependencies are not included"):
+        if kind == "notebook_bundle":
+            make_notebook_source_bundle(str(notebook), environment, [], False, False)
+        elif kind == "notebook_manifest":
+            write_notebook_manifest_json(str(notebook), environment, AppModes.JUPYTER_NOTEBOOK, [], False, False)
+        else:
+            make_voila_bundle(str(notebook), None, [], [], True, environment)
+
+
+def test_voila_directory_includes_local_editable(tmp_path: Path):
+    (tmp_path / "notebook.ipynb").write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    (tmp_path / "setup.py").write_text("from setuptools import setup\nsetup()\n")
+    environment = make_generated_environment("-e .\n")
+
+    with make_voila_bundle(str(tmp_path), None, [], [], True, environment) as bundle:
+        with tarfile.open(fileobj=bundle, mode="r:gz") as tar:
+            assert "setup.py" in tar.getnames()
+
+
 def test_write_api_manifest_checksum_matches_environment_file(tmp_path: Path, windows_text_mode: None):
     (tmp_path / "app.py").write_text("from shiny import App\n")
     environment = make_generated_environment("# café\nshiny==1.0.0\nnumpy\n")
