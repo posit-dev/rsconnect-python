@@ -2973,6 +2973,10 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
+<li><code>--override-python-version</code> with a major and minor version, such as <code>3.11</code>,
+  requests the latest Python patch release in that series instead of <code>3.11.0</code>.
+  This requires Posit Connect 2025.03.0 or later; older servers use the local
+  Python version, so pass a full version such as <code>3.11.5</code> for those. (#901)</li>
 <li>Inspects activated or project virtual environments, including with <code>uv tool install</code>.
   Global installations now inspect activated environments. <code>rsconnect preflight</code> checks
   the same environment's Python version. Use <code>--python</code> to override selection. (#889)</li>
