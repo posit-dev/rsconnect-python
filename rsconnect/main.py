@@ -2108,6 +2108,41 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
         warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
 
 
+# deploy notebook parameters that only affect a source bundle's Python or R environment.
+# A static notebook bundle contains only the rendered HTML, so they have no effect.
+_STATIC_NOTEBOOK_IGNORED_PARAMS = (
+    "requirements_file",
+    "force_generate",
+    "package_installer",
+    "override_python_version",
+    "image",
+    "disable_env_management",
+    "env_management_py",
+    "env_management_r",
+    "exclude_renv",
+)
+
+
+def _warn_on_options_ignored_by_static_notebook(ctx: click.Context, extra_files: tuple[str, ...]) -> None:
+    """Warn about deploy notebook options and extra files that --static ignores."""
+    ignored_options = [
+        next(opt for opt in param.opts if opt.startswith("--"))
+        for param in ctx.command.params
+        if param.name in _STATIC_NOTEBOOK_IGNORED_PARAMS
+        and validation.get_parameter_source_name_from_ctx(param.name, ctx) not in ("DEFAULT", "<source unknown>")
+    ]
+    if ignored_options:
+        warn_user(
+            "    Warning: --static deploys only the rendered HTML, so these options have no effect: %s"
+            % ", ".join(ignored_options)
+        )
+    if extra_files:
+        warn_user(
+            "    Warning: --static deploys only the rendered HTML, so these extra files are not included: %s"
+            % ", ".join(extra_files)
+        )
+
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -2240,6 +2275,7 @@ def deploy_notebook(
     if static:
         # The notebook is rendered locally and the bundle holds only the HTML, so Connect
         # never builds an environment for it. Only an interpreter to run nbconvert is needed.
+        _warn_on_options_ignored_by_static_notebook(ctx, extra_files)
         python_interpreter = which_python(python, base_dir)
     else:
         requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)

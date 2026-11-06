@@ -350,6 +350,7 @@ class TestMain:
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == sys.executable
         assert sorted(p.name for p in tmp_path.iterdir()) == sorted(["nb.ipynb", *extra_files])
+        assert "--static deploys only the rendered HTML" not in result.output
 
     def test_deploy_notebook_static_renders_with_python_option(self, tmp_path):
         notebook = tmp_path / "nb.ipynb"
@@ -420,6 +421,81 @@ class TestMain:
         bundle_args = mock_executor.return_value.make_bundle.call_args.args
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == str(python)
+
+    @pytest.mark.parametrize(
+        ("options", "ignored"),
+        [
+            (["--requirements-file", "requirements.txt"], ["--requirements-file"]),
+            (["--force-generate"], ["--force-generate"]),
+            (["--package-installer", "uv"], ["--package-installer"]),
+            (["--override-python-version", "3.12"], ["--override-python-version"]),
+            (["--image", "rstudio/content-base"], ["--image"]),
+            (["--disable-env-management"], ["--disable-env-management"]),
+            (["--disable-env-management-py"], ["--disable-env-management-py"]),
+            (["--disable-env-management-r"], ["--disable-env-management-r"]),
+            (["--exclude-renv"], ["--exclude-renv"]),
+            (["-r", "requirements.txt", "-g"], ["--requirements-file", "--force-generate"]),
+        ],
+    )
+    def test_deploy_notebook_static_warns_on_ignored_options(self, tmp_path, options, ignored):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor"):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", *options],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        prefix = "Warning: --static deploys only the rendered HTML, so these options have no effect: "
+        [warning] = [line for line in result.output.splitlines() if prefix in line]
+        # The warning lists options in declaration order, which isn't part of the contract.
+        assert sorted(warning.split(prefix, 1)[1].split(", ")) == sorted(ignored)
+        assert "extra files" not in result.output
+
+    def test_deploy_notebook_without_static_does_not_warn_on_static_ignored_options(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        data_file = tmp_path / "data.csv"
+        data_file.write_text("")
+
+        with mock.patch("rsconnect.main.Environment.create_python_environment"), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), str(data_file), "--no-verify", "-r", "requirements.txt", "-g"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        assert "Warning: --static deploys only the rendered HTML" not in result.output
+
+    def test_deploy_notebook_static_warns_on_extra_files(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        data_files = [tmp_path / "data.csv", tmp_path / "helpers.py"]
+        for data_file in data_files:
+            data_file.write_text("")
+
+        with mock.patch("rsconnect.main.RSConnectExecutor"):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), *map(str, data_files), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        assert (
+            "Warning: --static deploys only the rendered HTML, so these extra files are not included: "
+            f"{data_files[0]}, {data_files[1]}\n" in result.output
+        )
+        assert "have no effect" not in result.output
 
     @pytest.mark.parametrize(
         ("contents", "diagnostic", "missing_nbconvert"),

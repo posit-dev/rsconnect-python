@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only the rendered HTML, so the selected Python environment only needs `nbconvert`,
   `ipykernel`, and the packages the notebook imports. That environment no longer
   needs rsconnect installed. (#923)
+- `deploy notebook --static` warns about options that have no effect on the
+  rendered HTML, such as `--requirements-file`, `--force-generate`, `--image`, and
+  the environment management options, and about extra files, which aren't included.
 - `--override-python-version` with a major and minor version, such as `3.11`,
   requests the latest Python patch release in that series instead of `3.11.0`.
   This requires Posit Connect 2025.03.0 or later; older servers use the local
