@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
 import venv
 from os.path import join
@@ -18,6 +19,7 @@ from packaging.specifiers import SpecifierSet
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.bundle import file_checksum
+from rsconnect.exception import RSConnectException
 from rsconnect.json_web_token import SECRET_KEY_ENV
 from rsconnect.log import console_logger, logger as rs_logger
 from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
@@ -2390,6 +2392,36 @@ def test_missing_requirements_reports_content_directory(
     assert result.exit_code == 1
     expected_file = requirements_file or "requirements.txt"
     assert f"The requirements file '{expected_file}' does not exist in '{expected_directory}'." in result.output
+
+
+@pytest.mark.parametrize(
+    ("command", "filename"),
+    [
+        (["write-manifest", "notebook"], "nb.ipynb"),
+        (["write-manifest", "quarto"], "doc.qmd"),
+        (["deploy", "notebook"], "nb.ipynb"),
+        (["deploy", "quarto"], "doc.qmd"),
+    ],
+)
+@pytest.mark.parametrize("prefix", ["", "./"])
+def test_document_commands_export_uv_lock_for_bare_and_relative_paths(tmp_path, monkeypatch, command, filename, prefix):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\nversion='0.0.0'\n")
+    (tmp_path / filename).write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    subprocess.run([sys.executable, "-m", "uv", "lock", "--offline"], check=True)
+
+    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
+        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    ), mock.patch("rsconnect.main.RSConnectExecutor", side_effect=RSConnectException("deployment reached")) as executor:
+        result = CliRunner().invoke(cli, [*command, "-r", "uv.lock", "--exclude-renv", prefix + filename])
+
+    if command[0] == "deploy":
+        assert "deployment reached" in result.output
+        executor.assert_called_once()
+    else:
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "manifest.json").exists()
+        assert (tmp_path / "requirements.txt.lock").exists()
 
 
 class TestWriteManifestNodeJS:
