@@ -302,16 +302,36 @@ def which_python(python: typing.Optional[str] = None, directory: typing.Optional
     if active and (selected := interpreter(active)):
         return selected
 
+    conda = os.environ.get("CONDA_PREFIX")
+    conda_is_base = bool(conda) and _is_conda_base(pathlib.Path(conda))
+    if conda and not conda_is_base and (selected := interpreter(conda, conda=True)):
+        return selected
+
     project = pathlib.Path(os.path.abspath(directory or os.curdir))
     project_environment = os.environ.get("UV_PROJECT_ENVIRONMENT") or ".venv"
     for parent in (project, *project.parents):
         if selected := interpreter(parent / project_environment):
             return selected
 
-    conda = os.environ.get("CONDA_PREFIX")
-    if conda and (selected := interpreter(conda, conda=True)):
+    if conda and conda_is_base and (selected := interpreter(conda, conda=True)):
         return selected
     return sys.executable
+
+
+def _is_conda_base(prefix: pathlib.Path) -> bool:
+    """Mirrors how uv tells the base conda environment from a named or path-based one.
+
+    uv treats the base environment like a system Python, so it ranks below project environments.
+    """
+    if (prefix / "conda-meta" / "pixi").is_file():
+        return False
+    conda_root = os.environ.get("_CONDA_ROOT")
+    if conda_root and str(prefix) == conda_root:
+        return True
+    default_env = os.environ.get("CONDA_DEFAULT_ENV")
+    if not default_env or str(prefix) == default_env:
+        return False
+    return prefix.name != default_env
 
 
 def fake_module_file_from_directory(directory: str) -> str:

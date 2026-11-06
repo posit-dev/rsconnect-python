@@ -21,9 +21,11 @@ the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
-selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a project environment
-(`.venv` or `UV_PROJECT_ENVIRONMENT`), and `CONDA_PREFIX`, in that order. If none is
-available, it uses the Python interpreter running rsconnect-python.
+selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a non-base
+`CONDA_PREFIX`, a project environment (`.venv` or `UV_PROJECT_ENVIRONMENT` in the
+content directory or any parent directory), and a base `CONDA_PREFIX`, in that order,
+like `uv pip`. If none is available, it uses the Python interpreter running
+rsconnect-python.
 
 To select a Python executable explicitly:
 

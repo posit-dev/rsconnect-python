@@ -578,7 +578,6 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     nearest = make_interpreter(project / "content" / ".venv")
     alternate = make_interpreter(project / "custom")
     conda = make_interpreter(tmp_path / "conda", conda=True)
-    monkeypatch.setenv("CONDA_PREFIX", str(tmp_path / "conda"))
 
     assert which_python(directory=str(nested)) == nearest
     assert which_python(directory=str(project)) == parent
@@ -587,6 +586,7 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "active"))
     assert which_python(directory=str(nested)) == activated
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "missing")
+    monkeypatch.setenv("CONDA_PREFIX", str(tmp_path / "conda"))
     assert which_python(directory=str(nested)) == conda
     monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "active"))
     assert which_python(directory=str(nested)) == activated
@@ -594,6 +594,44 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     monkeypatch.delenv("VIRTUAL_ENV")
     monkeypatch.delenv("CONDA_PREFIX")
     assert which_python(directory=str(nested)) == sys.executable
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses the POSIX environment layout")
+def test_conda_environment_ranks_by_kind_like_uv(tmp_path, monkeypatch):
+    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX", "_CONDA_ROOT", "CONDA_DEFAULT_ENV"):
+        monkeypatch.delenv(name, raising=False)
+
+    def make_interpreter(environment):
+        path = environment / "bin/python"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("")
+        path.chmod(0o755)
+        return str(path)
+
+    project = tmp_path / "project"
+    project.mkdir()
+    venv = make_interpreter(project / ".venv")
+    prefix = tmp_path / "envs" / "analysis"
+    conda = make_interpreter(prefix)
+    monkeypatch.setenv("CONDA_PREFIX", str(prefix))
+
+    # No CONDA_DEFAULT_ENV, so the prefix is treated as a path-based (non-base) environment.
+    assert which_python(directory=str(project)) == conda
+
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "analysis")
+    assert which_python(directory=str(project)) == conda
+
+    # A base environment ranks below the project environment.
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "base")
+    assert which_python(directory=str(project)) == venv
+
+    monkeypatch.setenv("_CONDA_ROOT", str(prefix))
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "analysis")
+    assert which_python(directory=str(project)) == venv
+
+    # Without a project environment, the base environment is still used.
+    (project / ".venv" / "bin" / "python").unlink()
+    assert which_python(directory=str(project)) == conda
 
 
 def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch):
