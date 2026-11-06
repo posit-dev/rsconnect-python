@@ -371,6 +371,35 @@ class TestMain:
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == str(python)
 
+    def test_deploy_notebook_static_renders_with_notebook_project_venv(self, tmp_path, monkeypatch):
+        project = tmp_path / "project"
+        notebook = project / "nb.ipynb"
+        project.mkdir()
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # Never run: make_bundle is mocked. Discovery only needs an executable file.
+        python = project / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        python.chmod(0o755)
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+        monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == str(python)
+
     @pytest.mark.parametrize(
         ("contents", "diagnostic", "missing_nbconvert"),
         [

@@ -2237,7 +2237,7 @@ def deploy_notebook(
     if static:
         # The notebook is rendered locally and the bundle holds only the HTML, so Connect
         # never builds an environment for it. Only an interpreter to run nbconvert is needed.
-        python_interpreter = which_python(python)
+        python_interpreter = which_python(python, base_dir)
     else:
         requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
         environment = Environment.create_python_environment(
