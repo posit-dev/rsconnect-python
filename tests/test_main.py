@@ -425,16 +425,16 @@ class TestMain:
     @pytest.mark.parametrize(
         ("options", "ignored"),
         [
-            (["--requirements-file", "requirements.txt"], "--requirements-file"),
-            (["--force-generate"], "--force-generate"),
-            (["--package-installer", "uv"], "--package-installer"),
-            (["--override-python-version", "3.12"], "--override-python-version"),
-            (["--image", "rstudio/content-base"], "--image"),
-            (["--disable-env-management"], "--disable-env-management"),
-            (["--disable-env-management-py"], "--disable-env-management-py"),
-            (["--disable-env-management-r"], "--disable-env-management-r"),
-            (["--exclude-renv"], "--exclude-renv"),
-            (["-r", "requirements.txt", "-g"], "--force-generate, --requirements-file"),
+            (["--requirements-file", "requirements.txt"], ["--requirements-file"]),
+            (["--force-generate"], ["--force-generate"]),
+            (["--package-installer", "uv"], ["--package-installer"]),
+            (["--override-python-version", "3.12"], ["--override-python-version"]),
+            (["--image", "rstudio/content-base"], ["--image"]),
+            (["--disable-env-management"], ["--disable-env-management"]),
+            (["--disable-env-management-py"], ["--disable-env-management-py"]),
+            (["--disable-env-management-r"], ["--disable-env-management-r"]),
+            (["--exclude-renv"], ["--exclude-renv"]),
+            (["-r", "requirements.txt", "-g"], ["--requirements-file", "--force-generate"]),
         ],
     )
     def test_deploy_notebook_static_warns_on_ignored_options(self, tmp_path, options, ignored):
@@ -450,11 +450,30 @@ class TestMain:
             result = CliRunner().invoke(cli, args)
 
         assert result.exit_code == 0, result.output
-        assert (
-            f"Warning: --static deploys only the rendered HTML, so these options have no effect: {ignored}\n"
-            in result.output
-        )
+        prefix = "Warning: --static deploys only the rendered HTML, so these options have no effect: "
+        [warning] = [line for line in result.output.splitlines() if prefix in line]
+        # The warning lists options in declaration order, which isn't part of the contract.
+        assert sorted(warning.split(prefix, 1)[1].split(", ")) == sorted(ignored)
         assert "extra files" not in result.output
+
+    def test_deploy_notebook_without_static_does_not_warn_on_static_ignored_options(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        data_file = tmp_path / "data.csv"
+        data_file.write_text("")
+
+        with mock.patch("rsconnect.main.Environment.create_python_environment"), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), str(data_file), "--no-verify", "-r", "requirements.txt", "-g"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        assert "Warning: --static deploys only the rendered HTML" not in result.output
 
     def test_deploy_notebook_static_warns_on_extra_files(self, tmp_path):
         notebook = tmp_path / "nb.ipynb"
