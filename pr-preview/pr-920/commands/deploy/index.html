@@ -1654,9 +1654,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -1799,9 +1805,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -1944,9 +1956,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2040,9 +2058,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2185,9 +2209,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2330,9 +2360,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2450,7 +2486,7 @@ contents before deployment.</p>
 </code></pre></div>
 <h2 id="deploy-git">deploy git<a class="headerlink" href="#deploy-git" title="Permanent link">#</a></h2>
 <p>Deploy content to Posit Connect directly from a remote Git repository. The repository must contain a manifest.json file (in the root or specified subdirectory). Connect will regularly poll the repository for updates.</p>
-<p>This command creates a new git-backed content item. To update an existing git-backed content item, use the --app-id option with the content's GUID.</p>
+<p>This command creates a new git-backed content item. To update an existing git-backed content item, use the --guid option with the content's GUID.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy git [OPTIONS]
 </code></pre></div>
@@ -2476,9 +2512,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2534,9 +2576,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2679,9 +2727,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2783,9 +2837,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2879,9 +2939,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -2981,9 +3047,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3122,9 +3194,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3267,9 +3345,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3376,9 +3460,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3509,9 +3599,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3654,9 +3750,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3800,9 +3902,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value
@@ -3869,9 +3977,15 @@ contents before deployment.</p>
                                   configuration file
   -N, --new                       Force a new deployment, even if there is
                                   saved metadata from a previous deployment.
-                                  Cannot be used with --app-id.
-  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
-                                  be used with --new.
+                                  Cannot be used with --guid or --app-id.
+  --guid GUID                     GUID of an existing Connect content item to
+                                  replace. Cannot be used with --new or --app-
+                                  id.
+  -a, --app-id TEXT               ID of an existing Connect Cloud or
+                                  shinyapps.io application to replace. For
+                                  Posit Connect, use --guid (--app-id also
+                                  accepts a Connect content GUID). Cannot be
+                                  used with --new.
   -t, --title TEXT                Title of the content (default is the same as
                                   the filename).
   -E, --environment TEXT          Set an environment variable. Specify a value

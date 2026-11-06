@@ -1248,19 +1248,19 @@ as unresolved and inspect <code>warnings</code> and <code>actions</code>; do not
 Operational errors exit with status 1. Their JSON contains <code>status: error</code>, <code>runtime</code>, <code>error</code>, <code>changed_files</code>, <code>warnings</code>, and <code>actions</code>.
 Invalid command syntax exits with status 2 and prints diagnostics to stderr.
 Use <code>-v</code> or <code>-vv</code> for diagnostics on stderr; stdout remains reserved for the JSON result.</p>
-<p>Use <code>--new</code> to check a new content item when the project has a deployment record. Use <code>--app-id</code> to check a content item by its identifier (ID) or globally unique identifier (GUID). Do not combine these options.</p>
+<p>Use <code>--new</code> to check a new content item when the project has a deployment record. Use <code>--guid</code> to check a content item by its globally unique identifier (GUID). Do not combine these options.</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--new
-rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--app-id<span class="w"> </span><span class="m">00000000</span>-0000-0000-0000-000000000000
+rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--guid<span class="w"> </span><span class="m">00000000</span>-0000-0000-0000-000000000000
 </code></pre></div>
 <p>For content deployed from a notebook, manifest, bundle, or Quarto file, pass that file to select its deployment record:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project/report.ipynb
 </code></pre></div>
 <p>Preflight reads project metadata and local prerequisites from the file's parent directory.
 An unreadable content item or ambiguous deployment record returns <code>unknown</code>; inspect its actions before deploying.
-If a directory contains file deployment history, pass the exact deployed file or <code>--app-id</code> to resolve the target.
+If a directory contains file deployment history, pass the exact deployed file or <code>--guid</code> to resolve the target.
 An unresolved target prevents <code>--fix</code> from creating a Python pin.
 Symlinked, non-regular, or oversized deployment records also return <code>unknown</code>.
-Inspect the suggested actions and repair the record, or pass <code>--app-id</code> to select the existing content directly.</p>
+Inspect the suggested actions and repair the record, or pass <code>--guid</code> to select the existing content directly.</p>
 <h2 id="add-a-python-version-pin">Add a Python version pin<a class="headerlink" href="#add-a-python-version-pin" title="Permanent link">#</a></h2>
 <p>For new content with no Python constraint, add <code>--fix</code> to create a missing <code>.python-version</code> file:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--fix
@@ -1295,8 +1295,10 @@ Inspect the suggested actions and repair the record, or pass <code>--app-id</cod
                                   a suggested .python-version.
   --new                           Check a new content item even when a
                                   deployment record exists.
-  -a, --app-id TEXT               Check an existing content item by ID or
-                                  GUID.
+  --guid GUID                     Check an existing content item by GUID.
+                                  Cannot be used with --new or --app-id.
+  -a, --app-id TEXT               Check an existing content item by GUID.
+                                  Prefer --guid.
   --runtime [python|nodejs]       [default: python]
   --node FILE                     Node.js executable for --runtime nodejs.
   --python PATH                   Path to the Python interpreter whose version
