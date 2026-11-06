@@ -210,6 +210,32 @@ def test_preflight_new_and_explicit_content_are_exclusive():
     assert "only one" in result.stderr
 
 
+def test_preflight_guid_targets_existing_content(tmp_path):
+    guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+    executor = Mock()
+    executor.validate_server.return_value = executor
+    with patch("rsconnect.main.RSConnectExecutor", return_value=executor) as create:
+        with patch("rsconnect.preflight.run_preflight", return_value={"status": "ok", "changed_files": []}):
+            result = cli_runner().invoke(cli, ["preflight", "-n", "target", str(tmp_path), "--guid", guid])
+    assert result.exit_code == 0, result.output
+    assert create.call_args.kwargs["app_id"] == guid
+
+
+@pytest.mark.parametrize(
+    "arguments,message",
+    [
+        (["--guid", "1234"], "is not a content GUID"),
+        (["--new", "--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"], "--new or --guid"),
+        (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--app-id", "other"], "--guid or --app-id"),
+    ],
+)
+def test_preflight_guid_usage_errors(tmp_path, arguments, message):
+    result = cli_runner().invoke(cli, ["preflight", str(tmp_path)] + arguments)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert message in result.stderr
+
+
 def test_node_preflight_dispatch_and_incompatible_exit(tmp_path):
     expected = {"status": "incompatible", "runtime": "nodejs", "changed_files": []}
     executor = Mock()

@@ -35,7 +35,7 @@ class Client(RSConnectClient):
     def python_settings(self) -> Any:
         return self.settings
 
-    def get_content_by_id(self, id: str) -> Any:
+    def content_get(self, id: str) -> Any:
         self.content_requests.append(id)
         return self.content.get(id, {})
 
@@ -226,7 +226,7 @@ def test_incomplete_deployment_record_is_unknown_and_does_not_fix(tmp_path):
     assert result["status"] == "unknown"
     assert result["existing_content"]["exists"] is True
     assert any("no content ID" in warning for warning in result["warnings"])
-    assert any("--app-id" in action and "--new" in action for action in result["actions"])
+    assert any("--guid" in action and "--new" in action for action in result["actions"])
     assert not (tmp_path / ".python-version").exists()
 
     executor.new = True
@@ -578,7 +578,7 @@ def test_unreadable_redeploy_content_is_unknown_with_recovery_action(tmp_path, m
     def fail_read(_app_id: str):
         raise RSConnectException("content lookup failed", status=status_code)
 
-    monkeypatch.setattr(client, "get_content_by_id", fail_read)
+    monkeypatch.setattr(client, "content_get", fail_read)
     result = run_preflight(executor, str(tmp_path))
 
     assert result["status"] == "unknown"

@@ -266,7 +266,7 @@ def _saved_deployment_target(executor: RSConnectExecutor, target: str) -> tuple[
         if issue:
             return True, None, issue
         if records:
-            return True, None, "This directory has a single-file deployment; pass its exact file path or --app-id."
+            return True, None, "This directory has a single-file deployment; pass its exact file path or --guid."
     return _target_from_records(records)
 
 
@@ -282,7 +282,7 @@ def _current_python(
     client: RSConnectClient, app_id: str, warnings: list[str], actions: list[str]
 ) -> tuple[Optional[str], bool]:
     try:
-        content = client.get_content_by_id(app_id)
+        content = client.content_get(app_id)
     except RSConnectException as err:
         warnings.append(f"Could not read existing content's current Python version: {err}")
         if err.status == 404:
@@ -577,7 +577,7 @@ def run_preflight(
     if target_issue:
         warnings.append(target_issue)
         actions.append(
-            "Pass the exact file path for single-file content, specify --app-id, "
+            "Pass the exact file path for single-file content, specify --guid, "
             "or use --new for a separate content item."
         )
     try:

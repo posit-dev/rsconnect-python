@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inspects activated or project virtual environments, including with `uv tool install`.
   Global installations now inspect activated environments. `rsconnect preflight` checks
   the same environment's Python version. Use `--python` to override selection. (#889)
+- **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
+  a numeric Connect content ID fails with an error explaining how to find the
+  content's GUID, and rsconnect-python no longer calls the legacy
+  `/__api__/applications/{id}` endpoint. Connect Cloud and shinyapps.io application
+  IDs are unaffected. (#881)
+- The `deploy` commands and `preflight` accept `--guid` to target an existing
+  Posit Connect content item, matching the `--guid` option on the `content`
+  commands. `--app-id` continues to work, and is the option to use for Connect
+  Cloud and shinyapps.io. (#885)
+- Deploying to Posit Connect in Snowflake (SPCS) with `--app-id` or `--guid`
+  updates the existing content item instead of failing with "Unable to infer
+  Connect client."
+- Generating requirements from an environment now requires pip 20.3 or later.
+  Older environments can upgrade pip or provide a requirements file.
 - Reports editable dependencies outside the deployment directory, which Posit Connect
   cannot install, in both generated and user-provided requirements. Requirement
   filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
