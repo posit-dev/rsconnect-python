@@ -2975,9 +2975,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li><code>deploy notebook --static</code> no longer requires a requirements file or
   <code>--force-generate</code>, and no longer reads <code>renv.lock</code>. The static bundle contains
-  only the rendered HTML, so the only requirement is a Python interpreter with
-  <code>nbconvert</code>, the current one or the one given with <code>--python</code>. That interpreter
-  no longer needs rsconnect installed. (#923)</li>
+  only the rendered HTML, so the only requirement is <code>nbconvert</code> in the selected
+  Python environment. That interpreter no longer needs rsconnect installed. (#923)</li>
+<li>Inspects activated or project virtual environments, including with <code>uv tool install</code>.
+  Global installations now inspect activated environments. <code>rsconnect preflight</code> checks
+  the same environment's Python version. Use <code>--python</code> to override selection. (#889)</li>
 <li><strong>Breaking:</strong> Posit Connect content can be targeted only by GUID. <code>--app-id</code> with
   a numeric Connect content ID fails with an error explaining how to find the
   content's GUID, and rsconnect-python no longer calls the legacy
