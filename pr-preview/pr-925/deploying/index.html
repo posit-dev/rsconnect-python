@@ -1915,21 +1915,21 @@ after the notebook file:</p>
 be included in the bundle. It must specify the package dependencies needed to execute
 the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.</p>
-<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the <code>--python</code> option:</p>
+<p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
+selected Python environment. It checks <code>--python</code>, <code>VIRTUAL_ENV</code>, a non-base
+<code>CONDA_PREFIX</code>, a project environment (<code>.venv</code> in the
+content directory or any parent directory), and a base <code>CONDA_PREFIX</code>, in that order,
+like <code>uv pip</code>. If none is available, it uses the Python interpreter running
+rsconnect-python.</p>
+<p>To select a Python executable explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
 <p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
 ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
-<p>Generating requirements from an environment requires pip 20.3 or later in the
-selected Python environment. Pip 20.3 introduced named <code>pip freeze --exclude</code>
-options and supports Python 3.8, the oldest Python version supported by
-rsconnect-python. Upgrade pip in older environments or supply a requirements
-file. Newer Python versions may need a later pip release. This requirement
-applies to inspection, not the installer used by Posit Connect.</p>
+<p>If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
+requirements. To inspect it manually, use <code>uv pip freeze --python /path/to/python</code>.</p>
 <h4 id="python-version">Python Version<a class="headerlink" href="#python-version" title="Permanent link">#</a></h4>
 <p>When deploying Python content to Posit Connect,
 the server will require a version of Python that matches the content
@@ -1968,12 +1968,13 @@ option. This will cause <code>rsconnect</code> to execute your notebook locally 
 file, then publish the HTML file to the Posit Connect server:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--static<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
+<p>Install <code>nbconvert</code> in the selected Python environment to render static notebooks.</p>
 <h3 id="creating-a-manifest-for-future-deployment">Creating a Manifest for Future Deployment<a class="headerlink" href="#creating-a-manifest-for-future-deployment" title="Permanent link">#</a></h3>
 <p>You can create a <code>manifest.json</code> file for a Jupyter Notebook, then use that manifest
 in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
 <p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
 not already exist or the <code>--force-generate</code> option is specified. It will contain the
-package dependencies from the current Python environment, or from an alternative
+package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the <code>--python</code> option.</p>
 <p>Here is an example of the <code>write-manifest</code> command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
@@ -2048,15 +2049,15 @@ venv
 included in the bundle. It must specify the package dependencies needed to execute
 the API or application. Posit Connect will reconstruct the Python environment using
 the specified package list.</p>
-<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the <code>--python</code> option:</p>
+<p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
+selected Python environment. Use <code>--python</code> to select an interpreter explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-api/
 </code></pre></div>
 <p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
 ensuring that you use the same Python that you use to run your API or application:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
+<p>If the environment does not have pip, use <code>uv pip freeze --python /path/to/python</code> instead.</p>
 <h4 id="python-version_1">Python Version<a class="headerlink" href="#python-version_1" title="Permanent link">#</a></h4>
 <p>When deploying Python content to Posit Connect,
 the server will require matching <code>&lt;MAJOR.MINOR&gt;</code> versions of Python. For example,
@@ -2072,7 +2073,12 @@ that is installed in Connect, For example, this command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--override-python-version<span class="w"> </span><span class="m">3</span>.11.5<span class="w"> </span>my-api/
 </code></pre></div>
 <p>will deploy the content in <code>my-api</code> while requesting that Connect
-use Python version 3.11.5.</p>
+use Python version 3.11.5.
+On Connect 2025.03.0 and later, a major and minor version such as <code>3.11</code>
+requests the latest available patch release in that series. The manifest records
+the local Python version separately for compatibility. Connect versions before
+2025.03.0 use that local version instead, so specify a full version such as
+<code>3.11.5</code> when deploying to those servers.</p>
 <blockquote>
 <p><strong>Note</strong>
 The packages and package versions listed in <code>requirements.txt</code> must be
@@ -2109,7 +2115,7 @@ supported; only <code>RENV_PATHS_LOCKFILE</code> and the default location are co
 manifest in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
 <p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
 not already exist or the <code>--force-generate</code> option is specified. It will contain
-the package dependencies from the current Python environment, or from an alternative
+the package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the <code>--python</code> option.</p>
 <p>Here is an example of the <code>write-manifest</code> command:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>api<span class="w"> </span>my-api/
@@ -2387,8 +2393,7 @@ Generated from <code>rsconnect-python 1.32.1.dev1</code>
 <span class="w">    </span>--hide-tagged-input<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>my-notebook.ipynb
 </code></pre></div>
-<p>By default, rsconnect-python does not install Jupyter notebook-related depenencies.
-To use these hide input features in rsconnect-python you need to install these extra dependencies:</p>
+<p>To use these hide input features, install these dependencies in the selected Python environment:</p>
 <div class="highlight"><pre><span></span><code>notebook
 nbformat
 nbconvert&gt;=5.6.1
