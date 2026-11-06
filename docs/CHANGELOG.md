@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- ([#889](https://github.com/posit-dev/rsconnect-python/issues/889)): Inspects activated or project virtual
-  environments, including with `uv tool install`. Global installations now inspect activated environments.
-  `rsconnect preflight` checks the same environment's Python version. Use `--python` to override selection.
+- Inspects activated or project virtual environments, including with `uv tool install`.
+  Global installations now inspect activated environments. `rsconnect preflight` checks
+  the same environment's Python version. Use `--python` to override selection. (#889)
 - Reports editable dependencies outside the deployment directory, which Posit Connect
   cannot install, in both generated and user-provided requirements. Requirement
   filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
