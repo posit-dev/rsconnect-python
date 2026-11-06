@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `deploy notebook --static` no longer requires a requirements file or
   `--force-generate`, and no longer reads `renv.lock`. The static bundle contains
-  only the rendered HTML, so the only requirement is `nbconvert` in the selected
-  Python environment. That interpreter no longer needs rsconnect installed. (#923)
+  only the rendered HTML, so the selected Python environment only needs `nbconvert`,
+  `ipykernel`, and the packages the notebook imports. That environment no longer
+  needs rsconnect installed. (#923)
 - `--override-python-version` with a major and minor version, such as `3.11`,
   requests the latest Python patch release in that series instead of `3.11.0`.
   This requires Posit Connect 2025.03.0 or later; older servers use the local

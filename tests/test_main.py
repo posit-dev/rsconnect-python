@@ -372,6 +372,26 @@ class TestMain:
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == str(python)
 
+    def test_deploy_notebook_static_rejects_invalid_python_option(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # click rejects a missing --python path, and every existing file is executable on
+        # Windows. A directory is the invalid value that reaches which_python everywhere.
+        python = tmp_path / "not-python"
+        python.mkdir()
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", str(python)],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 1
+        assert f"The path '{python}' is a directory. Expected a Python executable." in result.output
+        mock_executor.return_value.make_bundle.assert_not_called()
+
     def test_deploy_notebook_static_renders_with_notebook_project_venv(self, tmp_path, monkeypatch):
         project = tmp_path / "project"
         notebook = project / "nb.ipynb"
