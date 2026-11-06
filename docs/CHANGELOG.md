@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only the rendered HTML, so the only requirement is a Python interpreter with
   `nbconvert`, the current one or the one given with `--python`. That interpreter
   no longer needs rsconnect installed. (#923)
+- `deploy notebook --static` warns about options that have no effect on the
+  rendered HTML, such as `--requirements-file`, `--force-generate`, `--image`, and
+  the environment management options, and about extra files, which aren't included.
 - **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
   a numeric Connect content ID fails with an error explaining how to find the
   content's GUID, and rsconnect-python no longer calls the legacy
