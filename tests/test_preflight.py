@@ -92,7 +92,7 @@ def save_deployment_record(app_file: Path, app_id: str) -> None:
 
 @pytest.fixture(autouse=True)
 def preflight_environment(monkeypatch):
-    for variable in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT"):
+    for variable in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         monkeypatch.delenv(variable, raising=False)
     monkeypatch.setattr("rsconnect.preflight.platform.python_version", lambda: "3.12.2")
     monkeypatch.setattr("rsconnect.preflight.shutil.which", lambda _: "/usr/bin/quarto")

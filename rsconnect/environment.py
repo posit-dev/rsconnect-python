@@ -308,9 +308,8 @@ def which_python(python: typing.Optional[str] = None, directory: typing.Optional
         return selected
 
     project = pathlib.Path(os.path.abspath(directory or os.curdir))
-    project_environment = os.environ.get("UV_PROJECT_ENVIRONMENT") or ".venv"
     for parent in (project, *project.parents):
-        if selected := interpreter(parent / project_environment):
+        if selected := interpreter(parent / ".venv"):
             return selected
 
     if conda and conda_is_base and (selected := interpreter(conda, conda=True)):

@@ -516,11 +516,7 @@ def test_pyproject_dependencies_no_project_table(tmp_path):
 class WhichPythonTestCase(TestCase):
     def setUp(self):
         # which_python() falls back to sys.executable only without an active or project environment.
-        environ = {
-            name: value
-            for name, value in os.environ.items()
-            if name not in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT")
-        }
+        environ = {name: value for name, value in os.environ.items() if name not in ("VIRTUAL_ENV", "CONDA_PREFIX")}
         patcher = mock.patch.dict(os.environ, environ, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -557,7 +553,7 @@ class WhichPythonTestCase(TestCase):
 
 
 def test_python_environment_lookup_order(tmp_path, monkeypatch):
-    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         monkeypatch.delenv(name, raising=False)
 
     def make_interpreter(environment, conda=False):
@@ -576,16 +572,10 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     activated = make_interpreter(tmp_path / "active")
     parent = make_interpreter(project / ".venv")
     nearest = make_interpreter(project / "content" / ".venv")
-    alternate = make_interpreter(project / "custom")
     conda = make_interpreter(tmp_path / "conda", conda=True)
 
     assert which_python(directory=str(nested)) == nearest
     assert which_python(directory=str(project)) == parent
-    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "custom")
-    assert which_python(directory=str(nested)) == alternate
-    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", str(tmp_path / "active"))
-    assert which_python(directory=str(nested)) == activated
-    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "missing")
     monkeypatch.setenv("CONDA_PREFIX", str(tmp_path / "conda"))
     assert which_python(directory=str(nested)) == conda
     monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "active"))
@@ -593,12 +583,12 @@ def test_python_environment_lookup_order(tmp_path, monkeypatch):
     assert which_python(sys.executable, directory=str(nested)) == sys.executable
     monkeypatch.delenv("VIRTUAL_ENV")
     monkeypatch.delenv("CONDA_PREFIX")
-    assert which_python(directory=str(nested)) == sys.executable
+    assert which_python(directory=str(nested)) == nearest
 
 
 @pytest.mark.skipif(os.name == "nt", reason="uses the POSIX environment layout")
 def test_conda_environment_ranks_by_kind_like_uv(tmp_path, monkeypatch):
-    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX", "_CONDA_ROOT", "CONDA_DEFAULT_ENV"):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "_CONDA_ROOT", "CONDA_DEFAULT_ENV"):
         monkeypatch.delenv(name, raising=False)
 
     def make_interpreter(environment):
@@ -635,7 +625,7 @@ def test_conda_environment_ranks_by_kind_like_uv(tmp_path, monkeypatch):
 
 
 def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch):
-    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         monkeypatch.delenv(name, raising=False)
     current = tmp_path / "current"
     (tmp_path / "sibling").mkdir()
@@ -649,7 +639,7 @@ def test_project_environment_lookup_ignores_non_ancestors(tmp_path, monkeypatch)
 
 
 def test_project_environment_lookup_includes_ancestors_outside_content_project(tmp_path, monkeypatch):
-    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "CONDA_PREFIX"):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         monkeypatch.delenv(name, raising=False)
     content = tmp_path / "project" / "content"
     content.mkdir(parents=True)
@@ -691,7 +681,7 @@ def test_inspection_subprocess_errors_name_interpreter(tmp_path):
 def test_isolated_uv_environment_inspection_without_pip_or_rsconnect(tmp_path, monkeypatch, caplog):
     from rsconnect.bundle import Manifest
 
-    for name in ("VIRTUAL_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT"):
+    for name in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         monkeypatch.delenv(name, raising=False)
     project = tmp_path / "project"
     project.mkdir()

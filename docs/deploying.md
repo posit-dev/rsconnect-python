@@ -22,7 +22,7 @@ specified package list.
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
 selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a non-base
-`CONDA_PREFIX`, a project environment (`.venv` or `UV_PROJECT_ENVIRONMENT` in the
+`CONDA_PREFIX`, a project environment (`.venv` in the
 content directory or any parent directory), and a base `CONDA_PREFIX`, in that order,
 like `uv pip`. If none is available, it uses the Python interpreter running
 rsconnect-python.
