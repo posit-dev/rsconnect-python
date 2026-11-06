@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `--override-python-version` with a major and minor version, such as `3.11`,
+  requests the latest Python patch release in that series instead of `3.11.0`.
+  This requires Posit Connect 2025.03.0 or later; older servers use the local
+  Python version, so pass a full version such as `3.11.5` for those. (#901)
 - Inspects activated or project virtual environments, including with `uv tool install`.
   Global installations now inspect activated environments. `rsconnect preflight` checks
   the same environment's Python version. Use `--python` to override selection. (#889)
