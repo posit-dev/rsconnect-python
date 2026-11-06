@@ -83,9 +83,8 @@ def test_dependency_inspection_with_selected_pip(tmp_path: Path):
     metadata.mkdir()
     (metadata / "METADATA").write_text("Metadata-Version: 2.1\nName: demo-local\nVersion: 1.0\n")
     (metadata / "direct_url.json").write_text(json.dumps({"url": local.as_uri(), "dir_info": {"editable": True}}))
-    rejected = inspect("none")
-    assert "Editable dependencies outside the deployment directory" in rejected["error"]
-    assert "rsconnect-local" in rejected["error"]
+    generated = inspect("none")
+    assert "-e ./rsconnect-local" in generated["contents"].splitlines()
 
     (tmp_path / "requirements.txt").write_text(
         "rsconnect==1.0\nrsconnect-python==1.0\nrsconnect-utils==1.0\n"

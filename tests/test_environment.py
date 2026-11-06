@@ -320,6 +320,42 @@ def test_requirements_file_rejects_editable_outside_bundle(tmp_path: Path):
     assert "-e /Users/me/localpkg" in str(error.value)
 
 
+@pytest.mark.parametrize("use_url", [False, True])
+def test_requirements_file_rewrites_editables_inside_bundle(tmp_path: Path, use_url):
+    local = tmp_path / "local package"
+    local.mkdir()
+
+    def target(path):
+        return path.as_uri() if use_url else str(path)
+
+    (tmp_path / "requirements.txt").write_bytes(
+        f"-e {target(tmp_path)} # project\r\n--editable={target(local)}[extra]\r\n"
+        "-e git+https://example.com/repo.git#egg=remote\r\n".encode()
+    )
+
+    env = Environment.create_python_environment(str(tmp_path))
+
+    assert (
+        env.contents
+        == "-e . # project\r\n-e ./local package[extra]\r\n-e git+https://example.com/repo.git#egg=remote\r\n"
+    )
+
+
+def test_requirements_file_rejects_editable_symlink_outside_bundle(tmp_path: Path):
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (project / "linked").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("Directory symlinks are unavailable")
+    (project / "requirements.txt").write_text("-e ./linked[extra]\n")
+
+    with pytest.raises(RSConnectException, match="Editable dependencies outside the deployment directory"):
+        Environment.create_python_environment(str(project))
+
+
 @pytest.mark.parametrize("fallback", [False, True])
 def test_uv_lock_export(tmp_path, monkeypatch, fallback):
     project_dir = tmp_path / "project"
@@ -797,7 +833,7 @@ def test_inspection_when_rsconnect_is_importable_only_from_pythonpath(tmp_path):
 
 
 @pytest.mark.parametrize("fallback", [False, True])
-def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path, monkeypatch, fallback):
+def test_uv_freeze_filters_distributions_and_rewrites_editable_file_urls(tmp_path, monkeypatch, fallback):
     uv_path = uv.find_uv_bin()
     env_dir = tmp_path / "env"
     subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
@@ -830,6 +866,10 @@ def test_uv_freeze_filters_distributions_and_rejects_editable_file_urls(tmp_path
     dist.mkdir()
     (dist / "METADATA").write_text("Metadata-Version: 2.1\nName: editable-project\nVersion: 1.0\n")
     (dist / "direct_url.json").write_text(json.dumps({"url": local.as_uri(), "dir_info": {"editable": True}}))
+    environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
+    assert "-e ./editable project" in environment.contents.splitlines()
+
+    (dist / "direct_url.json").write_text(json.dumps({"url": tmp_path.parent.as_uri(), "dir_info": {"editable": True}}))
     with pytest.raises(RSConnectException, match="Editable dependencies outside the deployment directory"):
         Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
 
