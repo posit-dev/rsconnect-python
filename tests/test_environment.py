@@ -337,7 +337,7 @@ def test_requirements_file_rewrites_editables_inside_bundle(tmp_path: Path, use_
 
     assert (
         env.contents
-        == "-e . # project\r\n-e ./local package[extra]\r\n-e git+https://example.com/repo.git#egg=remote\r\n"
+        == "-e . # project\r\n-e file:./local%20package[extra]\r\n-e git+https://example.com/repo.git#egg=remote\r\n"
     )
 
 
@@ -867,7 +867,7 @@ def test_uv_freeze_filters_distributions_and_rewrites_editable_file_urls(tmp_pat
     (dist / "METADATA").write_text("Metadata-Version: 2.1\nName: editable-project\nVersion: 1.0\n")
     (dist / "direct_url.json").write_text(json.dumps({"url": local.as_uri(), "dir_info": {"editable": True}}))
     environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
-    assert "-e ./editable project" in environment.contents.splitlines()
+    assert "-e file:./editable%20project" in environment.contents.splitlines()
 
     (dist / "direct_url.json").write_text(json.dumps({"url": tmp_path.parent.as_uri(), "dir_info": {"editable": True}}))
     with pytest.raises(RSConnectException, match="Editable dependencies outside the deployment directory"):

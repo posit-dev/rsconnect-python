@@ -22,7 +22,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Callable, List, Optional, cast
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import url2pathname
 
 from packaging.requirements import InvalidRequirement, Requirement
@@ -391,6 +391,12 @@ def normalize_editables(requirements: str, dirname: str) -> str:
         if target:
             relative = bundleable_editable_path(target, dirname)
             if relative is not None:
+                extras = re.search(r"\[[a-zA-Z0-9_,.\-\s]+\]$", relative)
+                suffix = extras.group() if extras else ""
+                path = relative[: extras.start()] if extras else relative
+                escaped = quote(path, safe="/")
+                if escaped != path:
+                    relative = f"file:{escaped}{suffix}"
                 line_ending = "\r" if line.endswith("\r") else ""
                 comment = re.search(r"\s+#.*$", line.rstrip("\r"))
                 line = f"-e {relative}{comment.group() if comment else ''}{line_ending}"
