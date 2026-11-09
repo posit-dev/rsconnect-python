@@ -7,60 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- `deploy notebook --static` no longer requires a requirements file or
-  `--force-generate`, and no longer reads `renv.lock`. The static bundle contains
-  only the rendered HTML, so the selected Python environment only needs `nbconvert`,
-  `ipykernel`, and the packages the notebook imports. That environment no longer
-  needs rsconnect installed. (#923)
-- `deploy notebook --static` warns about options that have no effect on the
-  rendered HTML, such as `--requirements-file`, `--force-generate`, `--image`, and
-  the environment management options, and about extra files, which aren't included.
-- `--override-python-version` with a major and minor version, such as `3.11`,
-  requests the latest Python patch release in that series instead of `3.11.0`.
-  This requires Posit Connect 2025.03.0 or later; older servers use the local
-  Python version, so pass a full version such as `3.11.5` for those. (#901)
-- Inspects activated or project virtual environments, including with `uv tool install`.
-  Global installations now inspect activated environments. `rsconnect preflight` checks
-  the same environment's Python version. Use `--python` to override selection. (#889)
-- **Breaking:** Posit Connect content can be targeted only by GUID. `--app-id` with
-  a numeric Connect content ID fails with an error explaining how to find the
-  content's GUID, and rsconnect-python no longer calls the legacy
-  `/__api__/applications/{id}` endpoint. Connect Cloud and shinyapps.io application
-  IDs are unaffected. (#881)
-- The `deploy` commands and `preflight` accept `--guid` to target an existing
-  Posit Connect content item, matching the `--guid` option on the `content`
-  commands. `--app-id` continues to work, and is the option to use for Connect
-  Cloud and shinyapps.io. (#885)
-- Deploying to Posit Connect in Snowflake (SPCS) with `--app-id` or `--guid`
-  updates the existing content item instead of failing with "Unable to infer
-  Connect client."
-- Generating requirements from an environment now requires pip 20.3 or later.
-  Older environments can upgrade pip or provide a requirements file.
-- Reports editable dependencies outside the deployment directory, which Posit Connect
-  cannot install, in both generated and user-provided requirements. Requirement
-  filtering no longer drops unrelated packages whose name or path contains `rsconnect`.
-- Getting-started documentation recommends `rsconnect login` for Posit Connect,
-  with API keys as an alternative.
-- `rsconnect token` prints the OAuth access token stored by `rsconnect login` for a
-  Posit Connect server, so other tools, such as the Connect SDKs, can make API
-  requests with your login. `--refresh` gets a new token after the server rejects
-  the current one, and `--format json` prints machine-readable output. It exits
-  with status 4 when you need to log in again, and it never prints API keys.
-- OAuth token refreshes are serialized across processes, so concurrent commands
-  don't invalidate each other's rotated refresh tokens. A command whose token was
-  already refreshed by another process uses the new token without refreshing again.
+### Breaking { #unreleased-breaking }
 
-- When client credentials can't publish to a Posit Connect Cloud account because the
-  account requires single sign-on (SSO), the error now says so, instead of
-  suggesting the publisher role.
-- `rsconnect bootstrap` uses the `/__api__/v1/bootstrap` endpoint, falling back to
-  the deprecated `/__api__/v1/experimental/bootstrap` endpoint on Posit Connect
-  versions before 2024.05.0. (#594)
-- `rsconnect deploy` deploys and activates rendered and static content (R Markdown,
-  Quarto, Jupyter notebooks, and HTML) in one step, without verifying a draft
-  first. Activating a draft makes Connect render it a second time, and if the
-  render fails, Connect keeps serving the previously-active bundle. With `--draft`,
-  rendered and static content is deployed as a draft but not verified. (#872)
+- ([#915](https://github.com/posit-dev/rsconnect-python/pull/915)): Requires a globally unique identifier (GUID) to target Posit Connect content. Numeric `--app-id` values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work.
+- ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.
+- ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.
+
+### New { #unreleased-new }
+
+- ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Adds `rsconnect token`, which prints the OAuth access token from `rsconnect login` for tools such as the Connect SDKs. It never prints API keys.
+- ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Adds `--refresh` to `rsconnect token` to get a new token after the server rejects the current one, and `--format json` for machine-readable output.
+- ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Exits `rsconnect token` with status 4 when you must log in again.
+- ([#915](https://github.com/posit-dev/rsconnect-python/pull/915)): Adds `--guid` to the `deploy` commands and `preflight` to target existing Connect content, matching the `content` commands. Use `--app-id` for Connect Cloud and shinyapps.io.
+- ([#925](https://github.com/posit-dev/rsconnect-python/pull/925)): Warns when `deploy notebook --static` receives options or extra files that do not affect the rendered HTML, such as `--requirements-file`, `--force-generate`, and `--image`.
+- ([#932](https://github.com/posit-dev/rsconnect-python/pull/932)): Warns when `pip freeze` generates requirements with a local Python version that does not satisfy the project requirement, as `rsconnect preflight` does.
+- ([#919](https://github.com/posit-dev/rsconnect-python/pull/919)): Recommends `rsconnect login` for Connect in the getting-started documentation, with API keys as an alternative.
+
+### Fixed { #unreleased-fixed }
+
+- ([#924](https://github.com/posit-dev/rsconnect-python/pull/924)): Stops requiring a requirements file or `--force-generate` for `deploy notebook --static`, and stops reading `renv.lock`. The environment needs only `nbconvert`, `ipykernel`, and the notebook imports.
+- ([#883](https://github.com/posit-dev/rsconnect-python/pull/883)): Deploys and activates rendered and static content, such as R Markdown, Quarto, notebooks, and HTML, in one step. Verifying a draft first made Connect render the content twice.
+- ([#883](https://github.com/posit-dev/rsconnect-python/pull/883)): Deploys rendered and static content as a draft with `--draft`, without verifying it.
+- ([#911](https://github.com/posit-dev/rsconnect-python/pull/911)): Requests the latest patch release when `--override-python-version` has only a major and minor version, such as `3.11`. Connect versions before 2025.03.0 need a full version, such as `3.11.5`.
+- ([#920](https://github.com/posit-dev/rsconnect-python/pull/920)): Inspects activated or project virtual environments, including from `uv tool install`, and checks the same environment in `rsconnect preflight`. Use `--python` to choose a different environment.
+- ([#915](https://github.com/posit-dev/rsconnect-python/pull/915)): Updates existing content when deploying to Connect in Snowpark Container Services (SPCS) with `--app-id` or `--guid`, instead of failing with "Unable to infer Connect client".
+- ([#879](https://github.com/posit-dev/rsconnect-python/pull/879)): Uses the `/__api__/v1/bootstrap` endpoint for `rsconnect bootstrap`, falling back to the deprecated experimental endpoint before Connect 2024.05.0.
+- ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Serializes OAuth token refreshes across processes, so concurrent commands do not invalidate each other's rotated refresh tokens.
+- ([#868](https://github.com/posit-dev/rsconnect-python/pull/868), [#878](https://github.com/posit-dev/rsconnect-python/pull/878)): Explains that single sign-on (SSO) blocks publishing to a Connect Cloud account with client credentials, instead of suggesting the publisher role.
+- ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Reports editable dependencies outside the deployment directory, which Connect cannot install, in generated and user-provided requirements.
+- ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Keeps packages whose name or path contains `rsconnect` when filtering requirements.
+- ([#931](https://github.com/posit-dev/rsconnect-python/pull/931)): Rewrites editable dependencies inside the deployment directory, written as absolute paths or `file:` URLs, as paths relative to the bundle so Connect can install them.
+- ([#931](https://github.com/posit-dev/rsconnect-python/pull/931)): Reports local editable dependencies in single-notebook bundles, which do not include local packages, instead of failing on the server.
+- ([#928](https://github.com/posit-dev/rsconnect-python/pull/928)): Excludes development dependencies and other dependency groups from requirements exported from `uv.lock`.
+- ([#929](https://github.com/posit-dev/rsconnect-python/pull/929)): Exports `uv.lock` for notebooks and Quarto documents that you pass as a bare or relative path.
+- ([#891](https://github.com/posit-dev/rsconnect-python/pull/891)): Regenerates `requirements.txt` with `--force-generate` in the `write-manifest` commands for Python frameworks, such as `write-manifest api`.
+- ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Records requirements file paths relative to the deployment directory in manifests, including absolute paths and paths such as `deps/../requirements.txt`.
+- ([#890](https://github.com/posit-dev/rsconnect-python/pull/890)): Writes the manifest for `write-manifest voila` to the given directory and uses its requirements file, instead of the parent directory's.
+- ([#905](https://github.com/posit-dev/rsconnect-python/pull/905)): Accepts `pyproject.toml` files that start with a UTF-8 byte order mark.
+- ([#903](https://github.com/posit-dev/rsconnect-python/pull/903)): Reports a malformed `pyproject.toml` as an error instead of a traceback.
+- ([#904](https://github.com/posit-dev/rsconnect-python/pull/904)): Reports `project.dependencies` entries in `pyproject.toml` that are not strings as invalid.
+- ([#906](https://github.com/posit-dev/rsconnect-python/pull/906)): Shows the current directory as `.` in the missing requirements file error instead of leaving it blank.
+- ([#907](https://github.com/posit-dev/rsconnect-python/pull/907)): Reports a dangling symlink and how to fix it during bundling, instead of a traceback.
+- ([#908](https://github.com/posit-dev/rsconnect-python/pull/908)): Reports a concise error instead of a traceback when `nbconvert` fails to render a notebook for `deploy notebook --static`.
+- ([#912](https://github.com/posit-dev/rsconnect-python/pull/912)): Removes the duplicate `--verbose` option from `content build ls`.
+- ([#933](https://github.com/posit-dev/rsconnect-python/pull/933)): Requires `snowflake-cli` 2.8.2 or later on Python 3.8 and 3.9, and 3.23.0 or later on Python 3.10 and later, in the `snowflake` extra.
 
 ## [1.32.0] - 2026-10-16
 
