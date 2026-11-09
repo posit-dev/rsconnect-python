@@ -15,7 +15,6 @@ import json
 import pathlib
 import os.path
 import enum
-import uv
 
 from . import pyproject
 from .subprocesses import inspect_environment
@@ -273,7 +272,12 @@ class Environment:
 
 def _uv_bin() -> str:
     try:
-        return uv.find_uv_bin()
+        # conda-forge's uv package installs only the executable, not this module.
+        from uv import find_uv_bin
+    except ImportError:
+        return "uv"
+    try:
+        return find_uv_bin()
     except FileNotFoundError:
         return "uv"
 
