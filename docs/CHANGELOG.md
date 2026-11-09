@@ -7,13 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Breaking { #unreleased-breaking }
+### Breaking
 
 - ([#915](https://github.com/posit-dev/rsconnect-python/pull/915)): Requires a globally unique identifier (GUID) to target Posit Connect content. Numeric `--app-id` values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work.
 - ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.
 - ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.
 
-### New { #unreleased-new }
+### New
 
 - ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Adds `rsconnect token`, which prints the OAuth access token from `rsconnect login` for tools such as the Connect SDKs. It never prints API keys.
 - ([#884](https://github.com/posit-dev/rsconnect-python/pull/884)): Adds `--refresh` to `rsconnect token` to get a new token after the server rejects the current one, and `--format json` for machine-readable output.
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ([#932](https://github.com/posit-dev/rsconnect-python/pull/932)): Warns when `pip freeze` generates requirements with a local Python version that does not satisfy the project requirement, as `rsconnect preflight` does.
 - ([#919](https://github.com/posit-dev/rsconnect-python/pull/919)): Recommends `rsconnect login` for Connect in the getting-started documentation, with API keys as an alternative.
 
-### Fixed { #unreleased-fixed }
+### Fixed
 
 - ([#924](https://github.com/posit-dev/rsconnect-python/pull/924)): Stops requiring a requirements file or `--force-generate` for `deploy notebook --static`, and stops reading `renv.lock`. The environment needs only `nbconvert`, `ipykernel`, and the notebook imports.
 - ([#883](https://github.com/posit-dev/rsconnect-python/pull/883)): Deploys and activates rendered and static content, such as R Markdown, Quarto, notebooks, and HTML, in one step. Verifying a draft first made Connect render the content twice.
