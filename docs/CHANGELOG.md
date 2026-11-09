@@ -10,8 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - ([#915](https://github.com/posit-dev/rsconnect-python/pull/915)): Requires a globally unique identifier (GUID) to target Posit Connect content. Numeric `--app-id` values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work.
-- ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.
-- ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.
 
 ### New
 
@@ -36,12 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ([#868](https://github.com/posit-dev/rsconnect-python/pull/868), [#878](https://github.com/posit-dev/rsconnect-python/pull/878)): Explains that single sign-on (SSO) blocks publishing to a Connect Cloud account with client credentials, instead of suggesting the publisher role.
 - ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Reports editable dependencies outside the deployment directory, which Connect cannot install, in generated and user-provided requirements.
 - ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Keeps packages whose name or path contains `rsconnect` when filtering requirements.
+- ([#909](https://github.com/posit-dev/rsconnect-python/pull/909)): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.
 - ([#931](https://github.com/posit-dev/rsconnect-python/pull/931)): Rewrites editable dependencies inside the deployment directory, written as absolute paths or `file:` URLs, as paths relative to the bundle so Connect can install them.
 - ([#931](https://github.com/posit-dev/rsconnect-python/pull/931)): Reports local editable dependencies in single-notebook bundles, which do not include local packages, instead of failing on the server.
 - ([#928](https://github.com/posit-dev/rsconnect-python/pull/928)): Excludes development dependencies and other dependency groups from requirements exported from `uv.lock`.
 - ([#929](https://github.com/posit-dev/rsconnect-python/pull/929)): Exports `uv.lock` for notebooks and Quarto documents that you pass as a bare or relative path.
 - ([#891](https://github.com/posit-dev/rsconnect-python/pull/891)): Regenerates `requirements.txt` with `--force-generate` in the `write-manifest` commands for Python frameworks, such as `write-manifest api`.
 - ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Records requirements file paths relative to the deployment directory in manifests, including absolute paths and paths such as `deps/../requirements.txt`.
+- ([#910](https://github.com/posit-dev/rsconnect-python/pull/910)): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.
 - ([#890](https://github.com/posit-dev/rsconnect-python/pull/890)): Writes the manifest for `write-manifest voila` to the given directory and uses its requirements file, instead of the parent directory's.
 - ([#905](https://github.com/posit-dev/rsconnect-python/pull/905)): Accepts `pyproject.toml` files that start with a UTF-8 byte order mark.
 - ([#903](https://github.com/posit-dev/rsconnect-python/pull/903)): Reports a malformed `pyproject.toml` as an error instead of a traceback.
