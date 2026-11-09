@@ -432,7 +432,7 @@ requires-dist = [
     python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if fallback:
         monkeypatch.setenv("PATH", os.path.dirname(uv_path))
-        monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
+        monkeypatch.setattr(uv, "find_uv_bin", missing_bundled_uv)
     else:
         monkeypatch.setenv("PATH", "")
     monkeypatch.chdir(project_dir)
@@ -732,9 +732,13 @@ def test_project_environment_lookup_includes_ancestors_outside_content_project(t
 
 
 def test_inspect_environment_without_bundled_uv(monkeypatch):
-    monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
+    monkeypatch.setattr(uv, "find_uv_bin", missing_bundled_uv)
     environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
     assert environment.source == "file"
+
+
+def test_cli_imports_without_uv_module():
+    subprocess.run([sys.executable, "-c", "import sys; sys.modules['uv'] = None; import rsconnect.main"], check=True)
 
 
 def test_inspect_environment_reports_invalid_pyproject(tmp_path):
@@ -875,8 +879,8 @@ def test_inspection_when_rsconnect_is_importable_only_from_pythonpath(tmp_path):
     assert json.loads(result.stdout.splitlines()[-1]).splitlines() == ["project-package==1.0"]
 
 
-@pytest.mark.parametrize("fallback", [False, True])
-def test_uv_freeze_filters_distributions_and_rewrites_editable_file_urls(tmp_path, monkeypatch, fallback):
+@pytest.mark.parametrize("uv_source", ["bundled", "path_without_bundled_binary", "path_without_uv_module"])
+def test_uv_freeze_filters_distributions_and_rewrites_editable_file_urls(tmp_path, monkeypatch, uv_source):
     uv_path = uv.find_uv_bin()
     env_dir = tmp_path / "env"
     subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
@@ -890,11 +894,14 @@ def test_uv_freeze_filters_distributions_and_rewrites_editable_file_urls(tmp_pat
         dist = site / f"{name.replace('-', '_')}-1.0.dist-info"
         dist.mkdir()
         (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n")
-    if fallback:
-        monkeypatch.setenv("PATH", os.path.dirname(uv_path))
-        monkeypatch.setattr(rsconnect.environment.uv, "find_uv_bin", missing_bundled_uv)
-    else:
+    if uv_source == "bundled":
         monkeypatch.setenv("PATH", "")
+    else:
+        monkeypatch.setenv("PATH", os.path.dirname(uv_path))
+    if uv_source == "path_without_bundled_binary":
+        monkeypatch.setattr(uv, "find_uv_bin", missing_bundled_uv)
+    elif uv_source == "path_without_uv_module":
+        monkeypatch.setitem(sys.modules, "uv", None)
 
     environment = Environment._inspect_environment(str(python), str(tmp_path), requirements_file=None)
     assert "rsconnect-utils==1.0" in environment.contents.splitlines()

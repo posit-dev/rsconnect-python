@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Imports in environments that have the `uv` executable but not its Python module, such as conda-forge, instead of failing with `ModuleNotFoundError: No module named 'uv'`. Finds `uv` on `PATH` instead. [#938](https://github.com/posit-dev/rsconnect-python/pull/938)
+
 ## [1.33.0] - 2026-11-09
 
 ### Added
