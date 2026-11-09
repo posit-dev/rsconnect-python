@@ -3014,8 +3014,6 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="breaking">Breaking<a class="headerlink" href="#breaking" title="Permanent link">#</a></h3>
 <ul>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/915">#915</a>): Requires a globally unique identifier (GUID) to target Posit Connect content. Numeric <code>--app-id</code> values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work.</li>
-<li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/910">#910</a>): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.</li>
-<li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/909">#909</a>): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.</li>
 </ul>
 <h3 id="new">New<a class="headerlink" href="#new" title="Permanent link">#</a></h3>
 <ul>
@@ -3040,12 +3038,14 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/868">#868</a>, <a href="https://github.com/posit-dev/rsconnect-python/pull/878">#878</a>): Explains that single sign-on (SSO) blocks publishing to a Connect Cloud account with client credentials, instead of suggesting the publisher role.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/909">#909</a>): Reports editable dependencies outside the deployment directory, which Connect cannot install, in generated and user-provided requirements.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/909">#909</a>): Keeps packages whose name or path contains <code>rsconnect</code> when filtering requirements.</li>
+<li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/909">#909</a>): Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/931">#931</a>): Rewrites editable dependencies inside the deployment directory, written as absolute paths or <code>file:</code> URLs, as paths relative to the bundle so Connect can install them.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/931">#931</a>): Reports local editable dependencies in single-notebook bundles, which do not include local packages, instead of failing on the server.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/928">#928</a>): Excludes development dependencies and other dependency groups from requirements exported from <code>uv.lock</code>.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/929">#929</a>): Exports <code>uv.lock</code> for notebooks and Quarto documents that you pass as a bare or relative path.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/891">#891</a>): Regenerates <code>requirements.txt</code> with <code>--force-generate</code> in the <code>write-manifest</code> commands for Python frameworks, such as <code>write-manifest api</code>.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/910">#910</a>): Records requirements file paths relative to the deployment directory in manifests, including absolute paths and paths such as <code>deps/../requirements.txt</code>.</li>
+<li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/910">#910</a>): Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/890">#890</a>): Writes the manifest for <code>write-manifest voila</code> to the given directory and uses its requirements file, instead of the parent directory's.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/905">#905</a>): Accepts <code>pyproject.toml</code> files that start with a UTF-8 byte order mark.</li>
 <li>(<a href="https://github.com/posit-dev/rsconnect-python/pull/903">#903</a>): Reports a malformed <code>pyproject.toml</code> as an error instead of a traceback.</li>
