@@ -51,6 +51,24 @@ jobs:
         coverageFile: coverage.xml
         token: ${{ secrets.GITHUB_TOKEN }}
 
+  test-content-python-versions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: ">=0.9.0"
+    - run: uv sync --python 3.11 --group test
+    - name: Install content Pythons
+      run: |
+        mapfile -t versions < <(uv run --no-sync python scripts/content_python_versions.py)
+        test "${#versions[@]}" -gt 0
+        uv run --no-sync uv python install --no-bin "${versions[@]}"
+    - name: Test manifests
+      run: |
+        uv run --no-sync pytest tests/test_manifest_content_pythons.py --junitxml=content-python-results.xml
+        uv run --no-sync python -c 'import xml.etree.ElementTree as ET; root = ET.parse("content-python-results.xml"); assert not root.findall(".//skipped"), "Content Python cases were skipped"'
+
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
