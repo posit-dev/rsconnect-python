@@ -201,16 +201,8 @@ The app mode determines how Connect runs the content. Manifests must specify the
 - `SPCSConnectServer` class for Snowflake-specific authentication
 - JWT generation in `snowflake.py`
 
-## Agent skills
+## Issues and domain docs
 
-### Issue tracker
-
-Issues are tracked in GitHub Issues on posit-dev/rsconnect-python via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Uses the five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one root `GLOSSARY.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+- **Issues**: tracked in GitHub Issues on posit-dev/rsconnect-python via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+- **Triage labels**: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+- **Domain docs**: one root `GLOSSARY.md` plus `docs/adr/`. See `docs/agents/domain.md`.
