@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import sys
 import threading
 import time
 from http.client import HTTPSConnection
@@ -124,10 +125,11 @@ def _update_message(release: Optional[_Release]) -> Optional[str]:
         except InvalidSpecifier:
             compatible = True
         if not compatible:
+            force = "" if os.path.isfile(join(sys.prefix, "uv-receipt.toml")) else "--force "
             return (
                 f"The latest version of rsconnect-python ({release.version}) requires Python "
                 f"{release.requires_python}, but you are running Python {python_version}.\n"
-                "Install it with: uv tool install rsconnect-python"
+                f'Install it with: uv tool install {force}--python "{release.requires_python}" rsconnect-python'
             )
         return (
             f"A new version of rsconnect-python is available: {release.version} "

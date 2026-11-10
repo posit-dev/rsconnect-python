@@ -1,6 +1,7 @@
 import importlib
 import json
 import platform
+import sys
 import threading
 import time
 
@@ -71,14 +72,25 @@ def test_incompatible_latest_is_reported_and_cached(release_cli):
     assert "99.0.0" in result.stderr
     assert ">=100" in result.stderr
     assert f"Python {python_version}" in result.stderr
-    assert "uv tool install rsconnect-python" in result.stderr
+    assert '--python ">=100" rsconnect-python' in result.stderr
     assert "pip install --upgrade" not in result.stderr
     assert json.loads(_cache_path().read_text())["requires_python"] == ">=100"
 
     httpretty.reset()
     cached = _deploy()
-    assert "uv tool install rsconnect-python" in cached.stderr
+    assert '--python ">=100" rsconnect-python' in cached.stderr
     assert not httpretty.latest_requests()
+
+
+@pytest.mark.parametrize("has_receipt", [True, False])
+@httpretty.activate(allow_net_connect=False)
+def test_incompatible_notice_install_command(release_cli, monkeypatch, has_receipt):
+    monkeypatch.setattr(sys, "prefix", str(release_cli))
+    if has_receipt:
+        (release_cli / "uv-receipt.toml").touch()
+    _pypi({"version": "99.0.0", "requires_python": ">=100, <200"})
+    force = "" if has_receipt else "--force "
+    assert f'uv tool install {force}--python ">=100, <200" rsconnect-python' in _deploy().stderr
 
 
 @pytest.mark.parametrize("requirement", [">=3.0", None, "not a specifier", 42])
@@ -133,7 +145,7 @@ def test_legacy_cache_refreshes_without_blocking(release_cli):
         time.sleep(0.01)
     assert data["latest"] == "99.0.0"
     assert data["requires_python"] == ">=100"
-    assert "uv tool install rsconnect-python" in _deploy().stderr
+    assert "uv tool install" in _deploy().stderr
 
 
 @pytest.mark.parametrize("requirement", [">=3.0", ">=100"])
@@ -163,7 +175,7 @@ def test_non_deploy_and_current_release_do_not_warn(release_cli):
 def test_expired_cache_refreshes(release_cli):
     _write_cache(latest=None, requires_python=None, checked_at=time.time() - 90000)
     _pypi({"version": "99.0.0", "requires_python": ">=100"})
-    assert "uv tool install rsconnect-python" in _deploy().stderr
+    assert "uv tool install" in _deploy().stderr
 
 
 @httpretty.activate(allow_net_connect=False)
@@ -173,7 +185,7 @@ def test_cold_cache_waits_for_slow_response(release_cli):
         return (200, headers, json.dumps({"info": {"version": "99.0.0", "requires_python": ">=100"}}))
 
     httpretty.register_uri(httpretty.GET, "https://pypi.org/pypi/rsconnect-python/json", body=response)
-    assert "uv tool install rsconnect-python" in _deploy().stderr
+    assert "uv tool install" in _deploy().stderr
 
 
 @httpretty.activate(allow_net_connect=False)
@@ -201,7 +213,7 @@ def test_corrupt_cache_refreshes(release_cli):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{invalid json")
     _pypi({"version": "99.0.0", "requires_python": ">=100"})
-    assert "uv tool install rsconnect-python" in _deploy().stderr
+    assert "uv tool install" in _deploy().stderr
 
 
 @httpretty.activate(allow_net_connect=False)
