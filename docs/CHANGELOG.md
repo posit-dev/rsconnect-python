@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Explains when the latest rsconnect-python release requires a different Python version and suggests installing it with `uv tool install`.
+
 ## [1.33.1] - 2026-11-09
 
 ### Fixed
