@@ -96,7 +96,7 @@ def test_api_bundle_reports_dangling_symlink(tmp_path, link_name):
 def test_api_bundle_keeps_valid_symlink(tmp_path):
     (tmp_path / "app.py").write_text("app = object()\n")
     (tmp_path / "requirements.txt").write_text("flask\n")
-    (tmp_path / "data.csv").write_text("data\n")
+    (tmp_path / "data.csv").write_bytes(b"data\n")
     try:
         (tmp_path / "data-link.csv").symlink_to("data.csv")
     except OSError:
@@ -130,10 +130,10 @@ def test_linked_content_in_shiny_manifest_and_bundles(tmp_path):
     app = tmp_path / "app"
     app.mkdir()
     source = tmp_path / "source.py"
-    source.write_text("app = object()\n")
+    source.write_bytes(b"app = object()\n")
     data = tmp_path / "shared"
     data.mkdir()
-    (data / "foo.csv").write_text("hello\n")
+    (data / "foo.csv").write_bytes(b"hello\n")
     make_symlink(app / "app.py", source)
     make_symlink(app / "data", data, directory=True)
     make_symlink(data / "nested.csv", data / "foo.csv")
