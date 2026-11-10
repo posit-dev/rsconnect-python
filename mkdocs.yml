@@ -1,6 +1,10 @@
 site_name: 'rsconnect-python'
 copyright: Posit Software, PBC. All Rights Reserved
 
+exclude_docs: |
+  agents/
+  adr/
+
 markdown_extensions:
   - attr_list
   - mkdocs-click
