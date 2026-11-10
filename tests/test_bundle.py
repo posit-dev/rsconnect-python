@@ -107,7 +107,122 @@ def test_api_bundle_keeps_valid_symlink(tmp_path):
         with tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             manifest = json.loads(tar.extractfile("manifest.json").read())
             assert manifest["files"]["data-link.csv"]["checksum"] == file_checksum(tmp_path / "data.csv")
-            assert tar.getmember("data-link.csv").issym()
+            assert tar.getmember("data-link.csv").isfile()
+            assert tar.extractfile("data-link.csv").read() == b"data\n"
+
+
+def make_symlink(link, target, *, directory=False):
+    try:
+        link.symlink_to(target, target_is_directory=directory)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are unavailable")
+
+
+def assert_regular_archive(tar):
+    assert all(not member.issym() and not member.islnk() for member in tar.getmembers())
+
+
+def test_linked_content_in_shiny_manifest_and_bundles(tmp_path):
+    from click.testing import CliRunner
+
+    from rsconnect.main import cli
+
+    app = tmp_path / "app"
+    app.mkdir()
+    source = tmp_path / "source.py"
+    source.write_text("app = object()\n")
+    data = tmp_path / "shared"
+    data.mkdir()
+    (data / "foo.csv").write_text("hello\n")
+    make_symlink(app / "app.py", source)
+    make_symlink(app / "data", data, directory=True)
+    make_symlink(data / "nested.csv", data / "foo.csv")
+    (app / "requirements.txt").write_text("shiny\n")
+    environment = Environment.create_python_environment(str(app))
+
+    result = CliRunner().invoke(cli, ["write-manifest", "shiny", str(app)])
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((app / "manifest.json").read_text())
+    for name, contents in {
+        "app.py": b"app = object()\n",
+        "data/foo.csv": b"hello\n",
+        "data/nested.csv": b"hello\n",
+    }.items():
+        assert manifest["files"][name]["checksum"] == rsconnect.bundle.buffer_checksum(contents)
+
+    bundles = [
+        make_api_bundle(str(app), "app:app", AppModes.PYTHON_SHINY, environment, [], []),
+        make_manifest_bundle(app / "manifest.json"),
+    ]
+    for bundle in bundles:
+        with bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            assert_regular_archive(tar)
+            for name, contents in {
+                "app.py": b"app = object()\n",
+                "data/foo.csv": b"hello\n",
+                "data/nested.csv": b"hello\n",
+            }.items():
+                assert tar.getmember(name).isfile()
+                assert tar.extractfile(name).read() == contents
+                bundled_manifest = json.loads(tar.extractfile("manifest.json").read())
+                assert bundled_manifest["files"][name]["checksum"] == rsconnect.bundle.buffer_checksum(contents)
+
+
+def test_linked_directory_loops_excludes_and_config(tmp_path, monkeypatch, caplog):
+    app = tmp_path / "app"
+    app.mkdir()
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "foo.csv").write_text("data")
+    make_symlink(shared / "loop", app, directory=True)
+    make_symlink(app / "data", shared, directory=True)
+    make_symlink(app / "other", shared, directory=True)
+    make_symlink(app / "ignored.csv", shared / "foo.csv")
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "credentials").write_text("secret")
+    make_symlink(app / "secret", config, directory=True)
+    make_symlink(app / "secret-file", config / "credentials")
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config))
+
+    files = rsconnect.bundle.create_file_list(str(app), [], ["data", "ignored.csv"])
+    assert files == [os.path.join("other", "foo.csv")]
+    assert "other/loop" in caplog.text.replace("\\", "/")
+    assert rsconnect.bundle.create_file_list(str(app), ["data/foo.csv"], ["data", "ignored.csv"]) == [
+        "data/foo.csv",
+        os.path.join("other", "foo.csv"),
+    ]
+    assert rsconnect.bundle.create_file_list(str(app), [], ["d*", "ignored.csv"]) == [os.path.join("other", "foo.csv")]
+
+
+def test_notebook_and_bundle_class_dereference_links(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    notebook = tmp_path / "source.ipynb"
+    notebook.write_text('{"cells": []}')
+    data = tmp_path / "data.csv"
+    data.write_text("data")
+    make_symlink(app / "notebook.ipynb", notebook)
+    make_symlink(app / "data.csv", data)
+    make_symlink(app / "data-again.csv", data)
+    (app / "requirements.txt").write_text("notebook\n")
+    environment = Environment.create_python_environment(str(app))
+    bundle = rsconnect.bundle.Bundle()
+    bundle.add_file(str(app / "data.csv"))
+    bundle.add_file(str(app / "data-again.csv"))
+    bundle.add_file(str(app / "notebook.ipynb"))
+    bundles = [
+        make_notebook_source_bundle(
+            str(app / "notebook.ipynb"), environment, ["data.csv", "data-again.csv"], False, False
+        ),
+        bundle.to_file(str(app)),
+    ]
+    for archive in bundles:
+        with archive, tarfile.open(mode="r:gz", fileobj=archive) as tar:
+            assert_regular_archive(tar)
+            assert tar.extractfile("data.csv").read() == b"data"
+            assert tar.extractfile("data-again.csv").read() == b"data"
+            assert tar.extractfile("notebook.ipynb").read() == b'{"cells": []}'
 
 
 class TestBundle(TestCase):

@@ -436,7 +436,7 @@ class Bundle:
 
     def to_file(self, deploy_dir: str) -> typing.IO[bytes]:
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-        with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        with tarfile.open(mode="w:gz", fileobj=bundle_file, dereference=True) as bundle:
             for fp in self.file_paths:
                 if Path(fp).name in self.buffer:
                     continue
@@ -557,6 +557,7 @@ def bundle_add_file(bundle: tarfile.TarFile, rel_path: str, base_dir: str) -> No
     """
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     logger.log(VERBOSE, "Adding file: %s", path)
+    bundle.dereference = True
     bundle.add(path, arcname=rel_path)
 
 
@@ -1358,9 +1359,31 @@ def _iter_directory_files(
 ) -> Iterator[str]:
     glob_set = create_glob_set(path, excludes)
     exclude_paths = {Path(p) for p in excludes}
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, sub_dirs, files in os.walk(path, followlinks=True):
         if _should_skip_walk_directory(cur_dir, sub_dirs, exclude_paths, config_dir):
+            sub_dirs[:] = []
             continue
+        ancestors = set()
+        current = Path(cur_dir)
+        root = Path(path)
+        while True:
+            ancestors.add(current.resolve())
+            if current == root:
+                break
+            current = current.parent
+        for sub_dir in sub_dirs[:]:
+            sub_path = Path(cur_dir) / sub_dir
+            relative_sub_path = Path(relpath(sub_path, path))
+            if glob_set.matches(str(sub_path)) or not keep_manifest_specified_file(
+                str(relative_sub_path),
+                exclude_paths | directories_to_ignore,
+                base_dir=path,
+                config_dir=config_dir,
+            ):
+                sub_dirs.remove(sub_dir)
+            elif sub_path.resolve() in ancestors:
+                logger.warning("Skipping directory symlink loop: %s", sub_path)
+                sub_dirs.remove(sub_dir)
         for file in files:
             cur_path = os.path.join(cur_dir, file)
             rel_path = relpath(cur_path, path)
