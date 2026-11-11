@@ -36,7 +36,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         version: ">=0.9.0"
     - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -51,6 +51,24 @@ jobs:
         coverageFile: coverage.xml
         token: ${{ secrets.GITHUB_TOKEN }}
 
+  test-content-python-versions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: ">=0.9.0"
+    - run: uv sync --python 3.11 --group test
+    - name: Install content Pythons
+      run: |
+        mapfile -t versions < <(uv run --no-sync python scripts/content_python_versions.py)
+        test "${#versions[@]}" -gt 0
+        uv run --no-sync uv python install --no-bin "${versions[@]}"
+    - name: Test manifests
+      run: |
+        uv run --no-sync pytest tests/test_manifest_content_pythons.py --junitxml=content-python-results.xml
+        uv run --no-sync python -c 'import xml.etree.ElementTree as ET; root = ET.parse("content-python-results.xml"); assert not root.findall(".//skipped"), "Content Python cases were skipped"'
+
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -58,7 +76,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         version: ">=0.9.0"
     - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -67,6 +85,18 @@ jobs:
     # actually exercised; plain `--prerelease allow` against the lock is a no-op.
     - run: uv run --upgrade --prerelease allow --group test rsconnect version
     - run: uv run --python 3.8 --upgrade --prerelease allow --group test ./scripts/runtests
+
+  snowflake-extra:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: ">=0.9.0"
+    - run: uv venv --python 3.14
+    - run: uv pip install '.[snowflake]'
+    - run: uv pip check
+    - run: .venv/bin/rsconnect version && .venv/bin/snow --version
 
   distributions:
     needs: test-python-versions
@@ -78,7 +108,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         version: ">=0.9.0"
     - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -121,7 +151,7 @@ jobs:
           dist/*.whl
         token: ${{ secrets.GITHUB_TOKEN }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
 
   docs:
     needs: test-python-versions
@@ -130,7 +160,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         version: ">=0.9.0"
     - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -175,7 +205,7 @@ jobs:
       python-version: '3.13'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: ">=0.9.0"
       # Prepare the environment on the runner BEFORE entering with-connect, so

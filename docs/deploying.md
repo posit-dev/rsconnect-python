@@ -20,9 +20,14 @@ be included in the bundle. It must specify the package dependencies needed to ex
 the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.
 
-If there is no `requirements.txt` file or the `--force-generate` option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option:
+With `--force-generate`, rsconnect-python determines package dependencies from the
+selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a non-base
+`CONDA_PREFIX`, a project environment (`.venv` in the
+content directory or any parent directory), and a base `CONDA_PREFIX`, in that order,
+like `uv pip`. If none is available, it uses the Python interpreter running
+rsconnect-python.
+
+To select a Python executable explicitly:
 
 ```bash
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
@@ -34,6 +39,9 @@ ensuring that you use the same Python that you use to run your Jupyter Notebook:
 ```bash
 /path/to/python -m pip list --format=freeze
 ```
+
+If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
+requirements. To inspect it manually, use `uv pip freeze --python /path/to/python`.
 
 #### Python Version
 
@@ -84,6 +92,8 @@ file, then publish the HTML file to the Posit Connect server:
 rsconnect deploy notebook --static my-notebook.ipynb
 ```
 
+Install `nbconvert` in the selected Python environment to render static notebooks.
+
 ### Creating a Manifest for Future Deployment
 
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
@@ -91,7 +101,7 @@ in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain the
-package dependencies from the current Python environment, or from an alternative
+package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
@@ -196,9 +206,8 @@ included in the bundle. It must specify the package dependencies needed to execu
 the API or application. Posit Connect will reconstruct the Python environment using
 the specified package list.
 
-If there is no `requirements.txt` file or the `--force-generate` option is specified,
-the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option:
+With `--force-generate`, rsconnect-python determines package dependencies from the
+selected Python environment. Use `--python` to select an interpreter explicitly:
 
 ```bash
 rsconnect deploy api --python /path/to/python my-api/
@@ -210,6 +219,8 @@ ensuring that you use the same Python that you use to run your API or applicatio
 ```bash
 /path/to/python -m pip list --format=freeze
 ```
+
+If the environment does not have pip, use `uv pip freeze --python /path/to/python` instead.
 
 #### Python Version
 
@@ -232,6 +243,11 @@ rsconnect deploy api --override-python-version 3.11.5 my-api/
 
 will deploy the content in `my-api` while requesting that Connect
 use Python version 3.11.5.
+On Connect 2025.03.0 and later, a major and minor version such as `3.11`
+requests the latest available patch release in that series. The manifest records
+the local Python version separately for compatibility. Connect versions before
+2025.03.0 use that local version instead, so specify a full version such as
+`3.11.5` when deploying to those servers.
 
 > **Note**
 > The packages and package versions listed in `requirements.txt` must be
@@ -277,7 +293,7 @@ manifest in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain
-the package dependencies from the current Python environment, or from an alternative
+the package dependencies from the selected Python environment, or from an alternative
 Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
@@ -540,11 +556,14 @@ rsconnect deploy dash --new my-app/
 #### Updating a Different Deployment
 
 If you want to update an existing deployment but don't have the saved deployment data,
-you can provide the app's numeric ID or GUID on the command line:
+you can provide the content's GUID on the command line:
 
 ```bash
-rsconnect deploy notebook --app-id 123456 my-notebook.ipynb
+rsconnect deploy notebook --guid 00000000-0000-0000-0000-000000000000 my-notebook.ipynb
 ```
+
+To update existing content on Posit Connect Cloud or shinyapps.io, pass the
+application's ID with `--app-id` instead.
 
 You must be the owner of the target deployment, or a collaborator with permission to
 change the content. The type of content (static notebook, notebook with source code,
@@ -555,18 +574,15 @@ API, or application) must match the existing deployment.
 > accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
 > activate the previous version and remove the erroneous one.
 
-##### Finding the App ID
+##### Finding the GUID
 
-The App ID associated with a piece of content you have previously deployed from the
+The GUID associated with a piece of content you have previously deployed from the
 `rsconnect` command line interface can be found easily by querying the deployment
 information using the `info` command. For more information, see the
 [Showing the Deployment Information](#showing-the-deployment-information) section.
 
-If the content was deployed elsewhere or `info` does not return the correct App ID,
-but you can open the content on Posit Connect, find the content and open it in a
-browser. The URL in your browser's location bar will contain `#/apps/NNN` where `NNN`
-is your App ID. The GUID identifier for the app may be found on the **Info** tab for
-the content in the Posit Connect UI.
+If the content was deployed elsewhere, find it with `rsconnect content search`, or
+open it in the Posit Connect UI and look on its **Info** tab.
 
 #### Showing the Deployment Information
 
@@ -636,8 +652,7 @@ rsconnect deploy notebook \
     my-notebook.ipynb
 ```
 
-By default, rsconnect-python does not install Jupyter notebook-related depenencies.
-To use these hide input features in rsconnect-python you need to install these extra dependencies:
+To use these hide input features, install these dependencies in the selected Python environment:
 
 ```
 notebook

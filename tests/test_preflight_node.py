@@ -64,7 +64,7 @@ class FakeClient(RSConnectClient):
             raise self.settings_error
         return self.settings
 
-    def get_content_by_id(self, app_id: str):
+    def content_get(self, app_id: str):
         self.content_requests.append(app_id)
         return self.content.get(app_id, {})
 
@@ -255,7 +255,7 @@ def test_unreadable_existing_content_is_unknown(tmp_path, monkeypatch, content_s
     def inaccessible_content(app_id):
         raise RSConnectException("Content lookup failed.", status=content_status)
 
-    monkeypatch.setattr(client, "get_content_by_id", inaccessible_content)
+    monkeypatch.setattr(client, "content_get", inaccessible_content)
     result = run_node_preflight(executor, str(project))
 
     assert result["status"] == "unknown"
@@ -336,7 +336,7 @@ def test_unresolved_target_overrides_empty_server_candidate_set(tmp_path, monkey
     assert result["existing_content"]["exists"] is True
     assert result["existing_content"]["app_id"] is None
     assert any("no content ID" in warning for warning in result["warnings"])
-    assert any("--app-id" in action for action in result["actions"])
+    assert any("--guid" in action for action in result["actions"])
 
 
 def test_missing_publishable_flag_is_unknown_for_new_content(tmp_path, monkeypatch):

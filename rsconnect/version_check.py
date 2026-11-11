@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import json
 import os
+import platform
+import sys
 import threading
 import time
 from http.client import HTTPSConnection
 from os.path import join
-from typing import Optional, Tuple
+from typing import NamedTuple, Optional, Tuple
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
 
 from . import VERSION
@@ -27,8 +30,13 @@ RSCONNECT_DISABLE_VERSION_CHECK = "RSCONNECT_DISABLE_VERSION_CHECK"
 _PYPI_HOST = "pypi.org"
 _PYPI_PATH = "/pypi/rsconnect-python/json"
 _PYPI_TIMEOUT_SECONDS = 2
-_CACHE_TTL_SECONDS = 24 * 60 * 60  # Re-check PyPI at most once a day.
+_CACHE_TTL_SECONDS = 24 * 60 * 60
 _CACHE_FILENAME = "version_check.json"
+
+
+class _Release(NamedTuple):
+    version: str
+    requires_python: Optional[str]
 
 
 def _is_check_disabled() -> bool:
@@ -47,42 +55,43 @@ def _cache_path() -> str:
     return join(config_dirname(), _CACHE_FILENAME)
 
 
-def _read_cache() -> Tuple[bool, Optional[str]]:
-    """Return ``(is_fresh, latest)``.
-
-    ``latest`` is the last known PyPI version recorded in the cache (or None when
-    the cache is missing/unreadable or the last fetch failed). It is returned
-    regardless of freshness so even a stale value can drive the upgrade hint while
-    a refresh runs in the background. ``is_fresh`` is True only when the entry is
-    within the TTL, signalling that no background refresh is needed.
-    """
+def _read_cache() -> Tuple[bool, Optional[_Release]]:
+    """Return freshness and the cached release, retaining stale data for the hint."""
     try:
         with open(_cache_path()) as f:
             data = json.load(f)
         latest = data.get("latest")
-        latest = latest if isinstance(latest, str) else None
-        is_fresh = time.time() - float(data["checked_at"]) <= _CACHE_TTL_SECONDS
-        return (is_fresh, latest)
+        requires_python = data.get("requires_python")
+        release = (
+            _Release(latest, requires_python if isinstance(requires_python, str) else None)
+            if isinstance(latest, str)
+            else None
+        )
+        is_fresh = "requires_python" in data and time.time() - float(data["checked_at"]) <= _CACHE_TTL_SECONDS
+        return (is_fresh, release)
     except Exception:
         return (False, None)
 
 
-def _write_cache(latest: Optional[str]) -> None:
-    """Persist the latest known version (or None) with the current timestamp.
-
-    A None value is still cached so repeated failures don't re-hit PyPI on every
-    deploy until the TTL expires.
-    """
+def _write_cache(release: Optional[_Release]) -> None:
+    """Cache failures too, so they do not trigger another request until the TTL expires."""
     try:
         path = _cache_path()
         makedirs(path)
         with open(path, "w") as f:
-            json.dump({"checked_at": time.time(), "latest": latest}, f)
+            json.dump(
+                {
+                    "checked_at": time.time(),
+                    "latest": release.version if release else None,
+                    "requires_python": release.requires_python if release else None,
+                },
+                f,
+            )
     except Exception:
         pass
 
 
-def _fetch_latest_version() -> Optional[str]:
+def _fetch_latest_version() -> Optional[_Release]:
     conn = None
     try:
         conn = HTTPSConnection(_PYPI_HOST, timeout=_PYPI_TIMEOUT_SECONDS)
@@ -90,8 +99,12 @@ def _fetch_latest_version() -> Optional[str]:
         response = conn.getresponse()
         if response.status != 200:
             return None
-        data = json.loads(response.read())
-        return data.get("info", {}).get("version")
+        info = json.loads(response.read()).get("info", {})
+        latest = info.get("version")
+        requires_python = info.get("requires_python")
+        if isinstance(latest, str):
+            return _Release(latest, requires_python if isinstance(requires_python, str) else None)
+        return None
     except Exception:
         return None
     finally:
@@ -99,18 +112,32 @@ def _fetch_latest_version() -> Optional[str]:
             conn.close()
 
 
-def _update_message(latest: Optional[str]) -> Optional[str]:
-    """Return an upgrade warning if ``latest`` is newer than the running version."""
+def _update_message(release: Optional[_Release]) -> Optional[str]:
+    """Return an upgrade warning if the release is newer than the running version."""
     try:
-        if latest is not None and Version(latest) > Version(VERSION):
-            return (
-                f"A new version of rsconnect-python is available: {latest} "
-                f"(you have {VERSION}).\n"
-                f"Upgrade with: pip install --upgrade rsconnect-python"
+        if release is None or Version(release.version) <= Version(VERSION):
+            return None
+        python_version = platform.python_version()
+        try:
+            compatible = not release.requires_python or SpecifierSet(release.requires_python).contains(
+                python_version, prereleases=True
             )
+        except InvalidSpecifier:
+            compatible = True
+        if not compatible:
+            force = "" if os.path.isfile(join(sys.prefix, "uv-receipt.toml")) else "--force "
+            return (
+                f"The latest version of rsconnect-python ({release.version}) requires Python "
+                f"{release.requires_python}, but you are running Python {python_version}.\n"
+                f'Install it with: uv tool install {force}--python "{release.requires_python}" rsconnect-python'
+            )
+        return (
+            f"A new version of rsconnect-python is available: {release.version} "
+            f"(you have {VERSION}).\n"
+            "Upgrade with: pip install --upgrade rsconnect-python"
+        )
     except Exception:
-        pass
-    return None
+        return None
 
 
 class BackgroundVersionCheck:
@@ -118,37 +145,25 @@ class BackgroundVersionCheck:
 
     def __init__(self) -> None:
         self._thread: Optional[threading.Thread] = None
-        self._latest: Optional[str] = None
+        self._release: Optional[_Release] = None
 
     def start(self) -> None:
         if _is_check_disabled() or _is_dev_version(VERSION):
             return
-        is_fresh, latest = _read_cache()
-        # Seed the hint from the cached value (even a stale one is good enough to
-        # suggest an upgrade), so a warm cache prints instantly on every exit path
-        # -- including commands that fail fast.
-        self._latest = latest
+        is_fresh, self._release = _read_cache()
         if not is_fresh:
-            # Refresh in the background so the fetch overlaps the command's own
-            # work. A warm or stale cache never waits on this; only a cold cache
-            # waits briefly at exit -- see get_warning_message.
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
 
     def _run(self) -> None:
-        latest = _fetch_latest_version()
-        _write_cache(latest)
-        # Adopt a successful result so a cold-cache run can warn this time, but
-        # never overwrite a usable cached value with a failed (None) refresh.
-        if latest is not None:
-            self._latest = latest
+        release = _fetch_latest_version()
+        _write_cache(release)
+        # Keep a usable stale value when a refresh fails.
+        if release is not None:
+            self._release = release
 
     def get_warning_message(self) -> Optional[str]:
-        # With no cached value yet (a cold cache: first run, or an ephemeral
-        # environment where the cache never persists), give the in-flight fetch a
-        # bounded chance to finish so this run can still warn. The bound is the
-        # fetch's own time budget -- a slower network just means no hint this run.
-        # A warm or stale cache already has a value here and never waits.
-        if self._latest is None and self._thread is not None:
+        # Only a cold cache waits briefly for the background fetch.
+        if self._release is None and self._thread is not None:
             self._thread.join(timeout=_PYPI_TIMEOUT_SECONDS)
-        return _update_message(self._latest)
+        return _update_message(self._release)

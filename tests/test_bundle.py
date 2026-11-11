@@ -4,6 +4,7 @@ import io
 import json
 import os
 import sys
+import subprocess
 import tarfile
 import tempfile
 from os.path import abspath, basename, dirname, join
@@ -12,6 +13,7 @@ from typing import Any
 from unittest import TestCase, mock
 
 import pytest
+import uv
 
 import rsconnect.bundle
 from rsconnect.bundle import (
@@ -70,6 +72,42 @@ def create_fake_quarto_rendered_output(target_dir, name):
     os.mkdir(files_dir)
     with open(join(files_dir, "resource.js"), "w") as fp:
         fp.write("// fake resource.js\n")
+
+
+@pytest.mark.parametrize("link_name", ["data.csv", ".venv/bin/python"])
+def test_api_bundle_reports_dangling_symlink(tmp_path, link_name):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    link = tmp_path / link_name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link.symlink_to("missing-target")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with pytest.raises(RSConnectException) as error:
+        make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], [])
+
+    assert str(link) in str(error.value)
+    assert "dangling symlink" in str(error.value)
+
+
+def test_api_bundle_keeps_valid_symlink(tmp_path):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    (tmp_path / "data.csv").write_text("data\n")
+    try:
+        (tmp_path / "data-link.csv").symlink_to("data.csv")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], []) as bundle:
+        with tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read())
+            assert manifest["files"]["data-link.csv"]["checksum"] == file_checksum(tmp_path / "data.csv")
+            assert tar.getmember("data-link.csv").issym()
 
 
 class TestBundle(TestCase):
@@ -3516,6 +3554,17 @@ def test_notebook_html_bundle_rejects_config_paths_before_conversion(tmp_path, m
     assert callback_calls == []
 
 
+def test_static_notebook_reports_missing_nbconvert_in_selected_environment(tmp_path):
+    environment_dir = tmp_path / "env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(environment_dir)], check=True)
+    python = environment_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text("{}")
+
+    with pytest.raises(RSConnectException, match="nbconvert is not installed in the selected Python environment"):
+        make_notebook_html_bundle(str(notebook), str(python), hide_all_input=False, hide_tagged_input=False)
+
+
 def test_standalone_quarto_bundle_filters_config_extras(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
@@ -3950,6 +3999,32 @@ def make_generated_environment(contents: str) -> Environment:
     environment.contents = contents
     environment.source = "pip_freeze"
     return environment
+
+
+@pytest.mark.parametrize("requirement", ["-e .", "-e file:./local%20package"])
+@pytest.mark.parametrize("kind", ["notebook_bundle", "notebook_manifest", "voila_file"])
+def test_single_notebook_rejects_local_editable(tmp_path: Path, requirement: str, kind: str):
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    environment = make_generated_environment(f"{requirement}\n")
+
+    with pytest.raises(RSConnectException, match="Local editable dependencies are not included"):
+        if kind == "notebook_bundle":
+            make_notebook_source_bundle(str(notebook), environment, [], False, False)
+        elif kind == "notebook_manifest":
+            write_notebook_manifest_json(str(notebook), environment, AppModes.JUPYTER_NOTEBOOK, [], False, False)
+        else:
+            make_voila_bundle(str(notebook), None, [], [], True, environment)
+
+
+def test_voila_directory_includes_local_editable(tmp_path: Path):
+    (tmp_path / "notebook.ipynb").write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    (tmp_path / "setup.py").write_text("from setuptools import setup\nsetup()\n")
+    environment = make_generated_environment("-e .\n")
+
+    with make_voila_bundle(str(tmp_path), None, [], [], True, environment) as bundle:
+        with tarfile.open(fileobj=bundle, mode="r:gz") as tar:
+            assert "setup.py" in tar.getnames()
 
 
 def test_write_api_manifest_checksum_matches_environment_file(tmp_path: Path, windows_text_mode: None):

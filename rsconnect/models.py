@@ -25,6 +25,12 @@ else:
 
 _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
+_content_guid_re = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
+def is_content_guid(value: str) -> bool:
+    """Whether a value is formatted like a Connect content GUID."""
+    return _content_guid_re.match(value) is not None
 
 
 class BuildStatus:
@@ -413,6 +419,16 @@ class StrippedStringParamType(StringParamType):
         return value.strip("\"'")
 
 
+class ContentGuidParamType(StrippedStringParamType):
+    name = "GUID"
+
+    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
+        value = super(ContentGuidParamType, self).convert(value, param, ctx)
+        if not is_content_guid(value):
+            self.fail("%r is not a content GUID." % value, param, ctx)
+        return value
+
+
 class ContentGuidWithBundle(object):
     def __init__(self, guid: str, bundle_id: Optional[str] = None):
         self.guid = guid
@@ -451,66 +467,6 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
 
 
 AppRole = Literal["owner", "editor", "viewer", "none"]
-
-
-# Also known as AppRecord in Connect.
-class ContentItemV0(TypedDict):
-    id: int
-    guid: str
-    access_type: Literal["all", "logged_in", "acl"]
-    connection_timeout: int | None
-    read_timeout: int | None
-    init_timeout: int | None
-    idle_timeout: int | None
-    max_processes: int | None
-    min_processes: int | None
-    max_conns_per_process: int | None
-    load_factor: float | None
-    memory_request: float | None
-    memory_limit: int | None
-    cpu_request: float | None
-    cpu_limit: int | None
-    amd_gpu_limit: int | None
-    nvidia_gpu_limit: int | None
-    url: str
-    vanity_url: bool
-    name: str
-    title: str | None
-    bundle_id: int | None
-    app_mode: int
-    content_category: str
-    has_parameters: bool
-    created_time: str
-    last_deployed_time: str
-    build_status: int
-    cluster_name: str | None
-    image_name: str | None
-    default_image_name: str | None
-    service_account_name: str | None
-    r_version: str | None
-    py_version: str | None
-    quarto_version: str | None
-    r_environment_management: bool | None
-    default_r_environment_management: bool | None
-    py_environment_management: bool | None
-    default_py_environment_management: bool | None
-    run_as: str | None
-    run_as_current_user: bool
-    description: str
-    EnvironmentJson: str | None
-    app_role: AppRole
-    owner_first_name: str
-    owner_last_name: str
-    owner_username: str
-    owner_guid: str
-    owner_email: str
-    owner_locked: bool
-    is_scheduled: bool
-    # Not sure how the following 4 fields are structured, so just use object for now.
-    git: object | None
-    users: object | None
-    groups: object | None
-    vanities: object | None
 
 
 # Also known as V1 ContentOutputDTO in Connect (note: this is not V1 experimental).

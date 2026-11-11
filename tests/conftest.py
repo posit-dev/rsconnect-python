@@ -1,5 +1,6 @@
 import sys
 from typing import Iterator
+from unittest import mock
 
 import pytest
 
@@ -37,3 +38,11 @@ def no_system_keyring() -> Iterator[None]:
     deletes a still-current working directory on Windows, which fails.
     """
     yield from _no_system_keyring()
+
+
+@pytest.fixture(autouse=True)
+def oauth_refresh_lock_in_tmp(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Keep the OAuth refresh lock file out of the user's real config directory."""
+    path = str(tmp_path_factory.getbasetemp() / "oauth-refresh.lock")
+    with mock.patch("rsconnect.oauth._refresh_lock_path", return_value=path):
+        yield

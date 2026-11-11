@@ -2,18 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
-- When client credentials can't publish to a Posit Connect Cloud account because the
-  account requires single sign-on (SSO), the error now says so, instead of
-  suggesting the publisher role.
-- `rsconnect bootstrap` uses the `/__api__/v1/bootstrap` endpoint, falling back to
-  the deprecated `/__api__/v1/experimental/bootstrap` endpoint on Posit Connect
-  versions before 2024.05.0. (#594)
+### Fixed
+
 - `write-manifest <framework>` and `deploy quarto` now honor `--package-installer`. Previously the option was accepted but ignored, so the manifest always recorded `pip`.
+
+## [1.33.2] - 2026-11-10
+
+### Fixed
+
+- Explains when the latest rsconnect-python release requires a different Python version and suggests installing it with `uv tool install`. [#953](https://github.com/posit-dev/rsconnect-python/pull/953)
+
+## [1.33.1] - 2026-11-09
+
+### Fixed
+
+- Imports in environments that have the `uv` executable but not its Python module, such as conda-forge, instead of failing with `ModuleNotFoundError: No module named 'uv'`. Finds `uv` on `PATH` instead. [#938](https://github.com/posit-dev/rsconnect-python/pull/938)
+
+## [1.33.0] - 2026-11-09
+
+### Added
+
+- Adds `rsconnect token`, which prints the OAuth access token from `rsconnect login` for tools such as the Connect SDKs. It never prints API keys [#884](https://github.com/posit-dev/rsconnect-python/pull/884).
+- Adds `--refresh` to `rsconnect token` to get a new token after the server rejects the current one, and `--format json` for machine-readable output [#884](https://github.com/posit-dev/rsconnect-python/pull/884).
+- `rsconnect token` exits with status 4 when you must log in again [#884](https://github.com/posit-dev/rsconnect-python/pull/884).
+- Adds `--guid` to the `deploy` commands and `preflight` to target existing Connect content, matching the `content` commands. Use `--app-id` for Connect Cloud and shinyapps.io [#915](https://github.com/posit-dev/rsconnect-python/pull/915).
+- Warns when `deploy notebook --static` receives options or extra files that do not affect the rendered HTML, such as `--requirements-file`, `--force-generate`, and `--image` [#925](https://github.com/posit-dev/rsconnect-python/pull/925).
+- Warns when `pip freeze` generates requirements with a local Python version that does not satisfy the project requirement, as `rsconnect preflight` does [#932](https://github.com/posit-dev/rsconnect-python/pull/932).
+- Recommends `rsconnect login` for Connect in the getting-started documentation, with API keys as an alternative [#919](https://github.com/posit-dev/rsconnect-python/pull/919).
+
+### Removed
+
+- **Breaking:** Removes support for targeting Posit Connect content by numeric ID. Use the content's globally unique identifier (GUID) instead. Numeric `--app-id` values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work [#915](https://github.com/posit-dev/rsconnect-python/pull/915).
+
+### Fixed
+
+- Stops requiring a requirements file or `--force-generate` for `deploy notebook --static`, and stops reading `renv.lock`. The environment needs only `nbconvert`, `ipykernel`, and the notebook imports [#924](https://github.com/posit-dev/rsconnect-python/pull/924).
+- Deploys and activates rendered and static content, such as R Markdown, Quarto, notebooks, and HTML, in one step. Verifying a draft first made Connect render the content twice [#883](https://github.com/posit-dev/rsconnect-python/pull/883).
+- Deploys rendered and static content as a draft with `--draft`, without verifying it [#883](https://github.com/posit-dev/rsconnect-python/pull/883).
+- Requests the latest patch release when `--override-python-version` has only a major and minor version, such as `3.11`. Connect versions before 2025.03.0 need a full version, such as `3.11.5` [#911](https://github.com/posit-dev/rsconnect-python/pull/911).
+- Inspects activated or project virtual environments, including from `uv tool install`, and checks the same environment in `rsconnect preflight`. Use `--python` to choose a different environment [#920](https://github.com/posit-dev/rsconnect-python/pull/920).
+- Updates existing content when deploying to Connect in Snowpark Container Services (SPCS) with `--app-id` or `--guid`, instead of failing with "Unable to infer Connect client" [#915](https://github.com/posit-dev/rsconnect-python/pull/915).
+- Uses the `/__api__/v1/bootstrap` endpoint for `rsconnect bootstrap`, falling back to the deprecated experimental endpoint before Connect 2024.05.0 [#879](https://github.com/posit-dev/rsconnect-python/pull/879).
+- Serializes OAuth token refreshes across processes, so concurrent commands do not invalidate each other's rotated refresh tokens [#884](https://github.com/posit-dev/rsconnect-python/pull/884).
+- Explains that single sign-on (SSO) blocks publishing to a Connect Cloud account with client credentials, instead of suggesting the publisher role [#868](https://github.com/posit-dev/rsconnect-python/pull/868) [#878](https://github.com/posit-dev/rsconnect-python/pull/878).
+- Reports editable dependencies outside the deployment directory, which Connect cannot install, in generated and user-provided requirements [#909](https://github.com/posit-dev/rsconnect-python/pull/909).
+- Keeps packages whose name or path contains `rsconnect` when filtering requirements [#909](https://github.com/posit-dev/rsconnect-python/pull/909).
+- Requires pip 20.3 or later to generate requirements from an environment. For older environments, upgrade pip or provide a requirements file [#909](https://github.com/posit-dev/rsconnect-python/pull/909).
+- Rewrites editable dependencies inside the deployment directory, written as absolute paths or `file:` URLs, as paths relative to the bundle so Connect can install them [#931](https://github.com/posit-dev/rsconnect-python/pull/931).
+- Reports local editable dependencies in single-notebook bundles, which do not include local packages, instead of failing on the server [#931](https://github.com/posit-dev/rsconnect-python/pull/931).
+- Excludes development dependencies and other dependency groups from requirements exported from `uv.lock` [#928](https://github.com/posit-dev/rsconnect-python/pull/928).
+- Exports `uv.lock` for notebooks and Quarto documents that you pass as a bare or relative path [#929](https://github.com/posit-dev/rsconnect-python/pull/929).
+- Regenerates `requirements.txt` with `--force-generate` in the `write-manifest` commands for Python frameworks, such as `write-manifest api` [#891](https://github.com/posit-dev/rsconnect-python/pull/891).
+- Records requirements file paths relative to the deployment directory in manifests, including absolute paths and paths such as `deps/../requirements.txt` [#910](https://github.com/posit-dev/rsconnect-python/pull/910).
+- Rejects a requirements file outside the deployment directory, including through a symlink, instead of warning [#910](https://github.com/posit-dev/rsconnect-python/pull/910).
+- Writes the manifest for `write-manifest voila` to the given directory and uses its requirements file, instead of the parent directory's [#890](https://github.com/posit-dev/rsconnect-python/pull/890).
+- Accepts `pyproject.toml` files that start with a UTF-8 byte order mark [#905](https://github.com/posit-dev/rsconnect-python/pull/905).
+- Reports a malformed `pyproject.toml` as an error instead of a traceback [#903](https://github.com/posit-dev/rsconnect-python/pull/903).
+- Reports `project.dependencies` entries in `pyproject.toml` that are not strings as invalid [#904](https://github.com/posit-dev/rsconnect-python/pull/904).
+- Shows the current directory as `.` in the missing requirements file error instead of leaving it blank [#906](https://github.com/posit-dev/rsconnect-python/pull/906).
+- Reports a dangling symlink and how to fix it during bundling, instead of a traceback [#907](https://github.com/posit-dev/rsconnect-python/pull/907).
+- Reports a concise error instead of a traceback when `nbconvert` fails to render a notebook for `deploy notebook --static` [#908](https://github.com/posit-dev/rsconnect-python/pull/908).
+- Removes the duplicate `--verbose` option from `content build ls` [#912](https://github.com/posit-dev/rsconnect-python/pull/912).
+- Requires `snowflake-cli` 2.8.2 or later on Python 3.8 and 3.9, and 3.23.0 or later on Python 3.10 and later, in the `snowflake` extra [#933](https://github.com/posit-dev/rsconnect-python/pull/933).
 
 ## [1.32.0] - 2026-10-16
 
@@ -903,7 +958,52 @@ rsconnect deploy notebook \
 - first release
 
 
-[Unreleased]: https://github.com/posit-dev/rsconnect-python/compare/1.5.0...HEAD
+[1.33.2]: https://github.com/posit-dev/rsconnect-python/compare/1.33.1...1.33.2
+[1.33.1]: https://github.com/posit-dev/rsconnect-python/compare/1.33.0...1.33.1
+[1.33.0]: https://github.com/posit-dev/rsconnect-python/compare/1.32.0...1.33.0
+[1.32.0]: https://github.com/posit-dev/rsconnect-python/compare/1.31.1...1.32.0
+[1.31.1]: https://github.com/posit-dev/rsconnect-python/compare/1.31.0...1.31.1
+[1.31.0]: https://github.com/posit-dev/rsconnect-python/compare/1.30.0...1.31.0
+[1.30.0]: https://github.com/posit-dev/rsconnect-python/compare/1.29.0...1.30.0
+[1.29.0]: https://github.com/posit-dev/rsconnect-python/compare/1.28.2...1.29.0
+[1.28.2]: https://github.com/posit-dev/rsconnect-python/compare/1.28.1...1.28.2
+[1.28.1]: https://github.com/posit-dev/rsconnect-python/compare/1.28.0...1.28.1
+[1.28.0]: https://github.com/posit-dev/rsconnect-python/compare/1.27.1...1.28.0
+[1.27.1]: https://github.com/posit-dev/rsconnect-python/compare/1.27.0...1.27.1
+[1.27.0]: https://github.com/posit-dev/rsconnect-python/compare/1.26.0...1.27.0
+[1.26.0]: https://github.com/posit-dev/rsconnect-python/compare/1.25.2...1.26.0
+[1.25.2]: https://github.com/posit-dev/rsconnect-python/compare/1.25.1...1.25.2
+[1.25.1]: https://github.com/posit-dev/rsconnect-python/compare/1.25.0...1.25.1
+[1.25.0]: https://github.com/posit-dev/rsconnect-python/compare/1.24.0...1.25.0
+[1.24.0]: https://github.com/posit-dev/rsconnect-python/compare/1.23.0...1.24.0
+[1.23.0]: https://github.com/posit-dev/rsconnect-python/compare/1.22.0...1.23.0
+[1.22.0]: https://github.com/posit-dev/rsconnect-python/compare/1.21.0...1.22.0
+[1.21.0]: https://github.com/posit-dev/rsconnect-python/compare/1.20.0...1.21.0
+[1.20.0]: https://github.com/posit-dev/rsconnect-python/compare/1.19.1...1.20.0
+[1.19.1]: https://github.com/posit-dev/rsconnect-python/compare/1.19.0...1.19.1
+[1.19.0]: https://github.com/posit-dev/rsconnect-python/compare/1.18.0...1.19.0
+[1.18.0]: https://github.com/posit-dev/rsconnect-python/compare/1.17.1...1.18.0
+[1.17.1]: https://github.com/posit-dev/rsconnect-python/compare/1.17.0...1.17.1
+[1.17.0]: https://github.com/posit-dev/rsconnect-python/compare/1.16.0...1.17.0
+[1.16.0]: https://github.com/posit-dev/rsconnect-python/compare/1.15.0...1.16.0
+[1.15.0]: https://github.com/posit-dev/rsconnect-python/compare/1.14.1...1.15.0
+[1.14.1]: https://github.com/posit-dev/rsconnect-python/compare/1.14.0...1.14.1
+[1.14.0]: https://github.com/posit-dev/rsconnect-python/compare/1.13.0...1.14.0
+[1.13.0]: https://github.com/posit-dev/rsconnect-python/compare/1.12.1...1.13.0
+[1.12.1]: https://github.com/posit-dev/rsconnect-python/compare/1.12.0...1.12.1
+[1.12.0]: https://github.com/posit-dev/rsconnect-python/compare/1.11.0...1.12.0
+[1.11.0]: https://github.com/posit-dev/rsconnect-python/compare/1.10.0...1.11.0
+[1.10.0]: https://github.com/posit-dev/rsconnect-python/compare/1.9.0...1.10.0
+[1.9.0]: https://github.com/posit-dev/rsconnect-python/compare/1.8.1...1.9.0
+[1.8.1]: https://github.com/posit-dev/rsconnect-python/compare/1.8.0...1.8.1
+[1.8.0]: https://github.com/posit-dev/rsconnect-python/compare/1.7.1...1.8.0
+[1.7.1]: https://github.com/posit-dev/rsconnect-python/compare/1.7.0...1.7.1
+[1.7.0]: https://github.com/posit-dev/rsconnect-python/compare/1.6.0...1.7.0
+[1.6.0]: https://github.com/posit-dev/rsconnect-python/compare/1.5.4...1.6.0
+[1.5.4]: https://github.com/posit-dev/rsconnect-python/compare/1.5.3...1.5.4
+[1.5.3]: https://github.com/posit-dev/rsconnect-python/compare/1.5.2...1.5.3
+[1.5.2]: https://github.com/posit-dev/rsconnect-python/compare/1.5.1...1.5.2
+[1.5.1]: https://github.com/posit-dev/rsconnect-python/compare/1.5.0...1.5.1
 [1.5.0]: https://github.com/posit-dev/rsconnect-python/compare/1.4.5...1.5.0
 [1.4.5]: https://github.com/posit-dev/rsconnect-python/compare/1.4.4...1.4.5
 [1.4.4]: https://github.com/posit-dev/rsconnect-python/compare/1.4.3...1.4.4

@@ -6,11 +6,11 @@ authors = [{ name = "Posit, PBC", email = "rsconnect@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
-version = "1.32.1.dev1"
+version = "1.33.2"
 
 dependencies = [
     "typing-extensions>=4.8.0",
-    "pip>=10.0.0",
+    "pip>=20.3",
     "uv>=0.9.0",
     "semver>=2.0.0,<4.0.0",
     "pyjwt>=2.4.0; python_version < '3.9'",
@@ -25,7 +25,10 @@ rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
 keyring = ["keyring>=23.0.0"]
-snowflake = ["snowflake-cli"]
+snowflake = [
+    "snowflake-cli>=2.8.2; python_version < '3.10'",
+    "snowflake-cli>=3.23.0; python_version >= '3.10'",
+]
 
 [dependency-groups]
 test = [

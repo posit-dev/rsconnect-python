@@ -6,6 +6,8 @@ import configparser
 import os
 import platform
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Tuple, Union, cast
 
@@ -13,7 +15,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 from .api import ConnectCloudServer, RSConnectClient, RSConnectExecutor, RSConnectServer, SPCSConnectServer
-from .environment import fake_module_file_from_directory
+from .environment import fake_module_file_from_directory, which_python
 from .exception import RSConnectException
 from .metadata import AppStore
 from .validation import require_posix
@@ -22,6 +24,7 @@ from .pyproject import (
     TOMLDecodeError,
     detect_python_version_requirement,
     get_python_version_requirement_parser,
+    local_python_mismatch,
     lookup_metadata_file,
 )
 
@@ -264,7 +267,7 @@ def _saved_deployment_target(executor: RSConnectExecutor, target: str) -> tuple[
         if issue:
             return True, None, issue
         if records:
-            return True, None, "This directory has a single-file deployment; pass its exact file path or --app-id."
+            return True, None, "This directory has a single-file deployment; pass its exact file path or --guid."
     return _target_from_records(records)
 
 
@@ -280,7 +283,7 @@ def _current_python(
     client: RSConnectClient, app_id: str, warnings: list[str], actions: list[str]
 ) -> tuple[Optional[str], bool]:
     try:
-        content = client.get_content_by_id(app_id)
+        content = client.content_get(app_id)
     except RSConnectException as err:
         warnings.append(f"Could not read existing content's current Python version: {err}")
         if err.status == 404:
@@ -482,18 +485,21 @@ def _unknown_advice(
         actions.append("Check the project's Python metadata and server availability before publishing.")
 
 
-def _warn_local_python_mismatch(constraint: Optional[str], local_python: str, warnings: list[str]) -> None:
-    if constraint is None:
-        return
+def _local_python_version(project_dir: str, python: Optional[str]) -> str:
+    interpreter = which_python(python, project_dir)
+    if interpreter == sys.executable:
+        return platform.python_version()
     try:
-        matches_local = SpecifierSet(constraint).contains(local_python)
-    except (InvalidSpecifier, TypeError):
-        return
-    if not matches_local:
-        warnings.append(
-            f"Local Python {local_python} does not satisfy the project requirement {constraint}; "
-            "dependency compatibility has not been tested."
+        result = subprocess.run(
+            [interpreter, "-I", "-c", "import platform; print(platform.python_version())"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
         )
+    except (OSError, subprocess.SubprocessError) as err:
+        raise RSConnectException(f"Could not determine the version of Python at {interpreter}: {err}")
+    return result.stdout.strip()
 
 
 def _validated_python_executor(
@@ -516,13 +522,16 @@ def _validated_python_executor(
 
 
 def _python_project_metadata(
-    target: str, local_python: str, warnings: list[str]
-) -> tuple[str, Optional[str], Optional[str]]:
+    target: str, python: Optional[str], warnings: list[str]
+) -> tuple[str, str, Optional[str], Optional[str]]:
     target_path = Path(target)
     project_dir = str(target_path.parent) if target_path.is_file() else target
+    local_python = _local_python_version(project_dir, python)
     constraint, invalid_metadata = _project_constraint(project_dir, warnings)
-    _warn_local_python_mismatch(constraint, local_python, warnings)
-    return project_dir, constraint, invalid_metadata
+    mismatch = local_python_mismatch(constraint, local_python)
+    if mismatch:
+        warnings.append(mismatch)
+    return project_dir, local_python, constraint, invalid_metadata
 
 
 def _status_advice(
@@ -542,21 +551,22 @@ def _status_advice(
         _unknown_advice(is_new, constraint, recommended, warnings, actions)
 
 
-def run_preflight(executor: RSConnectExecutor, project: str, fix: bool = False) -> dict[str, Any]:
+def run_preflight(
+    executor: RSConnectExecutor, project: str, fix: bool = False, python: Optional[str] = None
+) -> dict[str, Any]:
     """Check project Python metadata against a validated Connect executor."""
     require_posix("Deployment preflight")
     server, client = _validated_python_executor(executor)
 
     warnings: list[str] = []
     actions: list[str] = []
-    local_python = platform.python_version()
-    project_dir, constraint, invalid_metadata = _python_project_metadata(project, local_python, warnings)
+    project_dir, local_python, constraint, invalid_metadata = _python_project_metadata(project, python, warnings)
     is_existing, app_id, target_issue = _deployment_target(executor, project)
     is_new = not is_existing
     if target_issue:
         warnings.append(target_issue)
         actions.append(
-            "Pass the exact file path for single-file content, specify --app-id, "
+            "Pass the exact file path for single-file content, specify --guid, "
             "or use --new for a separate content item."
         )
     try:

@@ -27,18 +27,16 @@ pip install git+https://github.com/posit-dev/rsconnect-python.git
 
 ### Using the rsconnect CLI
 
-Here's an example command that deploys a Jupyter notebook to Posit Connect.
+Log in to Posit Connect, then deploy a Jupyter notebook:
 
 ```bash
-rsconnect deploy notebook \
-    --server https://connect.example.org \
-    --api-key my-api-key \
-    my-notebook.ipynb
+rsconnect login https://connect.example.org
+rsconnect deploy notebook my-notebook.ipynb
 ```
 
 > **Note**
 > The examples here use long command line options, but there are short
-> options (`-s`, `-k`, etc.) available also. Run `rsconnect deploy notebook --help`
+> options available also. Run `rsconnect deploy notebook --help`
 > for details.
 
 ### Setting up `rsconnect` CLI auto-completion
@@ -75,47 +73,54 @@ compinit
 
 ### Managing Server Information
 
-The information used by the `rsconnect` command to communicate with a Posit Connect
-server can be tedious to repeat on every command. To help, the CLI supports the idea
-of saving this information, making it usable by a simple nickname.
-
-> **Warning**
-> One item of information saved is the API key used to authenticate with
-> Posit Connect. Although the file where this information is saved is marked as
-> accessible by the owner only, it's important to remember that the key is present
-> in the file as plain text so care must be taken to prevent any unauthorized access
-> to the server information file.
+The CLI can save Posit Connect server information under a nickname, so you don't
+need to repeat it on every command.
 
 #### Remembering Server Information
 
-Use the `add` command to store information about a Posit Connect server:
+Use `login` to authenticate and save a server:
 
 ```bash
-rsconnect add \
-    --api-key my-api-key \
-    --server https://connect.example.org \
-    --name myserver
+rsconnect login https://connect.example.org
 ```
 
-> **Note**
-> The `rsconnect` CLI will verify that the serve URL and API key
-> are valid. If either is found not to be, no information will be saved.
+Browser login requires Posit Connect 2026.02.0 or later. In Posit Workbench,
+remote containers, or other sessions where the browser cannot reach the CLI's
+local callback, use `--use-device-code`; this requires Connect 2026.06.0 or later.
+The `--no-wait` device flow also requires Connect 2026.06.0 or later.
 
-If any of the access information for the server changes, simply rerun the
-`add` command with the new information and it will replace the original
-information.
+For automation, `--identity-token` and `--identity-token-file` require Connect
+2026.08.0 or later, or Connect 2026.02.0 or later with identity federation.
 
-Once the server's information is saved, you can refer to it by its nickname:
-
-```bash
-rsconnect deploy notebook --name myserver my-notebook.ipynb
-```
-
-If there is information for only one server saved, this will work too:
+Login sets the server as the default unless `--no-set-default` is supplied.
+Later commands can use that default:
 
 ```bash
 rsconnect deploy notebook my-notebook.ipynb
 ```
+
+See the [`login`](commands/login.md), [`logout`](commands/logout.md), and
+[`token`](commands/token.md) references for more options.
+
+As an alternative for servers older than Connect 2026.02.0 or automation that
+cannot use identity tokens, [create an API key](https://docs.posit.co/connect/user/api-keys/)
+and save it with `add`:
+
+```bash
+rsconnect add \
+    --server https://connect.example.org \
+    --api-key my-api-key \
+    --name myserver
+```
+
+You can also pass `--api-key` or set `CONNECT_API_KEY` on individual commands.
+The CLI verifies the server URL and API key before saving them.
+
+> **Warning**
+> Saved API keys are stored as plain text in the server information file.
+> The file is accessible only by its owner; protect it from unauthorized access.
+> See [Stored Information Files](deploying.md#stored-information-files) for
+> OAuth token storage.
 
 #### Listing Server Information
 

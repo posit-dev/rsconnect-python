@@ -3,19 +3,22 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
+import venv
 from os.path import join
-from types import SimpleNamespace
 from unittest import TestCase, mock
 
 import click
 import httpretty
 import pytest
 from click.testing import CliRunner
+from packaging.specifiers import SpecifierSet
 
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.bundle import file_checksum
+from rsconnect.exception import RSConnectException
 from rsconnect.json_web_token import SECRET_KEY_ENV
 from rsconnect.log import console_logger, logger as rs_logger
 from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
@@ -46,6 +49,91 @@ def _load_json(data):
     if isinstance(data, bytes):
         return json.loads(data.decode())
     return json.loads(data)
+
+
+@pytest.mark.parametrize("command", [["deploy", "notebook"], ["deploy", "api"], ["write-manifest", "notebook"]])
+def test_python_option_help_does_not_require_rsconnect_in_target_environment(command):
+    result = CliRunner().invoke(cli, [*command, "--help"])
+    assert result.exit_code == 0
+    assert "--python" in result.output
+    assert "must have the rsconnect" not in result.output
+
+
+@pytest.mark.parametrize(
+    "filename,contents,requirement",
+    [
+        (".python-version", "2.7\n", "~=2.7.0"),
+        ("pyproject.toml", '[project]\nrequires-python = "<3"\n', "<3"),
+        ("setup.cfg", "[options]\npython_requires = <3\n", "<3"),
+    ],
+)
+def test_write_manifest_warns_when_frozen_python_does_not_match_project(tmp_path, filename, contents, requirement):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / filename).write_text(contents)
+    result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path), "--force-generate"])
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    warning = (
+        f"Local Python {version} does not satisfy the project requirement {requirement}; "
+        "dependency compatibility has not been tested."
+    )
+    assert result.exit_code == 0, result.output
+    assert warning in result.output
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["python"]["version"] == version
+    assert manifest["environment"]["python"]["requires"] == requirement
+
+
+@pytest.mark.parametrize("source", ["compatible", "file", "invalid"])
+def test_write_manifest_does_not_warn_without_a_valid_frozen_mismatch(tmp_path, source):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    requirement = ">=3" if source == "compatible" else ("invalid" if source == "invalid" else "<3")
+    (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{requirement}"\n')
+    args = ["write-manifest", "api", str(tmp_path)]
+    if source == "file":
+        (tmp_path / "requirements.txt").write_text("flask\n")
+    else:
+        args.append("--force-generate")
+
+    result = CliRunner().invoke(cli, args)
+
+    assert result.exit_code == 0, result.output
+    assert "does not satisfy the project requirement" not in result.output
+
+
+def test_deploy_warns_before_server_connection_when_freezing_incompatible_python(tmp_path, monkeypatch):
+    from rsconnect.exception import RSConnectException
+
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / ".python-version").write_text("2.7\n")
+
+    def stop_before_server_connection(*args, **kwargs):
+        raise RSConnectException("Stopped before server connection")
+
+    monkeypatch.setattr("rsconnect.main.RSConnectExecutor", stop_before_server_connection)
+    try:
+        result = CliRunner().invoke(cli, ["deploy", "api", str(tmp_path), "--force-generate", "--quiet"])
+    finally:
+        rs_logger.set_quiet(False)
+        rs_logger.setLevel(logging.INFO)
+        console_logger.setLevel(logging.DEBUG)
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    assert result.exit_code != 0
+    assert "Stopped before server connection" in result.output
+    assert f"Local Python {version} does not satisfy the project requirement ~=2.7.0" in result.output
+
+
+def test_override_warns_using_frozen_python_before_manifest_version_override(tmp_path):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    result = CliRunner().invoke(
+        cli, ["write-manifest", "api", str(tmp_path), "--force-generate", "--override-python-version", "2.7.1"]
+    )
+
+    version = ".".join(map(str, sys.version_info[:3]))
+    assert result.exit_code == 0, result.output
+    assert f"Local Python {version} does not satisfy the project requirement ==2.7.1" in result.output
+    assert json.loads((tmp_path / "manifest.json").read_text())["python"]["version"] == "2.7.1"
 
 
 class TestMain:
@@ -182,10 +270,10 @@ class TestMain:
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -193,14 +281,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -208,28 +296,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "id": "1234-5678-9012-3456",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "app5",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
                     "id": "1234",
-                    "guid": "1234-5678-9012-3456",
+                    "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                     "title": "app5",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -238,7 +312,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps(
                 {
                     "id": "FAKE_BUNDLE_ID",
@@ -263,7 +337,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
 
@@ -278,26 +352,20 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456/config",
-            body=json.dumps({}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=json.dumps(
                 {
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                    "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
 
-        expected_content_url = "http://fake_server/content/1234-5678-9012-3456"
-        expected_draft_url = "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
+        expected_content_url = "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+        expected_draft_url = (
+            "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/draft/FAKE_BUNDLE_ID"
+        )
         try:
             runner = CliRunner()
             args = apply_common_args(["deploy", command, target], server="http://fake_server", key="FAKE_API_KEY")
@@ -325,32 +393,244 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
-    def test_deploy_notebook_static_passes_interpreter_not_version(self):
-        # Regression test for #721: deploy_notebook must hand make_notebook_html_bundle
-        # the local interpreter *path* (used to run nbconvert), not environment.python,
-        # which is only a version string and made nbconvert fail with "No such file or
-        # directory".
-        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=sys.executable)
+    @pytest.mark.parametrize(
+        "extra_files",
+        [
+            pytest.param({}, id="notebook-only"),
+            # An renv.lock that R dependency detection rejects. requirements.txt is present
+            # so this case fails on R detection, not on the missing requirements file.
+            pytest.param(
+                {"requirements.txt": "", "renv.lock": json.dumps({"R": {"Version": "4.4.1"}})},
+                id="incompatible-renv-lock",
+            ),
+        ],
+    )
+    def test_deploy_notebook_static_needs_no_environment(self, tmp_path, extra_files):
+        # Regression test for #923: the static bundle holds only the rendered HTML, so
+        # deploying it must not require a requirements file or resolve Python or R
+        # dependencies. Also covers #721: make_notebook_html_bundle gets the local
+        # interpreter *path* (used to run nbconvert), not a Python version string.
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        for name, contents in extra_files.items():
+            (tmp_path / name).write_text(contents)
 
-        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
-            "rsconnect.main.RSConnectExecutor"
-        ) as MockExecutor:
-            ce = MockExecutor.return_value
-
-            runner = CliRunner()
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
             args = apply_common_args(
-                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
-            args += ["--static", "--no-verify"]
-            result = runner.invoke(cli, args)
+            result = CliRunner().invoke(cli, args)
 
         assert result.exit_code == 0, result.output
         # make_bundle(make_notebook_html_bundle, file, <python>, hide_all, hide_tagged)
-        bundle_args = ce.make_bundle.call_args.args
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
         assert bundle_args[0] is make_notebook_html_bundle
         assert bundle_args[2] == sys.executable
+        assert sorted(p.name for p in tmp_path.iterdir()) == sorted(["nb.ipynb", *extra_files])
+        assert "--static deploys only the rendered HTML" not in result.output
+
+    def test_deploy_notebook_static_renders_with_python_option(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # Never run: make_bundle is mocked. --python only has to name an executable file.
+        python = tmp_path / "python"
+        python.write_text("")
+        python.chmod(0o755)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", str(python)],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == str(python)
+
+    def test_deploy_notebook_static_rejects_invalid_python_option(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # click rejects a missing --python path, and every existing file is executable on
+        # Windows. A directory is the invalid value that reaches which_python everywhere.
+        python = tmp_path / "not-python"
+        python.mkdir()
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", str(python)],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 1
+        assert f"The path '{python}' is a directory. Expected a Python executable." in result.output
+        mock_executor.return_value.make_bundle.assert_not_called()
+
+    def test_deploy_notebook_static_renders_with_notebook_project_venv(self, tmp_path, monkeypatch):
+        project = tmp_path / "project"
+        notebook = project / "nb.ipynb"
+        project.mkdir()
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        # Never run: make_bundle is mocked. Discovery only needs an executable file.
+        python = project / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        python.chmod(0o755)
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+        monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        bundle_args = mock_executor.return_value.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == str(python)
+
+    @pytest.mark.parametrize(
+        ("options", "ignored"),
+        [
+            (["--requirements-file", "requirements.txt"], ["--requirements-file"]),
+            (["--force-generate"], ["--force-generate"]),
+            (["--package-installer", "uv"], ["--package-installer"]),
+            (["--override-python-version", "3.12"], ["--override-python-version"]),
+            (["--image", "rstudio/content-base"], ["--image"]),
+            (["--disable-env-management"], ["--disable-env-management"]),
+            (["--disable-env-management-py"], ["--disable-env-management-py"]),
+            (["--disable-env-management-r"], ["--disable-env-management-r"]),
+            (["--exclude-renv"], ["--exclude-renv"]),
+            (["-r", "requirements.txt", "-g"], ["--requirements-file", "--force-generate"]),
+        ],
+    )
+    def test_deploy_notebook_static_warns_on_ignored_options(self, tmp_path, options, ignored):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+
+        with mock.patch("rsconnect.main.RSConnectExecutor"):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", *options],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        prefix = "Warning: --static deploys only the rendered HTML, so these options have no effect: "
+        [warning] = [line for line in result.output.splitlines() if prefix in line]
+        # The warning lists options in declaration order, which isn't part of the contract.
+        assert sorted(warning.split(prefix, 1)[1].split(", ")) == sorted(ignored)
+        assert "extra files" not in result.output
+
+    def test_deploy_notebook_without_static_does_not_warn_on_static_ignored_options(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        data_file = tmp_path / "data.csv"
+        data_file.write_text("")
+
+        with mock.patch("rsconnect.main.Environment.create_python_environment"), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), str(data_file), "--no-verify", "-r", "requirements.txt", "-g"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        assert "Warning: --static deploys only the rendered HTML" not in result.output
+
+    def test_deploy_notebook_static_warns_on_extra_files(self, tmp_path):
+        notebook = tmp_path / "nb.ipynb"
+        shutil.copy(get_dir(join("pip1", "dummy.ipynb")), notebook)
+        data_files = [tmp_path / "data.csv", tmp_path / "helpers.py"]
+        for data_file in data_files:
+            data_file.write_text("")
+
+        with mock.patch("rsconnect.main.RSConnectExecutor"):
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), *map(str, data_files), "--static", "--no-verify"],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        assert (
+            "Warning: --static deploys only the rendered HTML, so these extra files are not included: "
+            f"{data_files[0]}, {data_files[1]}\n" in result.output
+        )
+        assert "have no effect" not in result.output
+
+    @pytest.mark.parametrize(
+        ("contents", "diagnostic", "missing_nbconvert"),
+        [
+            ("not json", "NotJSONError", False),
+            ("not json", "No module named nbconvert", True),
+            (
+                json.dumps(
+                    {
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "execution_count": None,
+                                "metadata": {},
+                                "outputs": [],
+                                "source": ["raise ValueError('boom')"],
+                            }
+                        ],
+                        "metadata": {"kernelspec": {"name": "python3", "display_name": "Python 3"}},
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                    }
+                ),
+                "ValueError: boom",
+                False,
+            ),
+        ],
+    )
+    def test_deploy_static_notebook_render_failure(self, tmp_path, capfd, contents, diagnostic, missing_nbconvert):
+        notebook = tmp_path / "broken.ipynb"
+        notebook.write_text(contents)
+        interpreter = sys.executable
+        if missing_nbconvert:
+            env_dir = tmp_path / "empty-env"
+            venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(env_dir)
+            interpreter = str(env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+
+        with mock.patch("rsconnect.main.RSConnectExecutor") as mock_executor:
+            mock_executor.return_value.make_bundle.side_effect = lambda func, *args: func(*args)
+            args = apply_common_args(
+                ["deploy", "notebook", str(notebook), "--static", "--no-verify", "--python", interpreter],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            result = CliRunner().invoke(cli, args)
+
+        stderr = capfd.readouterr().err
+        assert result.exit_code == 1
+        assert diagnostic in re.sub(r"\x1b\[[0-9;]*m", "", stderr)
+        if missing_nbconvert:
+            assert f"nbconvert is not installed in the selected Python environment ({interpreter})" in result.output
+        else:
+            assert f"Error: Rendering {notebook} with nbconvert failed (see output above)" in result.output
+        assert "Traceback (most recent call last)" not in result.output
+        assert "Internal error" not in result.output + stderr
+        assert "subprocess.CalledProcessError" not in result.output + stderr
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_verify_before_activate(self, caplog):
@@ -384,10 +664,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -399,14 +679,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -422,7 +702,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -442,7 +722,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/content/1234-5678-9012-3456/_bundleFAKE_BUNDLE_ID/",
+            "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/_bundleFAKE_BUNDLE_ID/",
             body=get_bundle_preview_callback,
         )
 
@@ -467,6 +747,71 @@ class TestMain:
             assert len(verify_invoked) == 1
             assert "Verifying deployed content..." in caplog.text
             assert "Activating deployed content..." in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @pytest.mark.parametrize("draft", [False, True])
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rendered_content_without_verifying(self, caplog, draft):
+        # #872: Connect renders a draft and renders it again on activation, so rendered
+        # content is deployed and activated in one step, without verifying a draft.
+        # With --draft it is deployed as a draft, but still not verified: the draft
+        # URL only serves what the deploy task already rendered.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0})
+        )
+        deploy_bodies = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_bodies.append(_load_json(request.body))
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
+            body=post_application_deploy_callback,
+        )
+        verify_invoked = []
+
+        def get_content_callback(request, uri, response_headers):
+            verify_invoked.append(uri)
+            return [200, {"Content-Type": "text/html"}, "<html></html>"]
+
+        httpretty.register_uri(
+            httpretty.GET,
+            re.compile(r"http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/"),
+            body=get_content_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            if draft:
+                args.append("--draft")
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            if draft:
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID", "activate": False}]
+            else:
+                # A single deploy that activates: no "activate" field is sent.
+                assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
+            assert verify_invoked == []
+            assert "Verifying deployed content..." not in caplog.text
+            assert "Activating deployed content..." not in caplog.text
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
@@ -505,10 +850,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -520,14 +865,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -541,7 +886,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -561,7 +906,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/content/1234-5678-9012-3456/",
+            "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/",
             body=get_active_content_callback,
         )
 
@@ -630,7 +975,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
 
@@ -664,10 +1009,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app5",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -700,28 +1045,28 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=json.dumps({"task_id": "FAKE_TASK_ID"}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -745,9 +1090,9 @@ class TestMain:
         )
         target = get_dir(join("pip1", "dummy.ipynb"))
         expected_url = (
-            "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
+            "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/draft/FAKE_BUNDLE_ID"
             if draft
-            else "http://fake_server/content/1234-5678-9012-3456"
+            else "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         )
         try:
             runner = CliRunner()
@@ -812,14 +1157,15 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            re.compile(r"http://fake_server/content/1234-5678-9012-3456/"),
+            re.compile(r"http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/"),
             body="",
             status=502,
         )
-        target = get_dir(join("pip1", "dummy.ipynb"))
+        # Rendered content such as a notebook isn't verified, so deploy an app.
+        target = get_manifest_path("pyshiny_with_manifest", "")
         try:
             runner = CliRunner(mix_stderr=False)
-            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args = apply_common_args(["deploy", "manifest", target], server="http://fake_server", key="FAKE_API_KEY")
             args += ["--quiet"]
             with mock.patch(
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
@@ -900,10 +1246,10 @@ class TestMain:
         content_body = json.dumps(
             {
                 "id": "1234",
-                "guid": "1234-5678-9012-3456",
+                "guid": "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
                 "title": "app",
-                "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                "content_url": "http://fake_server/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+                "dashboard_url": "http://fake_server/connect/#/apps/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             }
         )
         httpretty.register_uri(
@@ -915,14 +1261,14 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
             body=content_body,
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -937,7 +1283,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/bundles",
             body=post_bundle_callback,
         )
 
@@ -951,7 +1297,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b/deploy",
             body=post_application_deploy_callback,
         )
         httpretty.register_uri(
@@ -1088,7 +1434,7 @@ class TestMain:
         # deploy; under an API key it would silently rename the content.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1118,7 +1464,7 @@ class TestMain:
         # title should still be updated (the pre-#835-fix behavior, preserved).
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1148,7 +1494,7 @@ class TestMain:
         # for `deploy bundle --app-id`.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
         bundle_path = join("tests", "testdata", "bundle.tar.gz")
 
@@ -1178,7 +1524,7 @@ class TestMain:
         # generic path-based fallback ("manifest").
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        guid = "1234-5678-9012-3456"
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
         patch_calls = []
 
         try:
@@ -1201,6 +1547,84 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_redeploy_with_guid(self, caplog):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+        patch_calls = []
+
+        try:
+            deploy_api_invoked = self._register_deploy_endpoints(guid, "My Curated Title", patch_calls)
+
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args += ["--guid", guid, "--no-verify"]
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @pytest.mark.parametrize(
+        ("extra_args", "message"),
+        [
+            (["--guid", "1234"], "is not a content GUID"),
+            (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--app-id", "other"], "--guid or --app-id"),
+            (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--new"], "--new or --guid"),
+        ],
+    )
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_guid_usage_errors(self, extra_args, message):
+        args = apply_common_args(
+            ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+            server="http://fake_server",
+            key="FAKE_API_KEY",
+        )
+        result = CliRunner().invoke(cli, args + extra_args)
+        assert result.exit_code == 2, result.output
+        assert message in result.output
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rejects_numeric_app_id_for_connect(self):
+        args = apply_common_args(
+            ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+            server="http://fake_server",
+            key="FAKE_API_KEY",
+        )
+        result = CliRunner().invoke(cli, args + ["--app-id", "1234"])
+        assert result.exit_code == 1, result.output
+        assert "numeric content IDs are no longer supported" in result.output
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_rejects_guid_for_shinyapps(self):
+        args = [
+            "deploy",
+            "manifest",
+            get_manifest_path("shinyapp"),
+            "--account",
+            "some-account",
+            "--token",
+            "someToken",
+            "--secret",
+            "c29tZVNlY3JldAo=",
+            "--guid",
+            "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b",
+        ]
+        # Integration CI exports CONNECT_API_KEY/CONNECT_SERVER, which would trip the
+        # Connect-vs-shinyapps option conflict check before the --guid check.
+        result = CliRunner().invoke(cli, args, env={"CONNECT_API_KEY": None, "CONNECT_SERVER": None})
+        assert result.exit_code == 1, result.output
+        assert "--guid applies only to Posit Connect" in result.output
 
     # noinspection SpellCheckingInspection
     @pytest.mark.skip(reason="Skipping R manifest test (requires R 3.5, docker containers have moved on).")
@@ -1562,6 +1986,43 @@ class TestMain:
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
+        assert result.exit_code == 0, result.output
+
+    @pytest.mark.parametrize("minor_only", [False, True])
+    def test_deploy_api_with_python_override(self, tmp_path, minor_only):
+        require_connect_version("2025.03.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        installations = client.python_settings()["installations"]
+        candidates = []
+        for item in installations:
+            version = item["version"]
+            match = re.fullmatch(r"(3)\.(\d+)\.(\d+)", version)
+            if not match or item.get("publishable") is False:
+                continue
+            major, minor, patch = map(int, match.groups())
+            if minor >= 8 and patch > 0:
+                candidates.append((major, minor, patch))
+
+        if not candidates:
+            pytest.skip("Connect needs a publishable Python >= 3.8 with a nonzero patch")
+
+        major, minor, patch = max(candidates)
+        version = f"{major}.{minor}" if minor_only else f"{major}.{minor}.{patch}"
+
+        source = get_api_path("flask")
+        (tmp_path / "app.py").write_text(
+            "import sys\n"
+            "from flask import Flask\n"
+            f"assert sys.version_info[:3] == ({major}, {minor}, {patch}), sys.version\n"
+            "app = Flask(__name__)\n"
+            "@app.route('/ping')\n"
+            "def ping():\n"
+            "    return 'ok'\n"
+        )
+        shutil.copy(join(source, "requirements.txt"), tmp_path)
+        args = self.create_deploy_args("api", str(tmp_path))
+        args.extend(["--entrypoint", "app:app", "--exclude-renv", "--override-python-version", version])
+        result = CliRunner().invoke(cli, args)
         assert result.exit_code == 0, result.output
 
     def test_deploy_api_fail_verify(self):
@@ -2130,6 +2591,68 @@ class TestDeployNodeJS:
         assert "does not exist" in result.output
 
 
+@pytest.mark.parametrize(
+    ("command", "filename"),
+    [
+        (["write-manifest", "notebook"], "nb.ipynb"),
+        (["deploy", "notebook"], "nb.ipynb"),
+        (["deploy", "quarto"], "doc.qmd"),
+    ],
+)
+@pytest.mark.parametrize("path_kind", ["bare", "relative", "absolute"])
+@pytest.mark.parametrize("requirements_file", [None, "custom.txt"])
+def test_missing_requirements_reports_content_directory(
+    tmp_path, monkeypatch, command, filename, path_kind, requirements_file
+):
+    monkeypatch.chdir(tmp_path)
+    content_dir = tmp_path if path_kind == "bare" else tmp_path / "content"
+    content_dir.mkdir(exist_ok=True)
+    content = content_dir / filename
+    content.write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    path = str(content) if path_kind == "absolute" else str(content.relative_to(tmp_path))
+    expected_directory = str(content_dir) if path_kind == "absolute" else os.path.dirname(path) or "."
+
+    requirements_option = ["--requirements-file", requirements_file] if requirements_file else []
+    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
+        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    ):
+        result = CliRunner().invoke(cli, [*command, *requirements_option, path])
+
+    assert result.exit_code == 1
+    expected_file = requirements_file or "requirements.txt"
+    assert f"The requirements file '{expected_file}' does not exist in '{expected_directory}'." in result.output
+
+
+@pytest.mark.parametrize(
+    ("command", "filename"),
+    [
+        (["write-manifest", "notebook"], "nb.ipynb"),
+        (["write-manifest", "quarto"], "doc.qmd"),
+        (["deploy", "notebook"], "nb.ipynb"),
+        (["deploy", "quarto"], "doc.qmd"),
+    ],
+)
+@pytest.mark.parametrize("prefix", ["", "./"])
+def test_document_commands_export_uv_lock_for_bare_and_relative_paths(tmp_path, monkeypatch, command, filename, prefix):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\nversion='0.0.0'\n")
+    (tmp_path / filename).write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    subprocess.run([sys.executable, "-m", "uv", "lock", "--offline"], check=True)
+
+    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
+        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    ), mock.patch("rsconnect.main.RSConnectExecutor", side_effect=RSConnectException("deployment reached")) as executor:
+        result = CliRunner().invoke(cli, [*command, "-r", "uv.lock", "--exclude-renv", prefix + filename])
+
+    if command[0] == "deploy":
+        assert "deployment reached" in result.output
+        executor.assert_called_once()
+    else:
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "manifest.json").exists()
+        assert (tmp_path / "requirements.txt.lock").exists()
+
+
 class TestWriteManifestNodeJS:
     def test_help(self):
         runner = CliRunner()
@@ -2151,6 +2674,169 @@ class TestWriteManifestNodeJS:
         result = runner.invoke(cli, ["write-manifest", "nodejs", str(tmp_path)])
         assert result.exit_code == 1
         assert "package.json" in result.output
+
+
+class TestWriteManifestFramework:
+    @pytest.mark.parametrize(
+        "version, expected_requirement, matching, nonmatching",
+        [
+            ("3.11", "==3.11.*", "3.11.15", "3.12.0"),
+            ("3.11.0", "==3.11.0", "3.11.0", "3.11.15"),
+            ("3.11.15", "==3.11.15", "3.11.15", "3.11.14"),
+        ],
+    )
+    def test_override_python_version(self, tmp_path, version, expected_requirement, matching, nonmatching):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+
+        result = CliRunner().invoke(
+            cli,
+            [
+                "write-manifest",
+                "api",
+                "--entrypoint",
+                "app:app",
+                "--exclude-renv",
+                "--override-python-version",
+                version,
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        expected_version = ".".join(str(part) for part in sys.version_info[:3]) if version == "3.11" else version
+        assert manifest["python"]["version"] == expected_version
+        requirement = manifest["environment"]["python"]["requires"]
+        assert requirement == expected_requirement
+        assert matching in SpecifierSet(requirement)
+        assert nonmatching not in SpecifierSet(requirement)
+
+    def test_invalid_python_override_is_rejected(self, tmp_path):
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "--override-python-version", "3", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "expected major.minor or major.minor.patch" in result.output
+        assert not (tmp_path / "manifest.json").exists()
+
+    def test_dangling_symlink_reports_clear_error(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        link = tmp_path / "data.csv"
+        try:
+            link.symlink_to("missing-target")
+        except OSError:
+            pytest.skip("symlinks are unavailable")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert str(link) in result.output
+        assert "dangling symlink" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+
+    def test_malformed_pyproject_with_requirements_file(self, tmp_path):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        (tmp_path / "pyproject.toml").write_text('[project\nname = "x"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "api", str(tmp_path)])
+
+        assert result.exit_code == 1
+        assert "Error: Error reading pyproject.toml:" in result.output
+        assert "line 1" in result.output
+        assert "Traceback" not in result.output
+        assert "Internal error" not in result.output
+        assert not (tmp_path / "manifest.json").exists()
+
+    @pytest.mark.parametrize("existing_requirements", [False, True])
+    def test_force_generate_requirements(self, tmp_path, existing_requirements):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        requirements = tmp_path / "requirements.txt"
+        if existing_requirements:
+            requirements.write_text("old-package==1.0\n")
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "api", "-g", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert requirements.read_text().startswith("# requirements.txt generated by rsconnect-python")
+        assert manifest["files"]["requirements.txt"]["checksum"] == file_checksum(requirements)
+
+    @pytest.mark.parametrize("path_kind", ["relative", "absolute", "normalized"])
+    def test_explicit_requirements_file(self, tmp_path, path_kind):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "dependencies").mkdir()
+        requirements = tmp_path / "dependencies" / "custom-requirements.txt"
+        requirements.write_text("example-package==1.0\n")
+        relative_path = os.path.join("dependencies", requirements.name)
+        requirement_paths = {
+            "relative": relative_path,
+            "absolute": str(requirements),
+            "normalized": os.path.join("dependencies", "..", relative_path),
+        }
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "api", "-r", requirement_paths[path_kind], str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert requirements.read_text() == "example-package==1.0\n"
+        assert manifest["python"]["package_manager"]["package_file"] == relative_path
+        assert manifest["files"][relative_path]["checksum"] == file_checksum(requirements)
+        assert set(manifest["files"]) == {"app.py", relative_path}
+        assert f"{relative_path} already exists and will not be overwritten" in result.output
+
+    @pytest.mark.parametrize("path_kind", ["absolute", "relative", "symlink"])
+    def test_requirements_file_outside_project_is_rejected(self, tmp_path, path_kind):
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "app.py").write_text("app = object()\n")
+        outside = tmp_path / "requirements.txt"
+        outside.write_text("example-package==1.0\n")
+        if path_kind == "symlink":
+            (project / "linked.txt").symlink_to(outside)
+        requirement_paths = {
+            "absolute": str(outside),
+            "relative": os.path.join("..", outside.name),
+            "symlink": "linked.txt",
+        }
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "-r", requirement_paths[path_kind], str(project)])
+
+        assert result.exit_code != 0
+        assert "outside of the deployment directory" in result.output
+        assert not (project / "manifest.json").exists()
+
+    @pytest.mark.parametrize(
+        "dependencies",
+        [
+            pytest.param(
+                "['flask', 3, {a = 'b'}]",
+                marks=pytest.mark.skipif(
+                    sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"
+                ),
+            ),
+            "[3]",
+            "[{a = 'b'}]",
+            "['flask']",
+        ],
+    )
+    def test_pyproject_requirements_file(self, tmp_path, dependencies):
+        (tmp_path / "app.py").write_text("app = object()\n")
+        (tmp_path / "pyproject.toml").write_text(f"[project]\ndependencies = {dependencies}\n")
+
+        result = CliRunner().invoke(cli, ["write-manifest", "api", "-r", "pyproject.toml", str(tmp_path)])
+        requirements = tmp_path / "requirements.txt"
+        if dependencies == "['flask']":
+            assert result.exit_code == 0, result.output
+            assert requirements.read_text().endswith("\nflask\n")
+        else:
+            assert result.exit_code != 0
+            assert "Invalid project.dependencies in pyproject.toml: expected a list of strings" in result.output
+            assert not requirements.exists()
 
 
 class TestWriteManifestExcludeRenv:
