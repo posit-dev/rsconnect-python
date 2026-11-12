@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Reads deployment settings from `[tool.posit-cli]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported.
+- Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning.
 
 ### Fixed
 

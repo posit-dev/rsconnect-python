@@ -137,7 +137,7 @@ DISPATCH_MATRIX: list[typing.Any] = [
 
 
 @pytest.mark.parametrize("app_mode,entrypoint,expected_entrypoint", DISPATCH_MATRIX)
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     runner: CliRunner,
     project_dir: pathlib.Path,
@@ -160,7 +160,12 @@ def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
-    assert not warnings
+    if table == "rsconnect":
+        assert len(warnings) == 1
+        assert "[tool.rsconnect]" in warnings[0]
+        assert "[tool.posit.connect]" in warnings[0]
+    else:
+        assert not warnings
     manifest = _read_manifest(project_dir)
     assert manifest["metadata"]["appmode"] == app_mode
     assert manifest["metadata"]["entrypoint"] == expected_entrypoint
@@ -259,7 +264,7 @@ def test_write_manifest_pyproject_requirements_file_flag_overrides_default(
         pass
 
 
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_write_manifest_pyproject_honors_requirements_file_from_tool_rsconnect(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
@@ -543,7 +548,7 @@ def test_write_manifest_pyproject_errors_on_malformed_pyproject(
     ["no-such-mode", "python-dash", "nodejs-api"],
     ids=["unknown", "valid-but-unhandled", "aliased"],
 )
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_write_manifest_pyproject_errors_on_unsupported_app_mode(
     runner: CliRunner, project_dir: pathlib.Path, app_mode: str, table: str
 ):
@@ -555,7 +560,7 @@ def test_write_manifest_pyproject_errors_on_unsupported_app_mode(
     assert "quickstart" not in result.output.lower()
 
 
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_write_manifest_pyproject_flag_overrides_configured_requirements(runner, project_dir, monkeypatch, table):
     captured = _fake_python_environment(monkeypatch)
     _write_pyproject(project_dir, _pyproject_body("python-api", "app:app", table) + '\nrequirements_file = "uv.lock"\n')

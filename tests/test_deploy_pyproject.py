@@ -13,6 +13,7 @@ reader directly where malformed configuration needs precise diagnostics.
 from __future__ import annotations
 
 import pathlib
+import re
 import textwrap
 import types
 import typing
@@ -119,7 +120,7 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     # incidentally produce that shape.
     message = str(excinfo.value)
     assert "tool.rsconnect" in message.lower() or "rsconnect" in message.lower()
-    assert "[tool.posit-cli]" in message
+    assert "[tool.posit.connect]" in message
     assert 'app_mode = "' in message
     assert 'entrypoint = "' in message
 
@@ -143,7 +144,7 @@ def test_read_tool_rsconnect_non_table_raises(project_dir: pathlib.Path, body: s
         read_tool_rsconnect(project_dir / "pyproject.toml")
     message = str(excinfo.value)
     assert "not a TOML table" in message
-    assert "[tool.posit-cli]" in message
+    assert "[tool.posit.connect]" in message
     assert 'app_mode = "' in message
     assert 'entrypoint = "' in message
 
@@ -323,7 +324,7 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
 
 
 @pytest.mark.parametrize("app_mode,entrypoint,expected_builder_name", DISPATCH_MATRIX)
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_dispatches_by_app_mode(
     runner: CliRunner,
     project_dir: pathlib.Path,
@@ -360,7 +361,12 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     )
 
     assert captured.get("builder") == expected_builder_name, result.output
-    assert not warnings
+    if table == "rsconnect":
+        assert len(warnings) == 1
+        assert "[tool.rsconnect]" in warnings[0]
+        assert "[tool.posit.connect]" in warnings[0]
+    else:
+        assert not warnings
     if app_mode == "jupyter-static":
         # Legacy app mode - no need to override the bundle builder default
         pass
@@ -371,7 +377,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     ["no-such-mode", "python-dash", "nodejs-api"],
     ids=["unknown", "valid-but-unhandled", "aliased"],
 )
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_errors_on_unsupported_app_mode(
     runner: CliRunner, project_dir: pathlib.Path, app_mode: str, monkeypatch: pytest.MonkeyPatch, table: str
 ):
@@ -620,7 +626,7 @@ def test_deploy_pyproject_requirements_file_flag_overrides_default(
     assert captured["requirements_file"] == "uv.lock"
 
 
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
@@ -651,7 +657,7 @@ def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
     assert captured["requirements_file"] == "uv.lock"
 
 
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_flag_overrides_tool_rsconnect_requirements_file(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
@@ -680,26 +686,29 @@ def test_deploy_pyproject_flag_overrides_tool_rsconnect_requirements_file(
 
 
 @pytest.mark.parametrize("command", ["deploy", "write-manifest"])
-@pytest.mark.parametrize("invalid_table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("invalid_table", ["posit.connect", "rsconnect"])
 def test_pyproject_both_tables_fail_before_validation(runner, project_dir, command, invalid_table, monkeypatch):
     warnings = []
     monkeypatch.setattr("rsconnect.main.logger.warning", warnings.append)
-    other = "rsconnect" if invalid_table == "posit-cli" else "posit-cli"
+    other = "rsconnect" if invalid_table == "posit.connect" else "posit.connect"
     _write_pyproject(
         project_dir,
         f'[tool.{invalid_table}]\n[tool.{other}]\napp_mode = "python-api"\nentrypoint = "app:app"\n',
     )
     result = runner.invoke(cli, [command, "pyproject", str(project_dir)])
     assert result.exit_code != 0
-    assert "[tool.posit-cli]" in result.output
+    assert "[tool.posit.connect]" in result.output
     assert "[tool.rsconnect]" in result.output
     assert "Keep only one" in result.output
     assert not warnings
 
 
 @pytest.mark.parametrize("command", ["deploy", "write-manifest"])
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
-@pytest.mark.parametrize("field,value", [("app_mode", '""'), ("entrypoint", "42"), ("app_mode", '"unknown"')])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
+@pytest.mark.parametrize(
+    "field,value",
+    [("app_mode", '""'), ("entrypoint", "42"), ("app_mode", '"unknown"'), ("app_mode", '"python-dash"')],
+)
 def test_pyproject_invalid_fields_name_table_without_warning(
     runner, project_dir, command, table, field, value, monkeypatch
 ):
@@ -716,10 +725,36 @@ def test_pyproject_invalid_fields_name_table_without_warning(
     assert not warnings
 
 
-@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_pyproject_non_table_names_selected_table(project_dir, table):
     from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
 
     _write_pyproject(project_dir, f'[tool]\n{table} = "not a table"\n')
-    with pytest.raises(InvalidPyprojectConfigError, match=rf"\[tool\.{table}\] is not a TOML table"):
+    with pytest.raises(InvalidPyprojectConfigError, match=rf"\[tool\.{re.escape(table)}\] is not a TOML table"):
         read_tool_rsconnect(project_dir / "pyproject.toml")
+
+
+@pytest.mark.parametrize("body", ['[tool]\nposit = "x"', '[tool.posit]\nconnect = "x"'])
+def test_pyproject_posit_non_table(project_dir, body):
+    from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
+
+    _write_pyproject(project_dir, body)
+    table = "[tool.posit.connect]" if "connect" in body else "[tool.posit]"
+    with pytest.raises(InvalidPyprojectConfigError) as excinfo:
+        read_tool_rsconnect(project_dir / "pyproject.toml")
+    assert f"{table} is not a TOML table" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_pyproject_posit_without_connect_is_ignored(project_dir, legacy):
+    from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
+
+    body = '[tool.posit]\nother = "value"\n[tool.posit.another]\nsetting = true\n'
+    if legacy:
+        body += '[tool.rsconnect]\napp_mode = "python-api"\nentrypoint = "app:app"\n'
+    _write_pyproject(project_dir, body)
+    if legacy:
+        assert read_tool_rsconnect(project_dir / "pyproject.toml")["entrypoint"] == "app:app"
+    else:
+        with pytest.raises(InvalidPyprojectConfigError, match="section is missing"):
+            read_tool_rsconnect(project_dir / "pyproject.toml")

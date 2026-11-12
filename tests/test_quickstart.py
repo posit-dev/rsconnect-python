@@ -283,7 +283,7 @@ def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd:
 # ---------------------------------------------------------------------------
 
 
-def test_quickstart_pyproject_has_tool_posit_cli(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+def test_quickstart_pyproject_has_tool_posit_connect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -294,24 +294,24 @@ def test_quickstart_pyproject_has_tool_posit_cli(runner: CliRunner, in_tmp_cwd: 
     assert data["project"]["requires-python"] == expected_requires
     assert data["project"]["dependencies"] == ["streamlit"]
     assert "rsconnect" not in data["tool"]
-    tool_posit_cli = data["tool"]["posit-cli"]
-    assert tool_posit_cli["app_mode"] == "python-streamlit"
-    assert tool_posit_cli["entrypoint"] == "app.py"
-    assert tool_posit_cli["title"] == "hello_app"
+    tool_posit_connect = data["tool"]["posit"]["connect"]
+    assert tool_posit_connect["app_mode"] == "python-streamlit"
+    assert tool_posit_connect["entrypoint"] == "app.py"
+    assert tool_posit_connect["title"] == "hello_app"
     # Scaffolded projects ship a uv.lock from ``uv sync``; default deploys
     # use it so ``rsconnect deploy pyproject`` is reproducible out of the box.
-    assert tool_posit_cli["requirements_file"] == "uv.lock"
+    assert tool_posit_connect["requirements_file"] == "uv.lock"
 
 
-def test_quickstart_does_not_duplicate_deps_in_tool_posit_cli(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """``dependencies`` and ``requires-python`` live in ``[project]``, not in ``[tool.posit-cli]``."""
+def test_quickstart_does_not_duplicate_deps_in_tool_posit_connect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """``dependencies`` and ``requires-python`` live in ``[project]``, not in ``[tool.posit.connect]``."""
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_posit_cli = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit-cli"]
-    assert "dependencies" not in tool_posit_cli
-    assert "requires-python" not in tool_posit_cli
-    assert "requires_python" not in tool_posit_cli
-    assert set(tool_posit_cli.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert "dependencies" not in tool_posit_connect
+    assert "requires-python" not in tool_posit_connect
+    assert "requires_python" not in tool_posit_connect
+    assert set(tool_posit_connect.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
 
 
 def test_quickstart_python_option_sets_requires_python(
@@ -386,11 +386,11 @@ def test_quickstart_app_mode_for_each_type(
     args = [cli_args[0], *cli_args[1:], "hello_app"]
     result = _invoke_quickstart(runner, *args)
     assert result.exit_code == 0, result.output
-    tool_posit_cli = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit-cli"]
-    assert tool_posit_cli["app_mode"] == expected_mode
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert tool_posit_connect["app_mode"] == expected_mode
     if expected_mode == "python-api":
         # Flask aliases to api: both module-style modes share entrypoint.
-        assert tool_posit_cli["entrypoint"] == "hello_app.__connect__:app"
+        assert tool_posit_connect["entrypoint"] == "hello_app.__connect__:app"
 
 
 # ---------------------------------------------------------------------------
@@ -483,8 +483,8 @@ def test_quickstart_mode_file_set(
 def test_quickstart_fastapi_entrypoint_is_connect_app(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "fastapi", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_posit_cli = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit-cli"]
-    assert tool_posit_cli["entrypoint"] == "hello_app.__connect__:app"
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert tool_posit_connect["entrypoint"] == "hello_app.__connect__:app"
     connect_py = (in_tmp_cwd / "hello_app" / "hello_app" / "__connect__.py").read_text()
     assert "create_app" in connect_py
     assert "app = " in connect_py
@@ -758,7 +758,7 @@ def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: 
     data = _read_pyproject(project)
     assert data["project"]["name"] == "hello_app"
     for required in ("app_mode", "entrypoint", "title"):
-        assert required in data["tool"]["posit-cli"]
+        assert required in data["tool"]["posit"]["connect"]
 
 
 def test_invariant_I9_I10_failure_exit_and_message(
@@ -807,7 +807,7 @@ def test_quickstart_registry_accepts_new_mode(
         'requires-python = "$requires_python"\n'
         "dependencies = []\n"
         "\n"
-        "[tool.posit-cli]\n"
+        "[tool.posit.connect]\n"
         'app_mode = "python-newmode"\n'
         'entrypoint = "app.py"\n'
         'title = "$name"\n'
@@ -852,8 +852,8 @@ def test_quickstart_registry_accepts_new_mode(
 
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
-    assert data["tool"]["posit-cli"]["app_mode"] == "python-newmode"
-    assert data["tool"]["posit-cli"]["entrypoint"] == "app.py"
+    assert data["tool"]["posit"]["connect"]["app_mode"] == "python-newmode"
+    assert data["tool"]["posit"]["connect"]["entrypoint"] == "app.py"
     assert data["project"]["dependencies"] == []
 
 

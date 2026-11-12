@@ -198,10 +198,21 @@ class UnsupportedAppModeError(ValueError):
     """
 
 
-_MINIMUM_VALID_TOOL_SNIPPET = """[tool.posit-cli]
+_MINIMUM_VALID_TOOL_SNIPPET = """[tool.posit.connect]
 # e.g. python-streamlit, python-shiny, python-fastapi, jupyter-static, quarto-shiny
 app_mode = "<app_mode>"
 entrypoint = "<entrypoint>"  # e.g. app.py"""
+
+_PYPROJECT_APP_MODES = (
+    AppModes.STREAMLIT_APP,
+    AppModes.PYTHON_SHINY,
+    AppModes.PYTHON_FASTAPI,
+    AppModes.PYTHON_API,
+    AppModes.JUPYTER_NOTEBOOK,
+    AppModes.JUPYTER_VOILA,
+    AppModes.STATIC_QUARTO,
+    AppModes.SHINY_QUARTO,
+)
 
 
 def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typing.Any]:
@@ -216,22 +227,28 @@ def _read_deployment_config(pyproject_file: pathlib.Path) -> typing.Tuple[str, t
     if tool is not None and not isinstance(tool, Mapping):
         raise InvalidPyprojectConfigError(f"[tool] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}")
     tool = typing.cast(typing.Mapping[str, typing.Any], tool or {})
-    if "posit-cli" in tool and "rsconnect" in tool:
+    posit = tool.get("posit", {})
+    if not isinstance(posit, Mapping):
         raise InvalidPyprojectConfigError(
-            "Both [tool.posit-cli] and [tool.rsconnect] are present. Keep only one table."
+            f"[tool.posit] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
         )
-    if "posit-cli" in tool:
-        name = "posit-cli"
+    posit = typing.cast(typing.Mapping[str, typing.Any], posit)
+    if "connect" in posit and "rsconnect" in tool:
+        raise InvalidPyprojectConfigError(
+            "Both [tool.posit.connect] and [tool.rsconnect] are present. Keep only one table."
+        )
+    if "connect" in posit:
+        table = "[tool.posit.connect]"
+        config = posit["connect"]
     elif "rsconnect" in tool:
-        name = "rsconnect"
+        table = "[tool.rsconnect]"
+        config = tool["rsconnect"]
     else:
         raise InvalidPyprojectConfigError(
-            f"The [tool.posit-cli] section is missing; [tool.rsconnect] is also accepted. "
+            f"The [tool.posit.connect] section is missing; [tool.rsconnect] is also accepted. "
             f"Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
         )
 
-    table = f"[tool.{name}]"
-    config = tool[name]
     if not isinstance(config, Mapping):
         raise InvalidPyprojectConfigError(
             f"{table} is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
@@ -281,8 +298,11 @@ def resolve_pyproject_deploy_target(
 
     configured_app_mode = typing.cast(str, config["app_mode"])
     app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
-    if app_mode == AppModes.UNKNOWN:
+    if app_mode not in _PYPROJECT_APP_MODES:
         raise UnsupportedAppModeError(f"Unsupported app_mode '{configured_app_mode}' in {table}")
+
+    if table == "[tool.rsconnect]":
+        logger.warning("[tool.rsconnect] is deprecated. Rename it to [tool.posit.connect].")
 
     # Requirements source precedence: caller override (the ``-r`` flag) >
     # configured ``requirements_file`` > built-in default ``pyproject.toml``

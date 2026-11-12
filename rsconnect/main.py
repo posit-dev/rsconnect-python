@@ -2029,7 +2029,7 @@ def info(file: str):
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
         "notebook, voila, quarto. Writes a pyproject.toml "
-        "with a [tool.posit-cli] section, creates a uv-managed virtualenv, "
+        "with a [tool.posit.connect] section, creates a uv-managed virtualenv, "
         "and prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
@@ -2727,7 +2727,7 @@ def deploy_bundle(
     short_help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
-        "a pyproject.toml with a [tool.posit-cli] table specifying app_mode and entrypoint. "
+        "a pyproject.toml with a [tool.posit.connect] table specifying app_mode and entrypoint. "
         "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
@@ -2744,7 +2744,7 @@ def deploy_bundle(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.posit-cli].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
     ),
@@ -4364,7 +4364,7 @@ def write_manifest_quarto(
     short_help="Create a manifest.json file from a project's pyproject.toml.",
     help=(
         "Create a manifest.json file for later deployment, for content described by a project's "
-        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit-cli] "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] "
         "table specifying app_mode and entrypoint. This will also write the environment file the "
         'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
         "itself the requirements source. Designed as the write-manifest partner for projects "
@@ -4380,7 +4380,7 @@ def write_manifest_quarto(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.posit-cli].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
     ),

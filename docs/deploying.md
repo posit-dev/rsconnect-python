@@ -354,14 +354,14 @@ type and dependencies. The options are the same as for `deploy manifest`; see
 
 ### Deploying from a pyproject.toml
 
-`rsconnect deploy pyproject` reads a `[tool.posit-cli]` table from a project's
+`rsconnect deploy pyproject` reads a `[tool.posit.connect]` table from a project's
 `pyproject.toml` instead of taking the app mode and entrypoint as CLI arguments.
 It is designed as the deploy partner for projects scaffolded by
 `rsconnect quickstart`, but works with any project whose `pyproject.toml`
-contains the required keys. The legacy `[tool.rsconnect]` table is also accepted.
-Use only one of the two tables.
+contains the required keys. The deprecated `[tool.rsconnect]` table is also accepted;
+rename it to `[tool.posit.connect]`. Use only one of the two tables.
 
-The `[tool.posit-cli]` table has two required keys:
+The `[tool.posit.connect]` table has two required keys:
 
 - `app_mode` — the Connect app mode the deployment uses. Supported values
   are `python-streamlit`, `python-shiny`, `python-fastapi`, `python-api`,
@@ -381,7 +381,7 @@ version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = ["streamlit"]
 
-[tool.posit-cli]
+[tool.posit.connect]
 app_mode = "python-streamlit"
 entrypoint = "app.py"
 ```
