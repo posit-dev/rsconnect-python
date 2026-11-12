@@ -19,9 +19,9 @@ from click.types import StringParamType
 # they should both come from the same typing module.
 # https://peps.python.org/pep-0655/#usage-in-python-3-11
 if sys.version_info >= (3, 11):
-    from typing import TypedDict
+    from typing import NotRequired, TypedDict
 else:
-    from typing_extensions import TypedDict
+    from typing_extensions import NotRequired, TypedDict
 
 _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
@@ -619,6 +619,7 @@ class PyInstallation(TypedDict):
     version: str
     cluster_name: str
     image_name: str
+    publishable: NotRequired[bool]
 
 
 class BuildOutputDTO(TypedDict):
