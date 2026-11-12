@@ -15,6 +15,7 @@ import json
 import locale
 import ntpath
 import os
+import tomllib
 import posixpath
 import tempfile
 import re
@@ -334,10 +335,6 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
         raise EnvironmentException(f"pyproject.toml not found: {pyproject_filename}")
 
     try:
-        try:
-            import tomllib
-        except ImportError:
-            import toml as tomllib  # type: ignore[no-redef]
         with open(pyproject_path, "r", encoding="utf-8-sig") as f:
             project_data = tomllib.loads(f.read()).get("project", {})
     except Exception as exception:

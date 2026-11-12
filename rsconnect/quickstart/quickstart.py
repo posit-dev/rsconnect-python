@@ -385,9 +385,8 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec, requires_p
 def _load_template(path: str) -> str:
     """Read a template file from the ``rsconnect.quickstart.templates`` package.
 
-    ``pkgutil.get_data`` is stdlib since Python 3.0 and works under wheel
-    install, unlike ``importlib.resources.files`` which is 3.9+. It returns
-    raw bytes, so we wrap the buffer in :class:`io.TextIOWrapper` to get the
+    ``pkgutil.get_data`` works under wheel install and returns raw bytes, so
+    we wrap the buffer in :class:`io.TextIOWrapper` to get the
     same universal-newlines decoding as ``open(path, 'rt')``.
     """
     data = pkgutil.get_data("rsconnect.quickstart.templates", path)

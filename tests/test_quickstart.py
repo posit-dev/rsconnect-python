@@ -25,15 +25,11 @@ import shutil
 import stat
 import subprocess
 import sys
+import tomllib
 import typing
 from unittest import mock
 
 import pytest
-
-try:
-    import tomllib
-except ImportError:  # pragma: no cover - Python 3.10 fallback
-    import toml as tomllib  # type: ignore[no-redef]
 
 from click.testing import CliRunner
 

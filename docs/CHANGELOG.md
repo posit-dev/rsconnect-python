@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Removes support for Python 3.8–3.10 as the CLI Python. Content can still target those versions. Version 1.33.2 is the last compatible release.
+
 ### Fixed
 
 - Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. [#955](https://github.com/posit-dev/rsconnect-python/pull/955)

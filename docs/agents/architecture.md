@@ -27,7 +27,7 @@ Server classes subclass `AbstractRemoteServer` in `api.py`:
 - **`bundle.py`**: `Manifest` and `Bundle`, plus `make_*_bundle()` builders per content type (notebook, Quarto, HTML, TensorFlow, Voila, API, Node.js, from an existing manifest).
 - **`models.py`**: `AppModes` (canonical content types) and `TypedDict` models for API payloads.
 - **`metadata.py`**: on-disk stores. `ServerStore` holds saved server credentials in the platform config directory (see `config_dirname()`). `AppStore` records deployments, next to the content in an `rsconnect-python/` directory, falling back to the config directory.
-- **`environment.py`**: Python environment detection. Runs `subprocesses/inspect_environment.py` under the target interpreter so inspection is isolated from the CLI's own environment.
+- **`environment.py`**: Python environment detection. Runs `subprocesses/inspect_environment.py` under the CLI interpreter; the inspector queries the content interpreter for its version and installed packages.
 - **`environment_node.py`**: Node.js/npm environment detection.
 - **`preflight.py`**, **`preflight_node.py`**: checks that a Python or Node.js project is deployable before uploading.
 - **`pyproject.py`**: reads Python version requirements from static project metadata.

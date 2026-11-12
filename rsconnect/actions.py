@@ -15,18 +15,9 @@ import traceback
 import typing
 from os.path import basename, exists, isdir, join, relpath
 from pathlib import PurePath
-from typing import Optional, Sequence, cast
-from warnings import warn
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
-
+from typing import NotRequired, Optional, Sequence, TypedDict, cast
 from urllib.parse import urlparse
+from warnings import warn
 
 import click
 

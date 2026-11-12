@@ -40,3 +40,24 @@ def test_manifest_uses_content_python_environment(version, tmp_path):
     assert manifest["python"]["version"] == expected_version
     assert manifest["python"]["package_manager"]["package_file"] == "requirements.txt"
     assert "idna==3.10" in (project / "requirements.txt").read_text().splitlines()
+
+    (project / "requirements.txt").unlink()
+    (project / "pyproject.toml").write_text('[project]\ndependencies = ["idna==3.10"]\n')
+    result = CliRunner().invoke(
+        cli,
+        [
+            "write-manifest",
+            "api",
+            str(project),
+            "--python",
+            str(python),
+            "-r",
+            "pyproject.toml",
+            "--exclude-renv",
+            "--overwrite",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((project / "manifest.json").read_text())
+    assert manifest["python"]["version"] == expected_version
+    assert "idna==3.10" in (project / "requirements.txt").read_text().splitlines()

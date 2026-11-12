@@ -67,7 +67,7 @@ just install
 
 - `ruff format` (120-character lines) and `ruff check` are enforced in CI. `tests/test_metadata.py` is exempt from the line-length rule.
 - Pyright runs in strict mode (`typeCheckingMode = "strict"`). It is advisory and doesn't fail `just lint`.
-- Support Python 3.8+. Import newer typing features from `typing_extensions`.
+- Support Python 3.11+ (see ADR-0001).
 - Use `TypedDict` for structured dictionaries such as API responses and manifest data.
 
 ## Important Patterns

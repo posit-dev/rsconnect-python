@@ -532,14 +532,8 @@ def test_pyproject_dependencies_invalid_toml(tmp_path, encoding):
         "3",
         "[3]",
         "[{a = 'b'}]",
-        pytest.param(
-            "['flask', 3]",
-            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
-        ),
-        pytest.param(
-            "['flask', {a = 'b'}]",
-            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
-        ),
+        "['flask', 3]",
+        "['flask', {a = 'b'}]",
         "[true]",
         "[['flask']]",
     ],

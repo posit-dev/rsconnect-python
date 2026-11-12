@@ -305,7 +305,6 @@ def _build_content_item(
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
         # so just exit immediately if the current build has been aborted.
-        # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
         if build_store.aborted():
             return
 
