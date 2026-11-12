@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning.
 
+### Changed
+
+- Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by `uv.lock`, static `pyproject.toml` dependencies, and `requirements.txt`. Lockfiles are validated offline; generated requirements are kept separately from user-managed sources.
+
 ### Fixed
 
 - Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. [#955](https://github.com/posit-dev/rsconnect-python/pull/955)

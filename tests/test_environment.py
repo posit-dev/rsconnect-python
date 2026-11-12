@@ -86,9 +86,9 @@ class TestEnvironment(TestCase):
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
-            assert result.filename.endswith("custom.txt")
-            assert result.contents == "foo==1.0\nbar>=2.0\n"
-            assert result.source == "file"
+            assert result.filename == "requirements-rsconnect.txt"
+            assert result.contents.endswith("foo==1.0\nbar>=2.0\n")
+            assert result.source == "derived_file"
 
     def test_pip_freeze(self):
         result = Environment.create_python_environment(get_dir("pip2"), requirements_file=None)
@@ -105,7 +105,7 @@ class TestEnvironment(TestCase):
         expected = Environment.from_dict(
             dict(
                 contents=result.contents,
-                filename="requirements.txt",
+                filename="requirements-rsconnect.txt",
                 locale=result.locale,
                 package_manager="pip",
                 pip=result.pip,
@@ -305,7 +305,7 @@ def test_requirements_file_filters_only_rsconnect_distribution(tmp_path: Path):
 
     env = Environment.create_python_environment(str(tmp_path))
 
-    assert env.contents == "my-rsconnect-utils==0.1\r\ndemo\r\n# rsconnect note\r\n-e ./libs/local\r\n"
+    assert env.contents.endswith("my-rsconnect-utils==0.1\r\ndemo\r\n# rsconnect note\r\n-e ./libs/local\r\n")
 
 
 def test_requirements_file_rejects_editable_outside_bundle(tmp_path: Path):
@@ -335,9 +335,8 @@ def test_requirements_file_rewrites_editables_inside_bundle(tmp_path: Path, use_
 
     env = Environment.create_python_environment(str(tmp_path))
 
-    assert (
-        env.contents
-        == "-e . # project\r\n-e file:./local%20package[extra]\r\n-e git+https://example.com/repo.git#egg=remote\r\n"
+    assert env.contents.endswith(
+        "-e . # project\r\n-e file:./local%20package[extra]\r\n-e git+https://example.com/repo.git#egg=remote\r\n"
     )
 
 
@@ -362,7 +361,7 @@ def test_uv_lock_export(tmp_path, monkeypatch, fallback, lock_location):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
-        "[project]\nname='demo'\nversion='0.0.0'\n"
+        "[project]\nname='demo'\nversion='0.0.0'\nrequires-python='>=3.11.3'\n"
         "dependencies=['aiofiles==24.1.0','annotated-doc==0.0.4','annotated-types==0.7.0']\n",
         encoding="utf-8",
     )
@@ -444,7 +443,7 @@ requires-dist = [
     }[lock_location]
     env = Environment.create_python_environment(dirname, requirements_file=lock_file, python=str(python))
 
-    assert env.filename == "requirements.txt.lock"
+    assert env.filename == "requirements-rsconnect.txt"
     assert "aiofiles==24.1.0" in env.contents
     assert "annotated-doc==0.0.4" in env.contents
     assert "annotated-types==0.7.0" in env.contents
@@ -584,12 +583,8 @@ def test_pyproject_dependencies_no_project_table(tmp_path):
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text("[build-system]\nrequires = ['setuptools']\n", encoding="utf-8")
 
-    env = detect_environment(str(project_dir), requirements_file="pyproject.toml")
-
-    assert env.filename == "requirements.txt"
-    assert env.source == "pyproject_toml"
-    # Header comment is present but no dependencies are listed.
-    assert all(line.startswith("#") or line == "" for line in env.contents.splitlines())
+    with pytest.raises(EnvironmentException, match="No static project.dependencies"):
+        detect_environment(str(project_dir), requirements_file="pyproject.toml")
 
 
 class WhichPythonTestCase(TestCase):

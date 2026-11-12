@@ -38,7 +38,7 @@ else:
 
 from rsconnect.certificates import read_certificate_file
 
-from . import VERSION, api, validation
+from . import VERSION, api, pyproject, validation
 from . import connect_cloud as connect_cloud_auth  # aliased: `connect_cloud` is a CLI flag name
 from .version_check import BackgroundVersionCheck
 from .actions import (
@@ -2096,18 +2096,6 @@ def _warn_on_ignored_manifest(directory: str):
         warn_user("    Warning: the existing manifest.json file will not be used or considered.")
 
 
-def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
-    """
-    Checks for the existence of a file called manifest.json in the given directory.
-    If it's there, a warning noting that it will be ignored will be printed.
-
-    :param directory: the directory to check in.
-    :param requirements_file_name: the name of the requirements file.
-    """
-    if exists(join(directory, requirements_file_name)):
-        warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
-
-
 # deploy notebook parameters that only affect a source bundle's Python or R environment.
 # A static notebook bundle contains only the rendered HTML, so they have no effect.
 _STATIC_NOTEBOOK_IGNORED_PARAMS = (
@@ -2188,13 +2176,13 @@ def _warn_on_options_ignored_by_static_notebook(ctx: click.Context, extra_files:
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
     "-r",
     type=click.Path(dir_okay=False),
-    default="requirements.txt",
+    default=None,
     help=(
         "Path to requirements file listing the project dependencies. "
         "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
@@ -2395,13 +2383,13 @@ def deploy_notebook(
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
     "-r",
     type=click.Path(dir_okay=False),
-    default="requirements.txt",
+    default=None,
     help=(
         "Path to requirements file listing the project dependencies. "
         "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
@@ -2737,6 +2725,7 @@ def deploy_bundle(
 @content_args
 @cloud_shinyapps_args
 @connect_cloud_args
+@click.option("--force-generate", "-g", is_flag=True, help="Snapshot the selected Python environment.")
 @click.option(
     "--requirements-file",
     "-r",
@@ -2744,9 +2733,7 @@ def deploy_bundle(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
-        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
-        "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
+        "Overrides the configured and automatically selected dependency source."
     ),
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
@@ -2783,6 +2770,7 @@ def deploy_pyproject(
     verbose: int,
     directory: str,
     requirements_file: Optional[str],
+    force_generate: bool,
     env_vars: dict[str, str],
     visibility: Optional[str],
     no_verify: bool,
@@ -2802,9 +2790,7 @@ def deploy_pyproject(
         # Only -t/--title overrides the pyproject title. The server nickname used
         # to be a fallback here, which made redeployments rename existing Connect
         # Cloud content after the nickname.
-        target = resolve_pyproject_deploy_target(
-            pyproject_path, requirements_file=requirements_file, title_override=title
-        )
+        target = resolve_pyproject_deploy_target(pyproject_path, title_override=title)
     except UnsupportedAppModeError as err:
         raise RSConnectException(str(err)) from err
     except InvalidPyprojectConfigError as err:
@@ -2817,7 +2803,8 @@ def deploy_pyproject(
     app_mode = target.app_mode
     entrypoint = target.entrypoint
     effective_title = target.title
-    requirements_file = target.requirements_file
+    if force_generate and requirements_file is not None:
+        raise RSConnectException("--force-generate cannot be combined with --requirements-file.")
     extra_files: tuple[str, ...] = tuple()
     excludes: tuple[str, ...] = tuple()
     bundle_builder: Callable[..., Any]
@@ -2830,14 +2817,19 @@ def deploy_pyproject(
     # opts out, otherwise detection is driven by the lockfile's presence.
     r_environment = None if exclude_renv else REnvironment.create(directory)
 
+    def inspect_python_environment() -> Environment:
+        return Environment.create_python_environment(
+            directory,
+            requirements_file=resolve_requirements_file(
+                directory, requirements_file, force_generate, warn_legacy=False
+            ),
+            override_python_version=None,
+        )
+
     if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
         if app_mode == AppModes.PYTHON_SHINY:
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
+        environment = inspect_python_environment()
         bundle_builder = make_api_bundle
         bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
         bundle_kwargs = {
@@ -2848,11 +2840,7 @@ def deploy_pyproject(
         }
     elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
         path = str(Path(directory) / entrypoint)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
+        environment = inspect_python_environment()
         bundle_builder = make_notebook_source_bundle
         # Legacy app mode - no need to override the bundle builder default
         bundle_args = (path, environment, extra_files, False, False)
@@ -2863,11 +2851,7 @@ def deploy_pyproject(
             "r_environment": r_environment,
         }
     elif app_mode == AppModes.JUPYTER_VOILA:
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
+        environment = inspect_python_environment()
         bundle_builder = make_voila_bundle
         bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
         bundle_kwargs = {
@@ -2889,11 +2873,7 @@ def deploy_pyproject(
         environment = None
         if "jupyter" in engines:
             with cli_feedback("Inspecting Python environment"):
-                environment = Environment.create_python_environment(
-                    directory,
-                    requirements_file=requirements_file,
-                    override_python_version=None,
-                )
+                environment = inspect_python_environment()
         bundle_builder = create_quarto_deployment_bundle
         bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
         bundle_kwargs = {
@@ -3095,13 +3075,13 @@ def deploy_git(
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
     "-r",
     type=click.Path(dir_okay=False),
-    default="requirements.txt",
+    default=None,
     help=(
         "Path to requirements file listing the project dependencies. "
         "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
@@ -3494,17 +3474,39 @@ def deploy_html(
     ce.emit_content_url()
 
 
-def resolve_requirements_file(directory: str, requirements_file: Optional[str], force_generate: bool) -> Optional[str]:
-    """
-    Determine which requirements file to use.
-
-    Returns None when pip freeze should be used (force_generate=True), otherwise returns
-    the provided path or the default "requirements.txt".
-    """
+def resolve_requirements_file(
+    directory: str, requirements_file: Optional[str], force_generate: bool, warn_legacy: bool = True
+) -> Optional[str]:
     if force_generate:
-        _warn_on_ignored_requirements(directory, requirements_file or "requirements.txt")
+        if requirements_file is not None:
+            raise RSConnectException("--force-generate cannot be combined with --requirements-file.")
         return None
-    return requirements_file or "requirements.txt"
+    if requirements_file is not None:
+        return requirements_file
+
+    project_path = Path(directory) / "pyproject.toml"
+    try:
+        if os.path.lexists(project_path):
+            config = pyproject.optional_deployment_config(project_path, warn_legacy=warn_legacy)
+            if "requirements_file" in config:
+                configured = config["requirements_file"]
+                if not isinstance(configured, str) or not configured.strip():
+                    raise RSConnectException("The configured requirements_file must be a non-empty string.")
+                return configured
+        if os.path.lexists(Path(directory) / "uv.lock"):
+            return "uv.lock"
+        if os.path.lexists(project_path):
+            project = pyproject.tomllib.loads(project_path.read_text(encoding="utf-8-sig")).get("project", {})
+            if isinstance(project, dict) and "dependencies" in project:
+                return "pyproject.toml"
+    except (OSError, pyproject.TOMLDecodeError, InvalidPyprojectConfigError) as err:
+        raise RSConnectException(f"Cannot read pyproject.toml: {err}") from err
+    if os.path.lexists(Path(directory) / "requirements.txt"):
+        return "requirements.txt"
+    raise RSConnectException(
+        "No Python dependency source found. Add uv.lock, static project dependencies, or requirements.txt, "
+        "specify --requirements-file, or use --force-generate."
+    )
 
 
 def generate_deploy_python(
@@ -3584,7 +3586,7 @@ def generate_deploy_python(
         "--force-generate",
         "-g",
         is_flag=True,
-        help='Force generating "requirements.txt", even if it already exists.',
+        help="Snapshot dependencies from the selected Python environment.",
     )
     @click.option(
         "--requirements-file",
@@ -3942,8 +3944,7 @@ def write_manifest():
     short_help="Create a manifest.json file for a Jupyter notebook.",
     help=(
         "Create a manifest.json file for a Jupyter notebook for later deployment. "
-        'This will create an environment file ("requirements.txt") if one does '
-        "not exist. All files are created in the same directory as the notebook file."
+        "Derived dependencies are saved alongside the notebook."
     ),
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
@@ -3965,7 +3966,7 @@ def write_manifest():
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
@@ -4024,8 +4025,8 @@ def write_manifest_notebook(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
-    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     with cli_feedback("Inspecting Python environment"):
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
         environment = Environment.create_python_environment(
             base_dir,
             requirements_file=requirements_file,
@@ -4035,7 +4036,9 @@ def write_manifest_notebook(
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
-    generate_env = requirements_file is None
+    if environment.source != "file":
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, base_dir)
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
             file,
@@ -4050,12 +4053,12 @@ def write_manifest_notebook(
             r_environment,
         )
 
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and environment.source == "file":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
         )
-    else:
+    elif environment.source == "file":
         with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, base_dir)
 
@@ -4065,8 +4068,7 @@ def write_manifest_notebook(
     short_help="Create a manifest.json file for a Voila notebook.",
     help=(
         "Create a manifest.json file for a Voila notebook for later deployment. "
-        'This will create an environment file ("requirements.txt") if one does '
-        "not exist. All files are created in the same directory as the notebook file."
+        "Derived dependencies are saved alongside the notebook."
     ),
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
@@ -4088,12 +4090,12 @@ def write_manifest_notebook(
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
     "-r",
-    type=click.Path(exists=True, dir_okay=False),
+    type=click.Path(dir_okay=False),
     help=(
         "Path to requirements file listing the project dependencies. "
         "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
@@ -4161,8 +4163,8 @@ def write_manifest_voila(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
-    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     with cli_feedback("Inspecting Python environment"):
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
         environment = Environment.create_python_environment(
             base_dir,
             requirements_file=requirements_file,
@@ -4174,7 +4176,7 @@ def write_manifest_voila(
 
     environment_file_exists = exists(join(base_dir, environment.filename))
     generate_env = requirements_file is None
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and environment.source == "file":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
@@ -4247,7 +4249,7 @@ def write_manifest_voila(
     "--force-generate",
     "-g",
     is_flag=True,
-    help='Force generating "requirements.txt", even if it already exists.',
+    help="Snapshot dependencies from the selected Python environment.",
 )
 @click.option(
     "--requirements-file",
@@ -4321,11 +4323,9 @@ def write_manifest_quarto(
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     environment = None
-    generate_env = False
     if "jupyter" in engines:
-        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
-        generate_env = requirements_file is None
         with cli_feedback("Inspecting Python environment"):
+            requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
             environment = Environment.create_python_environment(
                 base_dir,
                 requirements_file=requirements_file,
@@ -4335,7 +4335,7 @@ def write_manifest_quarto(
             )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
-        if environment_file_exists and not generate_env:
+        if environment_file_exists and environment.source == "file":
             click.secho(
                 "    Warning: %s already exists and will not be overwritten." % environment.filename,
                 fg="yellow",
@@ -4366,13 +4366,14 @@ def write_manifest_quarto(
         "Create a manifest.json file for later deployment, for content described by a project's "
         "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] "
         "table specifying app_mode and entrypoint. This will also write the environment file the "
-        'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
-        "itself the requirements source. Designed as the write-manifest partner for projects "
+        "manifest references, regenerating derived dependencies on each run. "
+        "Designed as the write-manifest partner for projects "
         "scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option("--force-generate", "-g", is_flag=True, help="Snapshot the selected Python environment.")
 @click.option(
     "--requirements-file",
     "-r",
@@ -4380,9 +4381,7 @@ def write_manifest_quarto(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
-        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
-        "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
+        "Overrides the configured and automatically selected dependency source."
     ),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
@@ -4401,19 +4400,22 @@ def write_manifest_pyproject(
     ctx: click.Context,
     overwrite: bool,
     requirements_file: Optional[str],
+    force_generate: bool,
     verbose: int,
     exclude_renv: bool,
     directory: str,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
+    if force_generate and requirements_file is not None:
+        raise RSConnectException("--force-generate cannot be combined with --requirements-file.")
 
     def quickstart_hint() -> str:
         return "To create a new project with this section already populated, run: rsconnect quickstart --help"
 
     pyproject_path = Path(directory) / "pyproject.toml"
     try:
-        target = resolve_pyproject_deploy_target(pyproject_path, requirements_file=requirements_file)
+        target = resolve_pyproject_deploy_target(pyproject_path)
     except UnsupportedAppModeError as err:
         raise RSConnectException(str(err)) from err
     except InvalidPyprojectConfigError as err:
@@ -4455,14 +4457,32 @@ def write_manifest_pyproject(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     def inspect_python_environment() -> Environment:
-        # Deliberately not resolve_requirements_file: its default is requirements.txt,
-        # while pyproject projects default to pyproject.toml (deploy parity).
         with cli_feedback("Inspecting Python environment"):
-            return Environment.create_python_environment(
+            environment = Environment.create_python_environment(
                 directory,
-                requirements_file=target.requirements_file,
+                requirements_file=resolve_requirements_file(
+                    directory, requirements_file, force_generate, warn_legacy=False
+                ),
                 override_python_version=None,
             )
+        destination = manifest_dir / environment.filename
+        source = Path(directory) / environment.filename
+        if environment.source == "file" and destination.resolve() != source.resolve():
+            try:
+                destination.resolve().relative_to(manifest_dir.resolve())
+            except ValueError:
+                raise RSConnectException(f"Requirements destination {destination} is outside the manifest directory.")
+            if destination.is_symlink():
+                raise RSConnectException(f"Cannot copy requirements to symlink {destination}.")
+            if destination.exists() and destination.read_bytes() != source.read_bytes():
+                raise RSConnectException(f"Cannot overwrite the existing requirements file {destination}.")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if not destination.exists():
+                shutil.copyfile(source, destination)
+        elif environment.source != "file":
+            with cli_feedback("Creating %s" % environment.filename):
+                write_environment_file(environment, str(manifest_dir))
+        return environment
 
     environment: Optional[Environment] = None
     if app_mode in api_modes:
@@ -4538,19 +4558,6 @@ def write_manifest_pyproject(
                 env_management_r=None,
                 r_environment=r_environment,
             )
-
-    # The manifest references environment.filename (e.g. a requirements.txt
-    # generated from pyproject.toml's dependencies), so that file must exist
-    # next to manifest.json or deploying from the manifest fails. Regenerate it
-    # on every run so deployments pick up dependency changes, but never touch
-    # the requirements source itself: it is user-managed, and the inspector
-    # strips rsconnect lines from the contents it returns. Quarto with
-    # non-Jupyter engines has no environment.
-    if environment is not None:
-        requirements_source = (Path(directory) / target.requirements_file).resolve()
-        if requirements_source != (manifest_dir / environment.filename).resolve():
-            with cli_feedback("Creating %s" % environment.filename):
-                write_environment_file(environment, str(manifest_dir))
 
 
 @write_manifest.command(
@@ -4631,8 +4638,8 @@ def generate_write_manifest_python(
         name=alias,
         short_help="Create a manifest.json file for a {desc}.".format(desc=desc),
         help=(
-            "Create a manifest.json file for a {desc} for later deployment. This will create an "
-            'environment file ("requirements.txt") if one does not exist. All files '
+            "Create a manifest.json file for a {desc} for later deployment. This creates a "
+            "file for derived dependencies. All files "
             "are created in the same directory as the API code."
         ).format(desc=desc),
     )
@@ -4672,7 +4679,7 @@ def generate_write_manifest_python(
         "--force-generate",
         "-g",
         is_flag=True,
-        help='Force generating "requirements.txt", even if it already exists.',
+        help="Snapshot dependencies from the selected Python environment.",
     )
     @click.option(
         "--requirements-file",
@@ -4720,7 +4727,8 @@ def generate_write_manifest_python(
         package_installer: Optional[PackageInstaller],
         requirements_file: Optional[str],
     ):
-        resolved_requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
+        with cli_feedback("Checking dependency source"):
+            resolved_requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
         _write_framework_manifest(
             ctx,
             overwrite,
@@ -4905,6 +4913,9 @@ def _write_framework_manifest(
         with cli_feedback("Inspecting Shiny for Python app"):
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
 
+    if environment.source != "file":
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, directory)
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(
             directory,
@@ -4919,13 +4930,12 @@ def _write_framework_manifest(
             r_environment,
         )
 
-    generate_env = requirements_file is None
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and environment.source == "file":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
         )
-    else:
+    elif environment.source == "file":
         with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, directory)
 
