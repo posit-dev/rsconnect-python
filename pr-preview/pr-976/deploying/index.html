@@ -2159,13 +2159,13 @@ content relied on must be set on the target server (you can pass them with
 server needs a compatible Python or R version available.</p>
 </blockquote>
 <h3 id="deploying-from-a-pyprojecttoml">Deploying from a pyproject.toml<a class="headerlink" href="#deploying-from-a-pyprojecttoml" title="Permanent link">#</a></h3>
-<p><code>rsconnect deploy pyproject</code> reads a <code>[tool.posit-cli]</code> table from a project's
+<p><code>rsconnect deploy pyproject</code> reads a <code>[tool.posit.connect]</code> table from a project's
 <code>pyproject.toml</code> instead of taking the app mode and entrypoint as CLI arguments.
 It is designed as the deploy partner for projects scaffolded by
 <code>rsconnect quickstart</code>, but works with any project whose <code>pyproject.toml</code>
-contains the required keys. The legacy <code>[tool.rsconnect]</code> table is also accepted.
-Use only one of the two tables.</p>
-<p>The <code>[tool.posit-cli]</code> table has two required keys:</p>
+contains the required keys. The deprecated <code>[tool.rsconnect]</code> table is also accepted;
+rename it to <code>[tool.posit.connect]</code>. Use only one of the two tables.</p>
+<p>The <code>[tool.posit.connect]</code> table has two required keys:</p>
 <ul>
 <li><code>app_mode</code> — the Connect app mode the deployment uses. Supported values
   are <code>python-streamlit</code>, <code>python-shiny</code>, <code>python-fastapi</code>, <code>python-api</code>,
@@ -2183,7 +2183,7 @@ Use only one of the two tables.</p>
 <span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.9"</span>
 <span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"streamlit"</span><span class="p">]</span>
 
-<span class="k">[tool.posit-cli]</span>
+<span class="k">[tool.posit.connect]</span>
 <span class="n">app_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"python-streamlit"</span>
 <span class="n">entrypoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"app.py"</span>
 </code></pre></div>

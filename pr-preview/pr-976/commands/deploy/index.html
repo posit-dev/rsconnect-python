@@ -3343,7 +3343,7 @@ contents before deployment.</p>
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-pyproject">deploy pyproject<a class="headerlink" href="#deploy-pyproject" title="Permanent link">#</a></h2>
-<p>Deploy content described by a project's pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit-cli] table specifying app_mode and entrypoint. Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'.</p>
+<p>Deploy content described by a project's pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] table specifying app_mode and entrypoint. Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy pyproject [OPTIONS] DIRECTORY
 </code></pre></div>
@@ -3434,8 +3434,8 @@ contents before deployment.</p>
                                   variable.)
   -r, --requirements-file FILE    Path to the requirements source, relative to
                                   the project directory. Overrides
-                                  ``[tool.posit-cli].requirements_file`` in
-                                  pyproject.toml; defaults to
+                                  ``[tool.posit.connect].requirements_file``
+                                  in pyproject.toml; defaults to
                                   ``pyproject.toml`` (the project's declared
                                   dependencies). Pass ``uv.lock`` for a fully
                                   resolved deploy, or any
