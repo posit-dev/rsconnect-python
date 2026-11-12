@@ -28,6 +28,7 @@ import sys
 import typing
 from unittest import mock
 
+import httpretty
 import pytest
 
 try:
@@ -38,6 +39,7 @@ except ImportError:  # pragma: no cover - Python 3.10 fallback
 from click.testing import CliRunner
 
 from rsconnect.main import cli
+from rsconnect.metadata import ServerStore
 from tests import _local_run
 
 
@@ -60,6 +62,16 @@ def in_tmp_cwd(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathl
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def isolated_servers(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> ServerStore:
+    for key in ("CONNECT_SERVER", "CONNECT_API_KEY", "CONNECT_INSECURE", "CONNECT_CA_CERTIFICATE"):
+        monkeypatch.delenv(key, raising=False)
+    store = ServerStore(str(tmp_path / "config"))
+    monkeypatch.setattr("rsconnect.main.server_store", store)
+    monkeypatch.setattr("rsconnect.api.ServerStore", lambda: store)
+    return store
 
 
 def _invoke_quickstart(runner: CliRunner, *args: str):
@@ -153,7 +165,9 @@ def test_quickstart_delegates_to_run_quickstart(
     result = runner.invoke(cli, ["quickstart", *args])
 
     assert result.exit_code == 0, result.output
-    run_quickstart.assert_called_once_with(**expected)
+    kwargs = run_quickstart.call_args.kwargs
+    assert callable(kwargs.pop("server_python_settings"))
+    assert kwargs == expected
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +369,243 @@ def test_quickstart_python_option_full_version_is_exact(
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
     assert data["project"]["requires-python"] == "==3.11.14"
+
+
+@pytest.mark.parametrize("target", ["server", "name", "environment", "default", "single"])
+def test_server_python_selection(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_servers: ServerStore,
+    target: str,
+):
+    isolated_servers.set("chosen", "https://chosen.example", api_key="saved-key", set_as_default=target == "default")
+    if target != "single":
+        isolated_servers.set(
+            "other",
+            "https://other.example",
+            api_key="other-key",
+            set_as_default=target in {"server", "name", "environment"},
+        )
+    args: list[str] = []
+    if target == "server":
+        args = ["--server", "https://chosen.example"]
+    elif target == "name":
+        args = ["--name", "chosen"]
+    elif target == "environment":
+        monkeypatch.setenv("CONNECT_SERVER", "https://chosen.example")
+
+    calls: list[tuple[str, str]] = []
+
+    def settings(client):
+        calls.append((client._server.url, client._server.api_key))
+        return {
+            "installations": [
+                {"version": "3.9.20", "publishable": True},
+                {"version": "3.13.1", "publishable": False},
+                {"version": "3.12.8", "publishable": True},
+                {"version": "invalid", "publishable": True},
+                {"version": "3.14", "publishable": "true"},
+                {"version": "3.15"},
+            ]
+        }
+
+    install = mock.Mock()
+    monkeypatch.setattr("rsconnect.api.RSConnectClient.python_settings", settings)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", install)
+    result = _invoke_quickstart(runner, "streamlit", "hello_app", *args)
+    assert result.exit_code == 0, result.output
+    assert calls == [("https://chosen.example", "saved-key")]
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == ">=3.12"
+    assert install.call_args.kwargs["python"] == "3.12"
+    assert "Posit Connect server https://chosen.example" in result.output
+
+
+def test_server_python_accepts_eol_version(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, isolated_servers: ServerStore
+):
+    isolated_servers.set("server", "https://connect.example", api_key="key")
+    monkeypatch.setattr(
+        "rsconnect.api.RSConnectClient.python_settings",
+        lambda self: {"installations": [{"version": "3.10.16", "publishable": True}]},
+    )
+    install = mock.Mock()
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", install)
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == ">=3.10"
+    assert install.call_args.kwargs["python"] == "3.10"
+
+
+@pytest.mark.parametrize("version", ["3.10", "3.11.14", ">=3.10,<3.13"])
+def test_explicit_python_skips_server_discovery(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_servers: ServerStore,
+    version: str,
+):
+    monkeypatch.setenv("CONNECT_SERVER", "https://connect.example")
+    resolve = mock.Mock(side_effect=AssertionError("discovery called"))
+    monkeypatch.setattr(isolated_servers, "resolve", resolve)
+    refresh = mock.Mock(side_effect=AssertionError("refresh called"))
+    monkeypatch.setattr("rsconnect.api.RSConnectClient._attempt_token_refresh", refresh)
+    install = mock.Mock()
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", install)
+    result = _invoke_quickstart(runner, "streamlit", "hello_app", "--python", version)
+    assert result.exit_code == 0, result.output
+    assert "the --python override" in result.output
+    assert install.call_args.kwargs["python"] is None
+    resolve.assert_not_called()
+    refresh.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "installations",
+    [
+        [],
+        [{"version": "3.12", "publishable": False}],
+        [{"version": "3.12"}],
+        [{"version": "3.12", "publishable": 1}],
+        [{"version": "bad", "publishable": True}],
+    ],
+)
+def test_no_publishable_python_fails(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_servers: ServerStore,
+    installations,
+):
+    isolated_servers.set("server", "https://connect.example", api_key="key")
+    monkeypatch.setattr("rsconnect.api.RSConnectClient.python_settings", lambda self: {"installations": installations})
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code != 0
+    assert "publishable" in result.output and "--python" in result.output
+    assert not (in_tmp_cwd / "hello_app").exists()
+
+
+@pytest.mark.parametrize("failure", ["credentials", "rejected", "unreachable"])
+def test_server_failure_warns_and_falls_back(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, failure: str
+):
+    monkeypatch.setenv("CONNECT_SERVER", "https://connect.example")
+    if failure != "credentials":
+        monkeypatch.setenv("CONNECT_API_KEY", "key")
+        monkeypatch.setattr("rsconnect.api.RSConnectClient.python_settings", mock.Mock(side_effect=OSError(failure)))
+    install = mock.Mock()
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", install)
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert "Warning:" in result.output and "compatibility" in result.output
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == (
+        f">={sys.version_info.major}.{sys.version_info.minor}"
+    )
+    assert install.call_args.kwargs["python"] == sys.executable
+
+
+@httpretty.activate(allow_net_connect=False)
+@pytest.mark.parametrize("credential", ["key", "oauth"])
+def test_server_settings_http_authentication(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_servers: ServerStore,
+    credential: str,
+):
+    url = "https://connect.example"
+    if credential == "key":
+        isolated_servers.set("server", url, api_key="api-key")
+        authorization = "Key api-key"
+    else:
+        isolated_servers.set("server", url, oauth_client_id="client", oauth_access_token="access")
+        monkeypatch.setattr("rsconnect.oauth.keyring_get_tokens", lambda url: (None, None))
+        authorization = "Bearer access"
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{url}/__api__/v1/server_settings/python",
+        body=json.dumps({"installations": [{"version": "3.10.16", "publishable": True}]}),
+        content_type="application/json",
+    )
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", mock.Mock())
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert httpretty.last_request().headers["Authorization"] == authorization
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == ">=3.10"
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_rejected_server_authentication_warns(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, isolated_servers: ServerStore
+):
+    isolated_servers.set("server", "https://connect.example", api_key="bad-key")
+    httpretty.register_uri(
+        httpretty.GET, "https://connect.example/__api__/v1/server_settings/python", status=401, body="unauthorized"
+    )
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", mock.Mock())
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert "Warning:" in result.output and "compatibility was not checked" in result.output
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == (
+        f">={sys.version_info.major}.{sys.version_info.minor}"
+    )
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_server_oauth_refresh(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, isolated_servers: ServerStore
+):
+    isolated_servers.set("server", "https://connect.example", oauth_client_id="client", oauth_access_token="old-token")
+    monkeypatch.setattr("rsconnect.oauth.keyring_get_tokens", lambda url: (None, None))
+    refresh = mock.Mock(return_value="new-token")
+    monkeypatch.setattr("rsconnect.oauth.refresh_stored_tokens", refresh)
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://connect.example/__api__/v1/server_settings/python",
+        responses=[
+            httpretty.Response(status=401, body="unauthorized"),
+            httpretty.Response(
+                body=json.dumps({"installations": [{"version": "3.10.16", "publishable": True}]}),
+                content_type="application/json",
+            ),
+        ],
+    )
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", mock.Mock())
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert [request.headers["Authorization"] for request in httpretty.latest_requests()] == [
+        "Bearer old-token",
+        "Bearer new-token",
+    ]
+    refresh.assert_called_once()
+    assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == ">=3.10"
+
+
+@pytest.mark.parametrize("failed_command", ["venv", "sync"])
+def test_server_python_uv_failure_removes_project(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_servers: ServerStore,
+    failed_command: str,
+):
+    isolated_servers.set("server", "https://connect.example", api_key="key")
+    monkeypatch.setattr(
+        "rsconnect.api.RSConnectClient.python_settings",
+        lambda self: {"installations": [{"version": "3.10.16", "publishable": True}]},
+    )
+    monkeypatch.setenv("UV_PYTHON_DOWNLOADS", "never")
+    calls = []
+
+    def run(command, cwd, env):
+        calls.append((command, env["UV_PYTHON_DOWNLOADS"]))
+        return subprocess.CompletedProcess(command, int(command[1] == failed_command))
+
+    monkeypatch.setattr("rsconnect.quickstart.quickstart.subprocess.run", run)
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code != 0 and f"uv {failed_command}" in result.output
+    assert calls[0] == (["uv", "venv", "--python", "3.10"], "never")
+    assert not (in_tmp_cwd / "hello_app").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -715,6 +966,8 @@ def test_quickstart_post_scaffold_output(
     lines = [line for line in result.output.splitlines() if line.strip()]
     expected = [
         "Project hello_app/ created.",
+        f"Python requirement: >={sys.version_info.major}.{sys.version_info.minor} "
+        "(from the Python interpreter running rsconnect)",
         "To get started:  cd hello_app",
         f"To run locally:  {local_run}",
         "To deploy:       rsconnect deploy pyproject .",

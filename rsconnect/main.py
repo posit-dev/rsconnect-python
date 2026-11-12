@@ -2043,7 +2043,8 @@ def info(file: str):
     # vocabulary.
     type=click.Choice(AppModes.cli_aliases()),
 )
-@click.argument("name", metavar="NAME")
+@click.argument("project_name", metavar="NAME")
+@server_args
 @click.option(
     "--python",
     "python_version",
@@ -2053,18 +2054,68 @@ def info(file: str):
         "Python version for 'requires-python' in the generated pyproject.toml. "
         "A bare 'major.minor' like '3.10' means any 3.10.x; a full '3.11.14' is "
         "exact; pass an operator for full control (e.g. '>=3.11' or "
-        "'>=3.11,<3.14'). Defaults to '>=<major.minor>' of the interpreter "
-        "running rsconnect."
+        "'>=3.11,<3.14'). By default, use the newest publishable Python on "
+        "the selected Connect server, or the interpreter running rsconnect."
     ),
 )
 @cli_exception_handler
-def quickstart(app_type: str, name: str, python_version: Optional[str]):
+@click.pass_context
+def quickstart(
+    ctx: click.Context,
+    app_type: str,
+    project_name: str,
+    python_version: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
     # Resolve ``run_quickstart`` through the module at call time so tests can
     # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
     # binding a stale reference into ``main``'s namespace at import time.
     from .quickstart.quickstart import run_quickstart
 
-    run_quickstart(app_type=app_type, name=name, python_version=python_version)
+    set_verbosity(verbose)
+
+    def server_python_settings() -> Optional[tuple[object, str]]:
+        try:
+            resolved = server_store.resolve(name, server)
+            if not resolved.url:
+                return None
+            if not (api_key or resolved.api_key or resolved.oauth_client_id):
+                raise RSConnectException(
+                    "No Connect credentials are available; use --api-key or log in with rsconnect login."
+                )
+            # The executor's validation requires a target even when the store
+            # can resolve a single saved server without an explicit default.
+            effective_name = name or (resolved.name if not server else None)
+            executor = RSConnectExecutor(
+                ctx, effective_name, server, api_key, insecure=insecure, cacert=cacert, logger=None
+            )
+            if not isinstance(executor.remote_server, RSConnectServer) or not isinstance(
+                executor.client, RSConnectClient
+            ):
+                raise RSConnectException("The selected target is not a Posit Connect server.")
+            remote = executor.remote_server
+            if not remote.api_key and not remote.oauth_access_token and not remote.oauth_client_id:
+                raise RSConnectException("No credentials are available for the selected Connect server.")
+            with executor.client:
+                return executor.client.python_settings(), remote.url
+        except Exception as exc:
+            warn_user(
+                f"Warning: Could not check the Connect server's Python settings: {exc}. "
+                "Server compatibility was not checked."
+            )
+            return None, "fallback"
+
+    run_quickstart(
+        app_type=app_type,
+        name=project_name,
+        python_version=python_version,
+        server_python_settings=server_python_settings,
+    )
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io.")
