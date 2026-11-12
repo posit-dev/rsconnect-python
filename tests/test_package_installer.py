@@ -37,7 +37,7 @@ def test_write_manifest_framework_passes_package_installer(tmp_path: pathlib.Pat
     with mock.patch.object(Environment, "_get_python_env_info", return_value=_fake_env_info()):
         result = CliRunner().invoke(
             cli,
-            ["write-manifest", framework, "--overwrite", "--package-installer", installer.upper(), str(tmp_path)],
+            ["write-manifest", framework, "--overwrite", "--package-installer", installer, str(tmp_path)],
         )
 
     assert result.exit_code == 0, result.output
@@ -63,7 +63,7 @@ def test_deploy_quarto_passes_package_installer(tmp_path: pathlib.Path):
         "rsconnect.main.quarto_inspect", return_value={"quarto": {"version": "1.4.0"}, "engines": ["jupyter"]}
     ), mock.patch("rsconnect.main.RSConnectExecutor"):
         args = apply_common_args(
-            ["deploy", "quarto", str(tmp_path / "doc.qmd"), "--package-installer", "UV", "--no-verify"],
+            ["deploy", "quarto", str(tmp_path / "doc.qmd"), "--package-installer", "uv", "--no-verify"],
             server="http://fake_server",
             key="FAKE_API_KEY",
         )
