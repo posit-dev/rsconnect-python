@@ -187,71 +187,87 @@ class InvalidVersionConstraintError(ValueError):
 
 
 class InvalidPyprojectConfigError(ValueError):
-    """Raised when ``[tool.rsconnect]`` is missing or incomplete."""
+    """Raised when the deployment table is missing or incomplete."""
 
 
 class UnsupportedAppModeError(ValueError):
-    """Raised when ``[tool.rsconnect].app_mode`` names an app mode rsconnect does not know.
+    """Raised when the configured app mode is unknown.
 
     Kept distinct from :class:`InvalidPyprojectConfigError` because the CLI does
     not append the quickstart hint for this failure.
     """
 
 
-_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET = """[tool.rsconnect]
+_MINIMUM_VALID_TOOL_SNIPPET = """[tool.posit.connect]
 # e.g. python-streamlit, python-shiny, python-fastapi, jupyter-static, quarto-shiny
 app_mode = "<app_mode>"
 entrypoint = "<entrypoint>"  # e.g. app.py"""
 
+_PYPROJECT_APP_MODES = (
+    AppModes.STREAMLIT_APP,
+    AppModes.PYTHON_SHINY,
+    AppModes.PYTHON_FASTAPI,
+    AppModes.PYTHON_API,
+    AppModes.JUPYTER_NOTEBOOK,
+    AppModes.JUPYTER_VOILA,
+    AppModes.STATIC_QUARTO,
+    AppModes.SHINY_QUARTO,
+)
+
 
 def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typing.Any]:
-    """Read the ``[tool.rsconnect]`` deployment config from pyproject.toml.
+    """Read the deployment config from the supported pyproject.toml tables."""
+    return _read_deployment_config(pyproject_file)[1]
 
-    Returns the section mapping unchanged so forward-compatible fields pass
-    through. Raises ``InvalidPyprojectConfigError`` when the section is
-    missing or when required ``app_mode`` / ``entrypoint`` fields are absent or
-    not non-empty strings.
-    """
+
+def _read_deployment_config(pyproject_file: pathlib.Path) -> typing.Tuple[str, typing.Mapping[str, typing.Any]]:
     content = pyproject_file.read_text(encoding="utf-8-sig")
     pyproject = tomllib.loads(content)
-
     tool = pyproject.get("tool")
-    if tool is None:
+    if tool is not None and not isinstance(tool, Mapping):
+        raise InvalidPyprojectConfigError(f"[tool] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}")
+    tool = typing.cast(typing.Mapping[str, typing.Any], tool or {})
+    posit = tool.get("posit", {})
+    if not isinstance(posit, Mapping):
         raise InvalidPyprojectConfigError(
-            f"The [tool.rsconnect] section is missing. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+            f"[tool.posit] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
         )
-    if not isinstance(tool, Mapping):
+    posit = typing.cast(typing.Mapping[str, typing.Any], posit)
+    if "connect" in posit and "rsconnect" in tool:
         raise InvalidPyprojectConfigError(
-            f"[tool.rsconnect] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+            "Both [tool.posit.connect] and [tool.rsconnect] are present. Keep only one table."
         )
-    tool = typing.cast(typing.Mapping[str, typing.Any], tool)
+    if "connect" in posit:
+        table = "[tool.posit.connect]"
+        config = posit["connect"]
+    elif "rsconnect" in tool:
+        table = "[tool.rsconnect]"
+        config = tool["rsconnect"]
+    else:
+        raise InvalidPyprojectConfigError(
+            f"The [tool.posit.connect] section is missing; [tool.rsconnect] is also accepted. "
+            f"Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
+        )
 
-    tool_rsconnect = tool.get("rsconnect")
-    if tool_rsconnect is None:
+    if not isinstance(config, Mapping):
         raise InvalidPyprojectConfigError(
-            f"The [tool.rsconnect] section is missing. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+            f"{table} is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
         )
-    if not isinstance(tool_rsconnect, Mapping):
-        raise InvalidPyprojectConfigError(
-            f"[tool.rsconnect] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
-        )
-    tool_rsconnect = typing.cast(typing.Mapping[str, typing.Any], tool_rsconnect)
-
+    config = typing.cast(typing.Mapping[str, typing.Any], config)
     for field in ("app_mode", "entrypoint"):
-        value = tool_rsconnect.get(field)
+        value = config.get(field)
         if not isinstance(value, str) or not value:
             raise InvalidPyprojectConfigError(
-                f"The [tool.rsconnect] field {field} must be a non-empty string. Add at least:\n\n"
-                f"{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+                f"The {table} field {field} must be a non-empty string. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
             )
-
-    return tool_rsconnect
+    return table, config
 
 
 @dataclasses.dataclass(frozen=True)
 class PyprojectDeployTarget:
-    """Deployment configuration resolved from ``[tool.rsconnect]`` in pyproject.toml."""
+    """Deployment configuration resolved from pyproject.toml."""
 
+    table: str
     app_mode: AppMode
     # The app_mode string as written in pyproject.toml; may be an alias of
     # app_mode.name() and is what error messages should quote back to the user.
@@ -266,7 +282,7 @@ def resolve_pyproject_deploy_target(
     requirements_file: typing.Optional[str] = None,
     title_override: typing.Optional[str] = None,
 ) -> PyprojectDeployTarget:
-    """Resolve the deployment target described by ``[tool.rsconnect]`` in pyproject.toml.
+    """Resolve the deployment target described in pyproject.toml.
 
     Raises ``InvalidPyprojectConfigError`` when the config is missing or
     incomplete, and ``UnsupportedAppModeError`` when ``app_mode`` does not name
@@ -274,24 +290,28 @@ def resolve_pyproject_deploy_target(
 
     :param pathlib.Path pyproject_file: path to the project's pyproject.toml.
     :param typing.Optional[str] requirements_file: caller override for the
-        requirements source; wins over ``[tool.rsconnect].requirements_file``.
+        requirements source; wins over the configured ``requirements_file``.
     :param typing.Optional[str] title_override: fallback title used when the
         config declares none.
     """
-    config = read_tool_rsconnect(pyproject_file)
+    table, config = _read_deployment_config(pyproject_file)
 
     configured_app_mode = typing.cast(str, config["app_mode"])
     app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
-    if app_mode == AppModes.UNKNOWN:
-        raise UnsupportedAppModeError(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+    if app_mode not in _PYPROJECT_APP_MODES:
+        raise UnsupportedAppModeError(f"Unsupported app_mode '{configured_app_mode}' in {table}")
+
+    if table == "[tool.rsconnect]":
+        logger.warning("[tool.rsconnect] is deprecated. Rename it to [tool.posit.connect].")
 
     # Requirements source precedence: caller override (the ``-r`` flag) >
-    # ``[tool.rsconnect].requirements_file`` > built-in default ``pyproject.toml``
+    # configured ``requirements_file`` > built-in default ``pyproject.toml``
     # (top-level deps; Connect resolves transitive). An explicit default keeps the
     # inspector from falling back to a ``pip freeze`` of the caller's interpreter.
     # Malformed TOML values (wrong type, missing file) are surfaced by the
     # inspector / file existence check.
     return PyprojectDeployTarget(
+        table=table,
         app_mode=app_mode,
         configured_app_mode=configured_app_mode,
         entrypoint=typing.cast(str, config["entrypoint"]),
