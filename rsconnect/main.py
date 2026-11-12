@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import tomllib
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
@@ -140,7 +141,6 @@ from .models import (
 )
 from .pyproject import (
     InvalidPyprojectConfigError,
-    TOMLDecodeError,
     UnsupportedAppModeError,
     resolve_pyproject_deploy_target,
 )
@@ -2802,7 +2802,7 @@ def deploy_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode
@@ -4411,7 +4411,7 @@ def write_manifest_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode

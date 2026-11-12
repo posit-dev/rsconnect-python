@@ -8,6 +8,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Tuple, Union, cast
 
@@ -21,7 +22,6 @@ from .metadata import AppStore
 from .validation import require_posix
 from .pyproject import (
     InvalidVersionConstraintError,
-    TOMLDecodeError,
     detect_python_version_requirement,
     get_python_version_requirement_parser,
     local_python_mismatch,
@@ -60,7 +60,7 @@ def _project_constraint(project: str, warnings: list[str]) -> tuple[Optional[str
     try:
         constraint = detect_python_version_requirement(project)
         invalid_metadata = _invalid_declared_metadata(project_path)
-    except (OSError, UnicodeError, TOMLDecodeError, configparser.Error, AttributeError) as err:
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, configparser.Error, AttributeError) as err:
         warnings.append(f"Could not read Python version metadata in {project}: {err}")
         return None, "Python version metadata"
     if invalid_metadata is None and constraint is None and os.path.lexists(project_path / ".python-version"):

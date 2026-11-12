@@ -528,11 +528,8 @@ def manifest_add_buffer(manifest: ManifestData, filename: str, buf: str | bytes)
 
 
 def make_hasher():
-    try:
-        return hashlib.md5()
-    except Exception:
-        # MD5 is used for file upload integrity, not security, and can be disabled in FIPS mode.
-        return hashlib.md5(usedforsecurity=False)
+    # MD5 checks upload integrity, not security; the flag keeps it available in FIPS mode.
+    return hashlib.md5(usedforsecurity=False)
 
 
 def file_checksum(path: str | Path) -> str:

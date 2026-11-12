@@ -19,8 +19,6 @@ from packaging.version import InvalidVersion
 from .log import logger
 from .models import AppMode, AppModes
 
-TOMLDecodeError = tomllib.TOMLDecodeError
-
 PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
 VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"
 

@@ -20,7 +20,6 @@ from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Callable,
-    Dict,
     Generic,
     Mapping,
     NotRequired,
@@ -964,7 +963,7 @@ class ContentBuildStoreData(TypedDict):
     rsconnect_content: dict[str, ContentItemWithBuildState]
 
 
-class ContentBuildStore(DataStore[Dict[str, object]]):
+class ContentBuildStore(DataStore[dict[str, object]]):
     """
     Defines a metadata store for information about content builds.
 
