@@ -13,3 +13,7 @@ _Avoid_: host Python, rsconnect's Python
 **Content Python**:
 The interpreter the deployed content targets, whose version and packages are recorded in the manifest.
 _Avoid_: app Python, project Python, target Python
+
+**Publishable Python**:
+A Python installation on Posit Connect that the server permits for new content. An installed Python is not necessarily
+publishable.
