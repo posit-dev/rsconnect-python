@@ -104,7 +104,7 @@ def run_quickstart(
         if settings is not None:
             data, server = settings
             if server == "fallback" and data is None:
-                source = "the Python interpreter running rsconnect (server compatibility not checked)"
+                source = "the Python interpreter running rsconnect; server compatibility not checked"
             else:
                 version = _newest_publishable_python(data)
                 requires_python = f">={version}"

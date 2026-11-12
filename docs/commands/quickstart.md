@@ -13,10 +13,14 @@ warns and uses that interpreter without checking server compatibility. If a
 successful lookup finds no usable publishable Python, quickstart fails: check
 the server's Python configuration or use `--python`. A failed Python download
 or dependency installation also fails and removes the incomplete project.
+If several servers are saved without a default, select one with `--name` or
+`--server`, or set a default. Invalid server nicknames and CA certificate paths
+are errors.
 
 `--python` overrides discovery and makes no server request. A major/minor
 version permits any patch release, a full version is exact, and a specifier
-such as `>=3.10,<3.13` is used as supplied.
+such as `>=3.10,<3.13` is used as supplied. Explicit server options are ignored
+when `--python` is supplied.
 
 ::: mkdocs-click
     :module: rsconnect.main

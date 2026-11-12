@@ -420,6 +420,7 @@ def test_server_python_selection(
     assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == ">=3.12"
     assert install.call_args.kwargs["python"] == "3.12"
     assert "Posit Connect server https://chosen.example" in result.output
+    assert "Checking Python versions on https://chosen.example..." in result.output
 
 
 def test_server_python_accepts_eol_version(
@@ -462,6 +463,49 @@ def test_explicit_python_skips_server_discovery(
 
 
 @pytest.mark.parametrize(
+    "options", [["--name", "missing"], ["--server", "https://connect.example"], ["--cacert", "bad.pem"]]
+)
+def test_explicit_python_reports_ignored_server_options(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, options: list[str]
+):
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", mock.Mock())
+    monkeypatch.setattr(
+        "rsconnect.main.server_store.resolve", mock.Mock(side_effect=AssertionError("discovery called"))
+    )
+    result = _invoke_quickstart(runner, "streamlit", "hello_app", "--python", "3.10", *options)
+    assert result.exit_code == 0, result.output
+    assert "Server options are ignored because --python was supplied." in result.output
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        (["--name", "missing"], 'The nickname, "missing", does not exist.'),
+        (["--cacert", "missing.pem"], "certificate file missing.pem could not be read"),
+        (["--name", "missing", "--server", "https://connect.example"], "cannot be specified together"),
+    ],
+)
+def test_invalid_server_options_fail(runner: CliRunner, in_tmp_cwd: pathlib.Path, options: list[str], message: str):
+    result = _invoke_quickstart(runner, "streamlit", "hello_app", *options)
+    assert result.exit_code != 0
+    assert message in result.output
+    assert not (in_tmp_cwd / "hello_app").exists()
+
+
+def test_multiple_servers_without_default_warns(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch, isolated_servers: ServerStore
+):
+    isolated_servers.set("one", "https://one.example", api_key="key")
+    isolated_servers.set("two", "https://two.example", api_key="key")
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", mock.Mock())
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    assert "Multiple servers are saved with no default" in result.output
+    assert "--name or --server" in result.output
+    assert "server compatibility not checked" in result.output
+
+
+@pytest.mark.parametrize(
     "installations",
     [
         [],
@@ -499,6 +543,8 @@ def test_server_failure_warns_and_falls_back(
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
     assert "Warning:" in result.output and "compatibility" in result.output
+    assert ".. Server" not in result.output
+    assert "(from the Python interpreter running rsconnect; server compatibility not checked)" in result.output
     assert _read_pyproject(in_tmp_cwd / "hello_app")["project"]["requires-python"] == (
         f">={sys.version_info.major}.{sys.version_info.minor}"
     )

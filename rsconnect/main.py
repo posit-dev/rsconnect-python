@@ -2079,33 +2079,54 @@ def quickstart(
 
     set_verbosity(verbose)
 
+    if python_version is not None:
+        ignored_options = [
+            option
+            for option in ("name", "server", "api_key", "insecure", "cacert")
+            if validation.get_parameter_source_name_from_ctx(option, ctx) == "COMMANDLINE"
+        ]
+        if ignored_options:
+            click.echo("Server options are ignored because --python was supplied.")
+
     def server_python_settings() -> Optional[tuple[object, str]]:
-        try:
-            resolved = server_store.resolve(name, server)
-            if not resolved.url:
-                return None
-            if not (api_key or resolved.api_key or resolved.oauth_client_id):
-                raise RSConnectException(
-                    "No Connect credentials are available; use --api-key or log in with rsconnect login."
+        if name and server and validation.get_parameter_source_name_from_ctx("server", ctx) == "COMMANDLINE":
+            raise RSConnectException("-n/--name cannot be specified together with -s/--server.")
+        if cacert:
+            read_certificate_file(cacert)
+        resolved = server_store.resolve(name, server)
+        if not resolved.url:
+            if server_store.count() > 1:
+                warn_user(
+                    "Warning: Multiple servers are saved with no default. "
+                    "Use --name or --server, or set a default, to check server compatibility."
                 )
-            # The executor's validation requires a target even when the store
-            # can resolve a single saved server without an explicit default.
-            effective_name = name or (resolved.name if not server else None)
-            executor = RSConnectExecutor(
-                ctx, effective_name, server, api_key, insecure=insecure, cacert=cacert, logger=None
+                return None, "fallback"
+            return None
+
+        if not (api_key or resolved.api_key or resolved.oauth_client_id):
+            warn_user(
+                "Warning: Could not check the Connect server's Python settings: "
+                "No Connect credentials are available; use --api-key or log in with rsconnect login.\n"
+                "Server compatibility was not checked."
             )
-            if not isinstance(executor.remote_server, RSConnectServer) or not isinstance(
-                executor.client, RSConnectClient
-            ):
-                raise RSConnectException("The selected target is not a Posit Connect server.")
-            remote = executor.remote_server
-            if not remote.api_key and not remote.oauth_access_token and not remote.oauth_client_id:
-                raise RSConnectException("No credentials are available for the selected Connect server.")
+            return None, "fallback"
+
+        # The executor's validation requires a target even when the store
+        # can resolve a single saved server without an explicit default.
+        effective_name = name or (resolved.name if not server else None)
+        executor = RSConnectExecutor(
+            ctx, effective_name, server, api_key, insecure=insecure, cacert=cacert, logger=None
+        )
+        if not isinstance(executor.remote_server, RSConnectServer) or not isinstance(executor.client, RSConnectClient):
+            raise RSConnectException("The selected target is not a Posit Connect server.")
+        remote = executor.remote_server
+        click.echo(f"Checking Python versions on {remote.url}...")
+        try:
             with executor.client:
                 return executor.client.python_settings(), remote.url
         except Exception as exc:
             warn_user(
-                f"Warning: Could not check the Connect server's Python settings: {exc}. "
+                f"Warning: Could not check the Connect server's Python settings: {exc}\n"
                 "Server compatibility was not checked."
             )
             return None, "fallback"
