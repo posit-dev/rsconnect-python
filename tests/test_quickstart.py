@@ -297,7 +297,7 @@ def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd:
 # ---------------------------------------------------------------------------
 
 
-def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+def test_quickstart_pyproject_has_tool_posit_connect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
@@ -307,24 +307,25 @@ def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: 
     expected_requires = ">={}.{}".format(*sys.version_info[:2])
     assert data["project"]["requires-python"] == expected_requires
     assert data["project"]["dependencies"] == ["streamlit"]
-    tool_rsconnect = data["tool"]["rsconnect"]
-    assert tool_rsconnect["app_mode"] == "python-streamlit"
-    assert tool_rsconnect["entrypoint"] == "app.py"
-    assert tool_rsconnect["title"] == "hello_app"
+    assert "rsconnect" not in data["tool"]
+    tool_posit_connect = data["tool"]["posit"]["connect"]
+    assert tool_posit_connect["app_mode"] == "python-streamlit"
+    assert tool_posit_connect["entrypoint"] == "app.py"
+    assert tool_posit_connect["title"] == "hello_app"
     # Scaffolded projects ship a uv.lock from ``uv sync``; default deploys
     # use it so ``rsconnect deploy pyproject`` is reproducible out of the box.
-    assert tool_rsconnect["requirements_file"] == "uv.lock"
+    assert tool_posit_connect["requirements_file"] == "uv.lock"
 
 
-def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """``dependencies`` and ``requires-python`` live in ``[project]``, not in ``[tool.rsconnect]``."""
+def test_quickstart_does_not_duplicate_deps_in_tool_posit_connect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """``dependencies`` and ``requires-python`` live in ``[project]``, not in ``[tool.posit.connect]``."""
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
-    assert "dependencies" not in tool_rsconnect
-    assert "requires-python" not in tool_rsconnect
-    assert "requires_python" not in tool_rsconnect
-    assert set(tool_rsconnect.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert "dependencies" not in tool_posit_connect
+    assert "requires-python" not in tool_posit_connect
+    assert "requires_python" not in tool_posit_connect
+    assert set(tool_posit_connect.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
 
 
 def test_quickstart_python_option_sets_requires_python(
@@ -636,11 +637,11 @@ def test_quickstart_app_mode_for_each_type(
     args = [cli_args[0], *cli_args[1:], "hello_app"]
     result = _invoke_quickstart(runner, *args)
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
-    assert tool_rsconnect["app_mode"] == expected_mode
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert tool_posit_connect["app_mode"] == expected_mode
     if expected_mode == "python-api":
         # Flask aliases to api: both module-style modes share entrypoint.
-        assert tool_rsconnect["entrypoint"] == "hello_app.__connect__:app"
+        assert tool_posit_connect["entrypoint"] == "hello_app.__connect__:app"
 
 
 # ---------------------------------------------------------------------------
@@ -733,8 +734,8 @@ def test_quickstart_mode_file_set(
 def test_quickstart_fastapi_entrypoint_is_connect_app(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "fastapi", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
-    assert tool_rsconnect["entrypoint"] == "hello_app.__connect__:app"
+    tool_posit_connect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["posit"]["connect"]
+    assert tool_posit_connect["entrypoint"] == "hello_app.__connect__:app"
     connect_py = (in_tmp_cwd / "hello_app" / "hello_app" / "__connect__.py").read_text()
     assert "create_app" in connect_py
     assert "app = " in connect_py
@@ -1010,7 +1011,7 @@ def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: 
     data = _read_pyproject(project)
     assert data["project"]["name"] == "hello_app"
     for required in ("app_mode", "entrypoint", "title"):
-        assert required in data["tool"]["rsconnect"]
+        assert required in data["tool"]["posit"]["connect"]
 
 
 def test_invariant_I9_I10_failure_exit_and_message(
@@ -1059,7 +1060,7 @@ def test_quickstart_registry_accepts_new_mode(
         'requires-python = "$requires_python"\n'
         "dependencies = []\n"
         "\n"
-        "[tool.rsconnect]\n"
+        "[tool.posit.connect]\n"
         'app_mode = "python-newmode"\n'
         'entrypoint = "app.py"\n'
         'title = "$name"\n'
@@ -1104,8 +1105,8 @@ def test_quickstart_registry_accepts_new_mode(
 
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello_app")
-    assert data["tool"]["rsconnect"]["app_mode"] == "python-newmode"
-    assert data["tool"]["rsconnect"]["entrypoint"] == "app.py"
+    assert data["tool"]["posit"]["connect"]["app_mode"] == "python-newmode"
+    assert data["tool"]["posit"]["connect"]["entrypoint"] == "app.py"
     assert data["project"]["dependencies"] == []
 
 
@@ -1157,3 +1158,15 @@ def test_quickstart_per_mode_boot_smoke(
         target = _local_run.artifact_path(app_type, project_dir)
         with _local_run.spawn(cmd, cwd=project_dir) as proc:
             _local_run.wait_for_artifact(proc, target)
+
+
+def test_quickstart_generated_project_writes_deployable_manifest(runner, in_tmp_cwd):
+    from rsconnect.bundle import make_manifest_bundle
+
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
+    assert result.exit_code == 0, result.output
+    project = in_tmp_cwd / "hello_app"
+    result = runner.invoke(cli, ["write-manifest", "pyproject", str(project)])
+    assert result.exit_code == 0, result.output
+    with make_manifest_bundle(str(project / "manifest.json")):
+        pass

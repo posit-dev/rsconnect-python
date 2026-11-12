@@ -13,6 +13,7 @@ reader directly where malformed configuration needs precise diagnostics.
 from __future__ import annotations
 
 import pathlib
+import re
 import textwrap
 import types
 import typing
@@ -119,7 +120,7 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     # incidentally produce that shape.
     message = str(excinfo.value)
     assert "tool.rsconnect" in message.lower() or "rsconnect" in message.lower()
-    assert "[tool.rsconnect]" in message
+    assert "[tool.posit.connect]" in message
     assert 'app_mode = "' in message
     assert 'entrypoint = "' in message
 
@@ -143,7 +144,7 @@ def test_read_tool_rsconnect_non_table_raises(project_dir: pathlib.Path, body: s
         read_tool_rsconnect(project_dir / "pyproject.toml")
     message = str(excinfo.value)
     assert "not a TOML table" in message
-    assert "[tool.rsconnect]" in message
+    assert "[tool.posit.connect]" in message
     assert 'app_mode = "' in message
     assert 'entrypoint = "' in message
 
@@ -323,6 +324,7 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
 
 
 @pytest.mark.parametrize("app_mode,entrypoint,expected_builder_name", DISPATCH_MATRIX)
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_dispatches_by_app_mode(
     runner: CliRunner,
     project_dir: pathlib.Path,
@@ -330,8 +332,11 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     entrypoint: str,
     expected_builder_name: str,
     monkeypatch: pytest.MonkeyPatch,
+    table: str,
 ):
-    """Each ``[tool.rsconnect].app_mode`` routes to its matching bundle builder."""
+    """Each configured app mode routes to its matching bundle builder."""
+    warnings = []
+    monkeypatch.setattr("rsconnect.main.logger.warning", warnings.append)
     captured = _spy_make_bundle(monkeypatch)
 
     _write_pyproject(
@@ -341,7 +346,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
         name = "hello_app"
         version = "0.0.1"
 
-        [tool.rsconnect]
+        [tool.{table}]
         app_mode = "{app_mode}"
         entrypoint = "{entrypoint}"
         title = "Dispatch Test"
@@ -356,6 +361,12 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     )
 
     assert captured.get("builder") == expected_builder_name, result.output
+    if table == "rsconnect":
+        assert len(warnings) == 1
+        assert "[tool.rsconnect]" in warnings[0]
+        assert "[tool.posit.connect]" in warnings[0]
+    else:
+        assert not warnings
     if app_mode == "jupyter-static":
         # Legacy app mode - no need to override the bundle builder default
         pass
@@ -366,8 +377,9 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     ["no-such-mode", "python-dash", "nodejs-api"],
     ids=["unknown", "valid-but-unhandled", "aliased"],
 )
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_errors_on_unsupported_app_mode(
-    runner: CliRunner, project_dir: pathlib.Path, app_mode: str, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner, project_dir: pathlib.Path, app_mode: str, monkeypatch: pytest.MonkeyPatch, table: str
 ):
     """Unsupported app modes fail quoting the configured string (not its canonical
     alias target) and without the quickstart hint."""
@@ -379,7 +391,7 @@ def test_deploy_pyproject_errors_on_unsupported_app_mode(
         name = "hello_app"
         version = "0.0.1"
 
-        [tool.rsconnect]
+        [tool.{table}]
         app_mode = "{app_mode}"
         entrypoint = "app.py"
         """,
@@ -393,7 +405,7 @@ def test_deploy_pyproject_errors_on_unsupported_app_mode(
 
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    assert f"Unsupported app_mode '{app_mode}' in [tool.rsconnect]" in combined
+    assert f"Unsupported app_mode '{app_mode}' in [tool.{table}]" in combined
     assert "quickstart" not in combined.lower()
 
 
@@ -614,10 +626,11 @@ def test_deploy_pyproject_requirements_file_flag_overrides_default(
     assert captured["requirements_file"] == "uv.lock"
 
 
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
-    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
-    """``[tool.rsconnect].requirements_file`` becomes the default for this project.
+    """The configured requirements file becomes the default for this project.
 
     Lets users who maintain a ``uv.lock`` (or any other requirements source)
     bake that choice into the project once, instead of remembering ``-r`` on
@@ -626,13 +639,13 @@ def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
     captured = _capture_environment(monkeypatch)
     _write_pyproject(
         project_dir,
-        """
+        f"""
         [project]
         name = "hello_app"
         version = "0.0.1"
         dependencies = ["flask"]
 
-        [tool.rsconnect]
+        [tool.{table}]
         app_mode = "python-api"
         entrypoint = "app:app"
         title = "hello_app"
@@ -644,20 +657,21 @@ def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
     assert captured["requirements_file"] == "uv.lock"
 
 
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
 def test_deploy_pyproject_flag_overrides_tool_rsconnect_requirements_file(
-    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
-    """CLI ``-r`` wins over ``[tool.rsconnect].requirements_file``."""
+    """CLI ``-r`` wins over the configured requirements file."""
     captured = _capture_environment(monkeypatch)
     _write_pyproject(
         project_dir,
-        """
+        f"""
         [project]
         name = "hello_app"
         version = "0.0.1"
         dependencies = ["flask"]
 
-        [tool.rsconnect]
+        [tool.{table}]
         app_mode = "python-api"
         entrypoint = "app:app"
         title = "hello_app"
@@ -669,3 +683,78 @@ def test_deploy_pyproject_flag_overrides_tool_rsconnect_requirements_file(
         ["deploy", "pyproject", "-r", "pyproject.toml", str(project_dir), "-s", "http://x", "-k", "k"],
     )
     assert captured["requirements_file"] == "pyproject.toml"
+
+
+@pytest.mark.parametrize("command", ["deploy", "write-manifest"])
+@pytest.mark.parametrize("invalid_table", ["posit.connect", "rsconnect"])
+def test_pyproject_both_tables_fail_before_validation(runner, project_dir, command, invalid_table, monkeypatch):
+    warnings = []
+    monkeypatch.setattr("rsconnect.main.logger.warning", warnings.append)
+    other = "rsconnect" if invalid_table == "posit.connect" else "posit.connect"
+    _write_pyproject(
+        project_dir,
+        f'[tool.{invalid_table}]\n[tool.{other}]\napp_mode = "python-api"\nentrypoint = "app:app"\n',
+    )
+    result = runner.invoke(cli, [command, "pyproject", str(project_dir)])
+    assert result.exit_code != 0
+    assert "[tool.posit.connect]" in result.output
+    assert "[tool.rsconnect]" in result.output
+    assert "Keep only one" in result.output
+    assert not warnings
+
+
+@pytest.mark.parametrize("command", ["deploy", "write-manifest"])
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
+@pytest.mark.parametrize(
+    "field,value",
+    [("app_mode", '""'), ("entrypoint", "42"), ("app_mode", '"unknown"'), ("app_mode", '"python-dash"')],
+)
+def test_pyproject_invalid_fields_name_table_without_warning(
+    runner, project_dir, command, table, field, value, monkeypatch
+):
+    warnings = []
+    monkeypatch.setattr("rsconnect.main.logger.warning", warnings.append)
+    fields = {"app_mode": '"python-api"', "entrypoint": '"app:app"'}
+    fields[field] = value
+    _write_pyproject(
+        project_dir, f"[tool.{table}]\napp_mode = {fields['app_mode']}\nentrypoint = {fields['entrypoint']}\n"
+    )
+    result = runner.invoke(cli, [command, "pyproject", str(project_dir)])
+    assert result.exit_code != 0
+    assert f"[tool.{table}]" in result.output
+    assert not warnings
+
+
+@pytest.mark.parametrize("table", ["posit.connect", "rsconnect"])
+def test_pyproject_non_table_names_selected_table(project_dir, table):
+    from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
+
+    _write_pyproject(project_dir, f'[tool]\n{table} = "not a table"\n')
+    with pytest.raises(InvalidPyprojectConfigError, match=rf"\[tool\.{re.escape(table)}\] is not a TOML table"):
+        read_tool_rsconnect(project_dir / "pyproject.toml")
+
+
+@pytest.mark.parametrize("body", ['[tool]\nposit = "x"', '[tool.posit]\nconnect = "x"'])
+def test_pyproject_posit_non_table(project_dir, body):
+    from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
+
+    _write_pyproject(project_dir, body)
+    table = "[tool.posit.connect]" if "connect" in body else "[tool.posit]"
+    with pytest.raises(InvalidPyprojectConfigError) as excinfo:
+        read_tool_rsconnect(project_dir / "pyproject.toml")
+    assert f"{table} is not a TOML table" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_pyproject_posit_without_connect_is_ignored(project_dir, legacy):
+    from rsconnect.pyproject import InvalidPyprojectConfigError, read_tool_rsconnect
+
+    body = '[tool.posit]\nother = "value"\n[tool.posit.another]\nsetting = true\n'
+    if legacy:
+        body += '[tool.rsconnect]\napp_mode = "python-api"\nentrypoint = "app:app"\n'
+    _write_pyproject(project_dir, body)
+    if legacy:
+        assert read_tool_rsconnect(project_dir / "pyproject.toml")["entrypoint"] == "app:app"
+    else:
+        with pytest.raises(InvalidPyprojectConfigError, match="section is missing"):
+            read_tool_rsconnect(project_dir / "pyproject.toml")
