@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. [#955](https://github.com/posit-dev/rsconnect-python/pull/955)
+
 ## [1.33.2] - 2026-11-10
 
 ### Fixed
@@ -952,6 +958,7 @@ rsconnect deploy notebook \
 - first release
 
 
+[Unreleased]: https://github.com/posit-dev/rsconnect-python/compare/1.33.2...HEAD
 [1.33.2]: https://github.com/posit-dev/rsconnect-python/compare/1.33.1...1.33.2
 [1.33.1]: https://github.com/posit-dev/rsconnect-python/compare/1.33.0...1.33.1
 [1.33.0]: https://github.com/posit-dev/rsconnect-python/compare/1.32.0...1.33.0
