@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Iterator
 from unittest import mock
@@ -45,4 +46,16 @@ def oauth_refresh_lock_in_tmp(tmp_path_factory: pytest.TempPathFactory) -> Itera
     """Keep the OAuth refresh lock file out of the user's real config directory."""
     path = str(tmp_path_factory.getbasetemp() / "oauth-refresh.lock")
     with mock.patch("rsconnect.oauth._refresh_lock_path", return_value=path):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def no_version_check() -> Iterator[None]:
+    """Keep the background PyPI version check out of tests.
+
+    On a release version the check runs in a thread during every deploy, and
+    httpretty's fake sockets share sent data across threads, so its PyPI request
+    can replace the body of a mocked request. `test_version_check.py` re-enables it.
+    """
+    with mock.patch.dict(os.environ, {"RSCONNECT_DISABLE_VERSION_CHECK": "1"}):
         yield
