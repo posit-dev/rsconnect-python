@@ -86,7 +86,7 @@ class TestEnvironment(TestCase):
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
-            assert result.filename == "requirements-rsconnect.txt"
+            assert result.filename == "requirements-connect.txt"
             assert result.contents.endswith("foo==1.0\nbar>=2.0\n")
             assert result.source == "derived_file"
 
@@ -105,7 +105,7 @@ class TestEnvironment(TestCase):
         expected = Environment.from_dict(
             dict(
                 contents=result.contents,
-                filename="requirements-rsconnect.txt",
+                filename="requirements-connect.txt",
                 locale=result.locale,
                 package_manager="pip",
                 pip=result.pip,
@@ -361,14 +361,14 @@ def test_uv_lock_export(tmp_path, monkeypatch, fallback, lock_location):
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     (project_dir / "pyproject.toml").write_text(
-        "[project]\nname='demo'\nversion='0.0.0'\nrequires-python='>=3.11.3'\n"
+        "[project]\nname='demo'\nversion='0.0.0'\nrequires-python='>=3.8'\n"
         "dependencies=['aiofiles==24.1.0','annotated-doc==0.0.4','annotated-types==0.7.0']\n",
         encoding="utf-8",
     )
     (project_dir / "uv.lock").write_text(
         """version = 1
 revision = 3
-requires-python = ">=3.11.3"
+requires-python = ">=3.8"
 
 [[package]]
 name = "aiofiles"
@@ -429,6 +429,7 @@ requires-dist = [
     env_dir = project_dir / ".venv"
     subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
     python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    monkeypatch.setenv("UV_PYTHON", str(python))
     if fallback:
         monkeypatch.setenv("PATH", os.path.dirname(uv_path))
         monkeypatch.setattr(uv, "find_uv_bin", missing_bundled_uv)
@@ -443,7 +444,7 @@ requires-dist = [
     }[lock_location]
     env = Environment.create_python_environment(dirname, requirements_file=lock_file, python=str(python))
 
-    assert env.filename == "requirements-rsconnect.txt"
+    assert env.filename == "requirements-connect.txt"
     assert "aiofiles==24.1.0" in env.contents
     assert "annotated-doc==0.0.4" in env.contents
     assert "annotated-types==0.7.0" in env.contents

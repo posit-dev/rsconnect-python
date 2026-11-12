@@ -103,7 +103,7 @@ def test_snapshot_conflicts_and_preserves_user_files(tmp_path, command):
         'app_mode = "python-api"\nentrypoint = "app:app"\nrequirements_file = "missing.txt"\n'
     )
     (tmp_path / "requirements.txt").write_text("owned==1\n")
-    generated = tmp_path / "requirements-rsconnect.txt"
+    generated = tmp_path / "requirements-connect.txt"
     generated.write_text("user-owned\n")
     runner = CliRunner()
     result = runner.invoke(cli, ["write-manifest", command, "-g", "-r", "other.txt", str(tmp_path)])
@@ -170,6 +170,25 @@ def test_lock_validation_reports_missing_offline_metadata(tmp_path, monkeypatch)
     assert result.exit_code != 0
     assert "validate or export uv.lock offline" in result.output
     assert "uv cache" in result.output
+    assert "uv.lock is stale" not in result.output
+
+
+def test_lock_validation_reports_missing_compatible_interpreter(tmp_path, monkeypatch):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "example"\nversion = "1.0"\nrequires-python = ">=9999"\ndependencies = []\n'
+    )
+    (tmp_path / "uv.lock").write_text(
+        'version = 1\nrequires-python = ">=9999"\n'
+        '[[package]]\nname = "example"\nversion = "1.0"\nsource = { virtual = "." }\n'
+    )
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", str(tmp_path / "empty-pythons"))
+    monkeypatch.setenv("UV_PYTHON_PREFERENCE", "only-managed")
+    result = CliRunner().invoke(cli, ["write-manifest", "api", str(tmp_path)])
+    assert result.exit_code != 0
+    assert "No interpreter found" in result.output
+    assert "requires-python" in result.output
+    assert "uv python install <version>" in result.output
     assert "uv.lock is stale" not in result.output
 
 

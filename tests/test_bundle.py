@@ -404,19 +404,19 @@ class TestBundle(TestCase):
                     "data.csv",
                     "dummy.ipynb",
                     "manifest.json",
-                    "requirements-rsconnect.txt",
+                    "requirements-connect.txt",
                 ],
             )
 
-            reqs = tar.extractfile("requirements-rsconnect.txt").read()
+            reqs = tar.extractfile("requirements-connect.txt").read()
 
             # these are the dependencies declared in our setup.py
             self.assertIn(b"six", reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
-            # don't check requirements-rsconnect.txt since we don't know the checksum
-            del manifest["files"]["requirements-rsconnect.txt"]
+            # don't check requirements-connect.txt since we don't know the checksum
+            del manifest["files"]["requirements-connect.txt"]
 
             # also don't check locale value, just require it be present
             del manifest["locale"]
@@ -444,7 +444,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements-rsconnect.txt",
+                            "package_file": "requirements-connect.txt",
                         },
                     },
                     "environment": {
@@ -623,11 +623,11 @@ class TestBundle(TestCase):
                     "_quarto.yml",
                     "manifest.json",
                     "myquarto.qmd",
-                    "requirements-rsconnect.txt",
+                    "requirements-connect.txt",
                 ],
             )
 
-            reqs = tar.extractfile("requirements-rsconnect.txt").read()
+            reqs = tar.extractfile("requirements-connect.txt").read()
             self.assertIsNotNone(reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
@@ -643,7 +643,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements-rsconnect.txt",
+                            "package_file": "requirements-connect.txt",
                             "version": mock.ANY,
                         },
                     },
@@ -651,7 +651,7 @@ class TestBundle(TestCase):
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
-                        "requirements-rsconnect.txt": {"checksum": mock.ANY},
+                        "requirements-connect.txt": {"checksum": mock.ANY},
                     },
                 },
             )
@@ -732,11 +732,11 @@ class TestBundle(TestCase):
                     "about.qmd",
                     "index.qmd",
                     "manifest.json",
-                    "requirements-rsconnect.txt",
+                    "requirements-connect.txt",
                 ],
             )
 
-            reqs = tar.extractfile("requirements-rsconnect.txt").read()
+            reqs = tar.extractfile("requirements-connect.txt").read()
             self.assertIsNotNone(reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
@@ -755,7 +755,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements-rsconnect.txt",
+                            "package_file": "requirements-connect.txt",
                             "version": mock.ANY,
                         },
                     },
@@ -767,7 +767,7 @@ class TestBundle(TestCase):
                         "_quarto.yml": {"checksum": mock.ANY},
                         "index.qmd": {"checksum": mock.ANY},
                         "about.qmd": {"checksum": mock.ANY},
-                        "requirements-rsconnect.txt": {"checksum": mock.ANY},
+                        "requirements-connect.txt": {"checksum": mock.ANY},
                     },
                 },
             )

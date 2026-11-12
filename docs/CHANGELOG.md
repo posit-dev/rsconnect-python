@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by `uv.lock`, static `pyproject.toml` dependencies, and `requirements.txt`. Lockfiles are validated offline; generated requirements are kept separately from user-managed sources.
+- Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by `uv.lock`, static `pyproject.toml` dependencies, and `requirements.txt`. Lockfiles are validated offline; generated requirements are kept in `requirements-connect.txt` separately from user-managed sources.
 
 ### Fixed
 

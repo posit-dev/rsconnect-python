@@ -333,7 +333,9 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
                 raise EnvironmentException(f"uv.lock is stale; run `uv lock` and retry. {detail}")
             raise EnvironmentException(
                 f"Could not validate or export uv.lock offline: {detail}. "
-                "Prepare the lock and uv cache before retrying."
+                "Ensure uv can find a Python interpreter compatible with the project's requires-python "
+                "(for example, install one with `uv python install <version>` while online), "
+                "and prepare the lock and uv cache before retrying."
             )
 
         with open(output_path, mode="r", encoding="utf-8") as output_file:
