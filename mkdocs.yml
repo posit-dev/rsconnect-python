@@ -1,6 +1,10 @@
 site_name: 'rsconnect-python'
 copyright: Posit Software, PBC. All Rights Reserved
 
+exclude_docs: |
+  agents/
+  adr/
+
 markdown_extensions:
   - attr_list
   - mkdocs-click
@@ -56,6 +60,7 @@ nav:
         - remove: commands/remove.md
         - set-default: commands/set-default.md
       - system: commands/system.md
+      - token: commands/token.md
       - version: commands/version.md
       - write-manifest: commands/write-manifest.md
 

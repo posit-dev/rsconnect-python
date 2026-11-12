@@ -122,7 +122,7 @@ from .bundle import (
 )
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
-from .environment import Environment, PackageInstaller, fake_module_file_from_directory
+from .environment import Environment, PackageInstaller, fake_module_file_from_directory, which_python
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
 from .json_web_token import (
@@ -138,6 +138,7 @@ from .models import (
     AppMode,
     AppModes,
     BuildStatus,
+    ContentGuidParamType,
     ContentGuidWithBundle,
     ContentGuidWithBundleParamType,
     KeyValueParamType,
@@ -292,13 +293,27 @@ def preflight_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
+def _resolve_guid_option(new: Optional[bool], app_id: Optional[str], guid: Optional[str]) -> Optional[str]:
+    """Fold --guid into the app_id that the deploy plumbing understands."""
+    if guid is None:
+        return app_id
+    if app_id:
+        raise click.UsageError("Specify only one of --guid or --app-id.")
+    if new:
+        raise click.UsageError("Specify only one of --new or --guid.")
+    return guid
+
+
 def _validate_preflight_options(ctx: click.Context) -> None:
     params = ctx.params
     if params["new"] and params["app_id"]:
         raise click.UsageError("Specify only one of --new or --app-id.")
+    _resolve_guid_option(params["new"], params["app_id"], params["guid"])
     if params["runtime"] == "nodejs":
         if params["fix"]:
             raise click.UsageError("--fix applies only to Python projects; Node.js metadata is left unchanged.")
+        if params["python"]:
+            raise click.UsageError("--python applies only to --runtime python.")
     elif params["node"]:
         raise click.UsageError("--node requires --runtime nodejs.")
 
@@ -379,7 +394,7 @@ def _start_cloud_device_login(params: dict[str, Any]) -> dict[str, Any]:
     from .device_login import start_cloud_login
 
     if params.get("client_id") or params.get("client_secret"):
-        raise RSConnectException("--no-wait cannot be combined with service account credentials.")
+        raise RSConnectException("--no-wait cannot be combined with client credentials.")
     ctx = click.get_current_context()
     account = validation.effective_connect_cloud_account(ctx, params.get("account"))
     if not account:
@@ -512,7 +527,7 @@ def connect_cloud_args(func: Callable[P, T]) -> Callable[P, T]:
     The target is selected either with `--server connect.posit.cloud`, mirroring
     how shinyapps.io is selected with `--server shinyapps.io`, or with the
     equivalent `--connect-cloud` shorthand. The remaining options supply the
-    service account credential used for non-interactive login.
+    client credentials used for non-interactive login.
     """
 
     @click.option(
@@ -525,13 +540,13 @@ and takes precedence over a CONNECT_SERVER environment variable.",
     @click.option(
         "--client-id",
         envvar="CONNECT_CLOUD_CLIENT_ID",
-        help="The Posit Connect Cloud service account client ID, for non-interactive \
+        help="The client ID of Posit Connect Cloud client credentials, for non-interactive \
 authentication. (Also settable via CONNECT_CLOUD_CLIENT_ID environment variable.)",
     )
     @click.option(
         "--client-secret",
         envvar="CONNECT_CLOUD_CLIENT_SECRET",
-        help="The Posit Connect Cloud service account client secret, for non-interactive \
+        help="The client secret of Posit Connect Cloud client credentials, for non-interactive \
 authentication. (Also settable via CONNECT_CLOUD_CLIENT_SECRET environment variable.)",
     )
     @functools.wraps(func)
@@ -711,13 +726,22 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help=(
             "Force a new deployment, even if there is saved metadata from a "
-            "previous deployment. Cannot be used with --app-id."
+            "previous deployment. Cannot be used with --guid or --app-id."
         ),
+    )
+    @click.option(
+        "--guid",
+        type=ContentGuidParamType(),
+        help="GUID of an existing Connect content item to replace. Cannot be used with --new or --app-id.",
     )
     @click.option(
         "--app-id",
         "-a",
-        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+        help=(
+            "ID of an existing Connect Cloud or shinyapps.io application to replace. "
+            "For Posit Connect, use --guid (--app-id also accepts a Connect content GUID). "
+            "Cannot be used with --new."
+        ),
     )
     @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
     @click.option(
@@ -735,19 +759,25 @@ def publish_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help=(
             "Don't access the deployed content to verify that it started correctly. "
-            "Implies activating the new bundle immediately rather than verifying it first."
+            "Implies activating the new bundle immediately rather than verifying it first. "
+            "Rendered and static content is never verified."
         ),
     )
     @click.option(
         "--draft",
         is_flag=True,
         help=(
-            "Deploy the application as a draft and verify it, but do not activate it. "
+            "Deploy the application as a draft and verify it (unless it is rendered or static content), "
+            "but do not activate it. "
             "The previous bundle will continue to be served until the draft is published."
         ),
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
+        guid = cast(Optional[str], kwargs.pop("guid"))
+        kwargs["app_id"] = _resolve_guid_option(
+            cast(Optional[bool], kwargs.get("new")), cast(Optional[str], kwargs.get("app_id")), guid
+        )
         return func(*args, **kwargs)
 
     return wrapper
@@ -866,8 +896,8 @@ def cli(future: bool):
     are needed.
 
     For Posit Connect Cloud, the server ('connect.posit.cloud') and account are needed.
-    Credentials come from an interactive browser login, or from a service account
-    client ID and secret for non-interactive use.
+    Credentials come from an interactive browser login, or from client
+    credentials (a client ID and secret) for non-interactive use.
     """
     global future_enabled
     future_enabled = future
@@ -925,7 +955,7 @@ def _connect_cloud_login(
 ) -> api.ConnectCloudServer:
     """Authenticate against Posit Connect Cloud and return the resulting server.
 
-    Uses the OAuth client credentials grant when a service account credential is
+    Uses the OAuth client credentials grant when client credentials are
     supplied, and the interactive device code flow otherwise. The server is built
     before logging in because its URL decides which environment's auth host to
     log in against: an explicitly typed staging API URL must not authenticate
@@ -941,8 +971,8 @@ def _connect_cloud_login(
     if client_id or client_secret:
         if not (client_id and client_secret):
             raise RSConnectException(
-                "Both --client-id and --client-secret are required to authenticate with a "
-                "Posit Connect Cloud service account. Omit both to log in interactively."
+                "Both --client-id and --client-secret are required to authenticate with "
+                "Posit Connect Cloud client credentials. Omit both to log in interactively."
             )
         tokens = connect_cloud_auth.login_client_credentials(client_id, client_secret, server.environment)
     else:
@@ -1255,7 +1285,7 @@ def list_servers(verbose: int):
                 if server.get("connect_cloud_account_name"):
                     click.echo("    Posit Connect Cloud account: %s" % server["connect_cloud_account_name"])
                     if server.get("connect_cloud_client_id"):
-                        click.echo("    Service account client ID: %s" % server["connect_cloud_client_id"])
+                        click.echo("    Client ID: %s" % server["connect_cloud_client_id"])
                     access, _, client_secret = connect_cloud_auth.credentials_from_keyring(
                         server["url"], server["name"]
                     )
@@ -1352,9 +1382,19 @@ def details(
 @click.argument("directory", default=".", type=click.Path(exists=True))
 @click.option("--fix", is_flag=True, help="For new content without a constraint, create a suggested .python-version.")
 @click.option("--new", is_flag=True, help="Check a new content item even when a deployment record exists.")
-@click.option("--app-id", "-a", help="Check an existing content item by ID or GUID.")
+@click.option(
+    "--guid",
+    type=ContentGuidParamType(),
+    help="Check an existing content item by GUID. Cannot be used with --new or --app-id.",
+)
+@click.option("--app-id", "-a", help="Check an existing content item by GUID. Prefer --guid.")
 @click.option("--runtime", type=click.Choice(["python", "nodejs"]), default="python", show_default=True)
 @click.option("--node", type=click.Path(exists=True, dir_okay=False), help="Node.js executable for --runtime nodejs.")
+@click.option(
+    "--python",
+    type=click.Path(exists=True),
+    help="Path to the Python interpreter whose version is checked. Defaults to the project environment.",
+)
 @cli_exception_handler
 @preflight_exception_handler
 @click.pass_context
@@ -1363,9 +1403,11 @@ def preflight(
     directory: str,
     fix: bool,
     new: bool,
+    guid: Optional[str],
     app_id: Optional[str],
     runtime: str,
     node: Optional[str],
+    python: Optional[str],
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1380,6 +1422,7 @@ def preflight(
     validation.require_posix("Deployment preflight")
     logger.log(VERBOSE, "Checking %s runtime availability.", runtime)
     _validate_preflight_options(ctx)
+    app_id = _resolve_guid_option(new, app_id, guid)
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
@@ -1398,7 +1441,7 @@ def preflight(
 
         result = run_node_preflight(ce, directory, node)
     else:
-        result = run_preflight(ce, directory, fix)
+        result = run_preflight(ce, directory, fix, python)
     click.echo(json.dumps(result))
     if result["status"] == "incompatible":
         sys.exit(3)
@@ -1822,6 +1865,101 @@ def logout(
     click.echo('Logged out from "%s".' % (name or server))
 
 
+# `token` exits with this when the user has to log in again: the server has no
+# stored OAuth credentials, or it rejected them. Same code as `gh` uses.
+TOKEN_EXIT_LOGIN_REQUIRED = 4
+
+
+@cli.command(
+    short_help="Print an OAuth access token for a Posit Connect server.",
+    help=(
+        "Print the OAuth access token stored by 'rsconnect login' for a Posit Connect server, so other tools "
+        "can make API requests as you with 'Authorization: Bearer <token>'.\n\n"
+        "The token is printed as is, without contacting the server. When the server rejects it with a 401, "
+        "run the command again with --refresh to get a new one, then retry the request. Concurrent refreshes "
+        "are safe: if another process has already refreshed, its token is printed.\n\n"
+        "Only tokens from 'rsconnect login' are printed, never API keys. The command never prompts.\n\n"
+        "Output: the bare token, or with --format json an object with the keys access_token, token_type "
+        '("Bearer"), and server. Nothing is printed on stdout on failure.\n\n'
+        "Exit status: 0 on success; 4 when you need to log in again (no stored OAuth credentials, or the "
+        "server rejected them); 1 for other errors, such as an unreachable server."
+    ),
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
+@click.option("--server", "-s", envvar="CONNECT_SERVER", help="The URL of the Posit Connect server.")
+@click.option("--refresh", is_flag=True, help="Get a new access token, after the server rejected the current one.")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    show_default=True,
+    help="Print the bare token, or a JSON object.",
+)
+@click.pass_context
+def token(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    refresh: bool,
+    output_format: str,
+):
+    from .oauth import (
+        InvalidClientError,
+        InvalidGrantError,
+        NotLoggedInError,
+        refresh_stored_tokens,
+        stored_tokens,
+    )
+
+    # Name the login command the way the user invoked this one, which differs
+    # when another CLI mounts these commands (e.g. `posit connect token`).
+    login_command = "%s login" % ctx.command_path.rsplit(" ", 1)[0]
+
+    def fail(message: str, exit_code: int = 1) -> Never:
+        click.secho("Error: %s" % message, fg="bright_red", err=True)
+        sys.exit(exit_code)
+
+    def login_required(message: str) -> Never:
+        fail("%s Run '%s' to log in." % (message, login_command), TOKEN_EXIT_LOGIN_REQUIRED)
+
+    try:
+        server_data = server_store.resolve(name, server)
+    except RSConnectException as exc:
+        fail(exc.message)
+    if not server_data.from_store or not server_data.url:
+        if not server:
+            fail("Specify a server with -s/--server or -n/--name.")
+        login_required("No saved credentials for %s." % server)
+    url = server_data.url
+    client_id = server_data.oauth_client_id
+    if not client_id:
+        login_required('Server "%s" was not added with OAuth login.' % server_data.name)
+
+    try:
+        access_token, _ = stored_tokens(url, server_data.name)
+        if refresh or not access_token:
+            access_token = refresh_stored_tokens(
+                url,
+                client_id,
+                server_data.name,
+                bool(server_data.insecure),
+                server_data.ca_data,
+                rejected_access_token=access_token,
+            )
+    except NotLoggedInError:
+        login_required("No OAuth credentials are stored for %s." % url)
+    except (InvalidGrantError, InvalidClientError):
+        login_required("%s rejected the stored OAuth credentials." % url)
+    except RSConnectException as exc:
+        fail(exc.message)
+
+    if output_format == "json":
+        click.echo(json.dumps({"access_token": access_token, "token_type": "Bearer", "server": url}))
+    else:
+        click.echo(access_token)
+
+
 def _get_names_to_check(file_or_directory: str) -> list[str]:
     """
     A function to determine a set files to look for in getting information about a
@@ -1891,7 +2029,7 @@ def info(file: str):
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
         "notebook, voila, quarto. Writes a pyproject.toml "
-        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "with a [tool.posit.connect] section, creates a uv-managed virtualenv, "
         "and prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
@@ -1970,6 +2108,41 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
         warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
 
 
+# deploy notebook parameters that only affect a source bundle's Python or R environment.
+# A static notebook bundle contains only the rendered HTML, so they have no effect.
+_STATIC_NOTEBOOK_IGNORED_PARAMS = (
+    "requirements_file",
+    "force_generate",
+    "package_installer",
+    "override_python_version",
+    "image",
+    "disable_env_management",
+    "env_management_py",
+    "env_management_r",
+    "exclude_renv",
+)
+
+
+def _warn_on_options_ignored_by_static_notebook(ctx: click.Context, extra_files: tuple[str, ...]) -> None:
+    """Warn about deploy notebook options and extra files that --static ignores."""
+    ignored_options = [
+        next(opt for opt in param.opts if opt.startswith("--"))
+        for param in ctx.command.params
+        if param.name in _STATIC_NOTEBOOK_IGNORED_PARAMS
+        and validation.get_parameter_source_name_from_ctx(param.name, ctx) not in ("DEFAULT", "<source unknown>")
+    ]
+    if ignored_options:
+        warn_user(
+            "    Warning: --static deploys only the rendered HTML, so these options have no effect: %s"
+            % ", ".join(ignored_options)
+        )
+    if extra_files:
+        warn_user(
+            "    Warning: --static deploys only the rendered HTML, so these extra files are not included: %s"
+            % ", ".join(extra_files)
+        )
+
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -2001,15 +2174,15 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -2096,16 +2269,24 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
-    environment = Environment.create_python_environment(
-        base_dir,
-        requirements_file=requirements_file,
-        app_file=file,
-        python=python,
-        override_python_version=override_python_version,
-        package_manager=package_installer,
-    )
-    r_environment = None if exclude_renv else REnvironment.create(base_dir)
+    python_interpreter: Optional[str] = None
+    environment: Optional[Environment] = None
+    r_environment: Optional[REnvironment] = None
+    if static:
+        # The notebook is rendered locally and the bundle holds only the HTML, so Connect
+        # never builds an environment for it. Only an interpreter to run nbconvert is needed.
+        _warn_on_options_ignored_by_static_notebook(ctx, extra_files)
+        python_interpreter = which_python(python, base_dir)
+    else:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        environment = Environment.create_python_environment(
+            base_dir,
+            requirements_file=requirements_file,
+            python=python,
+            override_python_version=override_python_version,
+            package_manager=package_installer,
+        )
+        r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2136,16 +2317,17 @@ def deploy_notebook(
     ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
-    if app_mode == AppModes.STATIC:
-        assert environment.python_interpreter is not None
+    if static:
+        assert python_interpreter is not None
         ce.make_bundle(
             make_notebook_html_bundle,
             file,
-            environment.python_interpreter,
+            python_interpreter,
             hide_all_input,
             hide_tagged_input,
         )
     else:
+        assert environment is not None
         ce.make_bundle(
             make_notebook_source_bundle,
             file,
@@ -2159,11 +2341,7 @@ def deploy_notebook(
             r_environment=r_environment,
         )
     ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2203,15 +2381,15 @@ def deploy_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -2333,11 +2511,7 @@ def deploy_voila(
         r_environment=r_environment,
         multi_notebook=multi_notebook,
     ).deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2441,11 +2615,7 @@ def deploy_manifest(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2548,11 +2718,7 @@ def deploy_bundle(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2561,7 +2727,7 @@ def deploy_bundle(
     short_help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
-        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "a pyproject.toml with a [tool.posit.connect] table specifying app_mode and entrypoint. "
         "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
@@ -2578,7 +2744,7 @@ def deploy_bundle(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
     ),
@@ -2737,7 +2903,7 @@ def deploy_pyproject(
             "r_environment": r_environment,
         }
     else:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2775,11 +2941,7 @@ def deploy_pyproject(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -2792,7 +2954,7 @@ def deploy_pyproject(
         "Connect will regularly poll the repository for updates."
         "\n\n"
         "This command creates a new git-backed content item. To update an existing git-backed "
-        "content item, use the --app-id option with the content's GUID."
+        "content item, use the --guid option with the content's GUID."
     ),
 )
 @server_args
@@ -2919,15 +3081,15 @@ def deploy_git(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help=(
-        "Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed."
-    ),
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3023,7 +3185,9 @@ def deploy_quarto(
             environment = Environment.create_python_environment(
                 base_dir,
                 requirements_file=requirements_file,
+                python=python,
                 override_python_version=override_python_version,
+                package_manager=package_installer,
             )
 
     # R/Quarto content can use renv regardless of the Quarto engine, so detect it
@@ -3080,11 +3244,7 @@ def deploy_quarto(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3192,11 +3352,7 @@ def deploy_tensorflow(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3335,11 +3491,7 @@ def deploy_html(
         .save_deployed_info()
         .emit_task_log()
     )
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3419,15 +3571,15 @@ def generate_deploy_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
-        ),
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",
@@ -3587,11 +3739,7 @@ def generate_deploy_python(
         ce.save_deployed_info()
         ce.emit_task_log()
 
-        if not no_verify:
-            ce.verify_deployment()
-            if not draft and ce.supports_verify_before_activate:
-                # The draft bundle verified successfully, so activate it.
-                ce.activate_deployment().emit_task_log()
+        ce.verify_and_activate(draft, no_verify)
         ce.emit_content_url()
 
     return deploy_app
@@ -3753,11 +3901,7 @@ def deploy_nodejs(
     ce.save_deployed_info()
     ce.emit_task_log()
 
-    if not no_verify:
-        ce.verify_deployment()
-        if not draft and ce.supports_verify_before_activate:
-            # The draft bundle verified successfully, so activate it.
-            ce.activate_deployment().emit_task_log()
+    ce.verify_and_activate(draft, no_verify)
     ce.emit_content_url()
 
 
@@ -3808,13 +3952,15 @@ def write_manifest():
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -3886,7 +4032,6 @@ def write_manifest_notebook(
             requirements_file=requirements_file,
             python=python,
             override_python_version=override_python_version,
-            app_file=file,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
@@ -3930,13 +4075,15 @@ def write_manifest_notebook(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4009,7 +4156,7 @@ def write_manifest_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("Checking arguments"):
-        base_dir = dirname(path)
+        base_dir = path if isdir(path) else dirname(path)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -4022,7 +4169,6 @@ def write_manifest_voila(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
-            app_file=path,
             package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(base_dir)
@@ -4088,13 +4234,15 @@ def write_manifest_voila(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect package installed.",
+    help="Path to Python interpreter whose environment should be used.",
 )
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from the detected environment."),
+    help=(
+        "Python version Connect should use instead of the version from the detected environment, as "
+        "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+    ),
 )
 @click.option(
     "--force-generate",
@@ -4217,7 +4365,7 @@ def write_manifest_quarto(
     short_help="Create a manifest.json file from a project's pyproject.toml.",
     help=(
         "Create a manifest.json file for later deployment, for content described by a project's "
-        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] "
         "table specifying app_mode and entrypoint. This will also write the environment file the "
         'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
         "itself the requirements source. Designed as the write-manifest partner for projects "
@@ -4233,7 +4381,7 @@ def write_manifest_quarto(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
     ),
@@ -4293,7 +4441,7 @@ def write_manifest_pyproject(
         AppModes.SHINY_QUARTO,
     )
     if app_mode not in api_modes and app_mode not in entrypoint_manifest_modes:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     with cli_feedback("Checking arguments"):
         # The bundle.py writers put manifest.json in different places: API modes
@@ -4511,13 +4659,15 @@ def generate_write_manifest_python(
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help="Path to Python interpreter whose environment should be used. "
-        + "The Python environment must have the rsconnect-python package installed.",
+        help="Path to Python interpreter whose environment should be used.",
     )
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from the detected environment."),
+        help=(
+            "Python version Connect should use instead of the version from the detected environment, as "
+            "major.minor.patch or major.minor. major.minor requires Posit Connect 2025.03.0 or later."
+        ),
     )
     @click.option(
         "--force-generate",
@@ -4743,13 +4893,13 @@ def _write_framework_manifest(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
-    resolved_requirements_file = resolve_requirements_file(directory, requirements_file, False)
     with cli_feedback("Inspecting Python environment"):
         environment = Environment.create_python_environment(
             directory,
-            requirements_file=resolved_requirements_file,
+            requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
+            package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(directory)
 
@@ -4771,7 +4921,7 @@ def _write_framework_manifest(
             r_environment,
         )
 
-    generate_env = resolved_requirements_file is None
+    generate_env = requirements_file is None
     if environment_file_exists and not generate_env:
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
@@ -5594,7 +5744,6 @@ def remove_content_build(
     metavar="TEXT",
     help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 # todo: --format option (json, text)
 @click.pass_context
 def list_content_build(

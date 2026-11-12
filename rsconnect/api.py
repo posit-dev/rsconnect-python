@@ -86,7 +86,6 @@ from .models import (
     BootstrapOutputDTO,
     BuildOutputDTO,
     BundleMetadata,
-    ContentItemV0,
     ContentItemV1,
     DeleteInputDTO,
     DeleteOutputDTO,
@@ -106,6 +105,7 @@ from .models import (
     ServerSettings,
     TaskStatusV1,
     UserRecord,
+    is_content_guid,
 )
 from .snowflake import generate_jwt, get_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
@@ -492,6 +492,16 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
         return False
 
 
+# App modes that Connect renders (or serves as-is) at deploy time rather than running
+# as a process. See RSConnectExecutor.is_rendered_content.
+_RENDERED_APP_MODES = {
+    AppModes.RMD.name(),
+    AppModes.STATIC.name(),
+    AppModes.JUPYTER_NOTEBOOK.name(),
+    AppModes.STATIC_QUARTO.name(),
+}
+
+
 def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
     """
     Check if the server supports deploying a bundle as a draft and activating it
@@ -553,77 +563,29 @@ class RSConnectClient(BearerTokenHTTPServer):
         return isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
 
     def _attempt_token_refresh(self) -> bool:
-        from .oauth import (
-            InvalidClientError,
-            discover_oauth_metadata,
-            keyring_delete_tokens,
-            keyring_get_tokens,
-            keyring_store_token,
-            refresh_access_token,
-            register_client,
-        )
-        from .metadata import ServerStore
+        from .oauth import InvalidClientError, NotLoggedInError, refresh_stored_tokens
 
         server = cast(RSConnectServer, self._server)
-
-        # The keyring is where a login stores its tokens; the entry's own fields are
-        # the fallback for a machine without one.
-        _, refresh_token = keyring_get_tokens(server.url)
-        if not refresh_token:
-            entry = ServerStore().saved_entry(server.server_name, server.url)
-            if entry:
-                refresh_token = entry.get("oauth_refresh_token")  # type: ignore[assignment]
-        if not refresh_token:
-            return False
-
         try:
-            metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
-            token_response = refresh_access_token(
-                metadata, server.oauth_client_id or "", refresh_token, server.insecure, server.ca_data
+            new_access = refresh_stored_tokens(
+                server.url,
+                server.oauth_client_id or "",
+                server.server_name,
+                server.insecure,
+                server.ca_data,
+                rejected_access_token=server.oauth_access_token,
             )
+        except NotLoggedInError:
+            return False
         except InvalidClientError:
-            # Client was deleted server-side; clear stale tokens and re-register
-            keyring_delete_tokens(server.url)
-            store = ServerStore()
-            entry = store.saved_entry(server.server_name, server.url)
-            if entry:
-                entry_name = str(entry.get("name", server.server_name or server.url))
-                store.update_oauth_tokens(entry_name, None, None, None)
-            try:
-                metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
-                new_client_id = register_client(metadata, server.url, server.insecure, server.ca_data)
-                server.oauth_client_id = new_client_id
-                if entry:
-                    entry["oauth_client_id"] = new_client_id  # type: ignore[typeddict-unknown-key]
-                    store._set(entry_name, entry)  # type: ignore[possibly-undefined]
-                logger.warning("OAuth client was re-registered; please run `rsconnect login` again.")
-            except Exception as exc:
-                logger.warning(
-                    "OAuth client re-registration failed (%s). Please run `rsconnect login` again." % type(exc).__name__
-                )
+            logger.warning("The OAuth client was deleted on the server; please run `rsconnect login` again.")
             return False
         except Exception as exc:
             logger.warning("OAuth token refresh failed (%s)." % type(exc).__name__)
             return False
 
-        new_access = token_response["access_token"]
-        new_refresh = token_response.get("refresh_token", refresh_token)
-        expires_in = token_response.get("expires_in")
-        import time
-
-        new_expiry = time.time() + expires_in if expires_in else None
-
         self.authorization(f"Bearer {new_access}")
         server.oauth_access_token = new_access
-
-        stored = keyring_store_token(server.url, new_access, new_refresh)
-        if not stored:
-            store = ServerStore()
-            entry = store.saved_entry(server.server_name, server.url)
-            if entry:
-                entry_name = str(entry.get("name", server.server_name or server.url))
-                store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
-
         return True
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
@@ -639,7 +601,11 @@ class RSConnectClient(BearerTokenHTTPServer):
         return response
 
     def bootstrap(self) -> BootstrapOutputDTO | HTTPResponse:
-        response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/experimental/bootstrap"))
+        response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/bootstrap"))
+        # Connect versions before 2024.05.0 only provide the experimental endpoint. The server version
+        # is not exposed to unauthenticated requests, so fall back based on the 404 instead.
+        if isinstance(response, HTTPResponse) and response.status == 404:
+            response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/experimental/bootstrap"))
         # TODO: The place where bootstrap() is called expects a JSON object if the response is successfule, and a
         # HTTPResponse if it is not; then it handles the error. This is different from the other methods, and probably
         # should be changed in the future. For this to work, we will _not_ call .handle_bad_response() here at present.
@@ -678,11 +644,6 @@ class RSConnectClient(BearerTokenHTTPServer):
         """Return Node.js availability and publishability information."""
         response = self.get("v1/server_settings/nodejs")
         return cast(typing.Dict[str, Any], self._server.handle_bad_response(response))
-
-    def app_get(self, app_id: str) -> ContentItemV0:
-        response = cast(Union[ContentItemV0, HTTPResponse], self.get(f"applications/{app_id}"))
-        response = self._server.handle_bad_response(response)
-        return response
 
     def add_environment_vars(self, content_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
@@ -738,22 +699,6 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_content_by_id(self, id: str) -> ContentItemV1:
-        """
-        Get content by ID, which can be either a numeric ID (legacy) or GUID.
-
-        :param app_id: Either a numeric ID (e.g., "1234") or GUID (e.g., "abc-def-123")
-        :return: ContentItemV1 data
-        """
-        # Check if it looks like a GUID (contains hyphens)
-        if "-" in str(id):
-            return self.content_get(id)
-        else:
-            # Legacy numeric ID - get v0 content first to get GUID
-            app_v0 = self.app_get(id)
-            # TODO: deprecation warning here
-            return self.content_get(app_v0["guid"])
-
     def content_create(self, name: str) -> ContentItemV1:
         response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
         response = self._server.handle_bad_response(response)
@@ -765,10 +710,10 @@ class RSConnectClient(BearerTokenHTTPServer):
         """
         Upload a bundle to the server.
 
-        :param app_id: Application ID
+        :param content_guid: Content GUID
         :param tarball: Bundle tarball file object
         :param metadata: Optional metadata dictionary (e.g., git metadata)
-        :return: ContentItemV0 with bundle information
+        :return: BundleMetadata for the uploaded bundle
         """
         if metadata:
             # Use multipart form upload when metadata is provided
@@ -966,7 +911,7 @@ class RSConnectClient(BearerTokenHTTPServer):
         Creates or updates a git-backed content item in Posit Connect. Connect will clone
         the repository and regularly poll it for updates.
 
-        :param app_id: Existing content ID/GUID to update, or None to create new content
+        :param app_id: Existing content GUID to update, or None to create new content
         :param name: Name for the content item (used if creating new)
         :param repository: URL of the git repository (https:// only)
         :param branch: Branch to deploy from
@@ -982,11 +927,10 @@ class RSConnectClient(BearerTokenHTTPServer):
             app = self.content_create(name)
         else:
             try:
-                app = self.get_content_by_id(app_id)
+                app = self.content_get(app_id)
             except RSConnectException as e:
-                raise RSConnectException(
-                    f"{e} Try setting the --new flag or omit --app-id to create new content."
-                ) from e
+                # app_id may have come from either --guid or --app-id (publish_args folds them together).
+                raise RSConnectException(f"{e} Omit --guid/--app-id to create new content instead.") from e
 
         app_guid = app["guid"]
 
@@ -1182,8 +1126,7 @@ class RSConnectClient(BearerTokenHTTPServer):
         else:
             # assume content exists. if it was deleted then Connect will raise an error
             try:
-                # app_id could be a numeric ID (legacy) or GUID
-                app = self.get_content_by_id(app_id)
+                app = self.content_get(app_id)
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
@@ -1459,6 +1402,7 @@ class RSConnectExecutor:
             infer_target=(path is not None) if infer_target is None else infer_target,
         )
         self.setup_client(cookies)
+        self.validate_explicit_app_id()
 
     @classmethod
     def fromConnectServer(
@@ -1514,6 +1458,22 @@ class RSConnectExecutor:
             subdirectory=subdirectory,
             polling=polling,
         )
+
+    def validate_explicit_app_id(self) -> None:
+        """Check an explicit --guid or --app-id against the kind of server it targets."""
+        if self.app_id is None:
+            return
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+            if not is_content_guid(str(self.app_id)):
+                raise RSConnectException(
+                    "--app-id must be a content GUID; numeric content IDs are no longer supported. "
+                    "Find the GUID in the content's Info panel in Connect or with `rsconnect content search`."
+                )
+        elif self.ctx is not None and self.ctx.params.get("guid"):
+            raise RSConnectException(
+                "--guid applies only to Posit Connect. "
+                "Use --app-id to target existing Connect Cloud or shinyapps.io content."
+            )
 
     def output_overlap_header(self, previous: bool) -> bool:
         if self.logger and not previous:
@@ -2678,6 +2638,9 @@ for shinyapps.io. See command help for further details."
             # validate_connect_cloud_server, so without this check a viewer role is
             # caught only by the deploy -- after the source record has been removed.
             if not service.can_publish_to(account):
+                sso_error = service.sso_blocked_error(account)
+                if sso_error:
+                    raise sso_error
                 raise RSConnectException(
                     'You have access to the Posit Connect Cloud account "%s" but do not have '
                     "permission to publish to it, so the next deploy from this directory would "
@@ -2739,12 +2702,33 @@ for shinyapps.io. See command help for further details."
             self._draft_deploy_supported = server_supports_draft_deploy(server_version)
         return self._draft_deploy_supported
 
+    @property
+    def is_rendered_content(self) -> bool:
+        """Whether the bundle is rendered or static content rather than a running app.
+
+        Connect renders a document when its bundle is deployed and renders it again
+        when a draft is activated, so verifying a draft first would render it twice.
+        Requesting the rendered output also can't catch anything the deploy task's
+        render didn't already, and Connect reverts to the previous bundle if an
+        activating render fails.
+        """
+        app_mode = self.bundle_manifest().get("metadata", {}).get("appmode")
+        return app_mode in _RENDERED_APP_MODES
+
+    def should_verify(self, no_verify: bool) -> bool:
+        """Whether to verify the deployed content.
+
+        Rendered content is never verified, even as a draft: requesting a draft's
+        rendered output only serves what the deploy task already rendered.
+        """
+        return not no_verify and not self.is_rendered_content
+
     def should_deploy_as_draft(self, draft: bool, no_verify: bool) -> bool:
         """Whether the bundle should be deployed without activating it.
 
         An explicit ``--draft`` always deploys a draft. Otherwise we deploy a draft only
         when we are going to verify it before activating, which requires server support.
-        With ``--no-verify`` we activate immediately.
+        With ``--no-verify``, or for rendered content, we activate immediately.
         """
         if draft:
             if not isinstance(self.client, RSConnectClient):
@@ -2756,9 +2740,20 @@ for shinyapps.io. See command help for further details."
                 # would be the opposite of what the user asked for, so fail loudly.
                 raise RSConnectException("Deploying as a draft requires Posit Connect 2025.06.0 or later.")
             return True
-        if no_verify:
+        if not self.should_verify(no_verify):
             return False
         return self.supports_verify_before_activate
+
+    def verify_and_activate(self, draft: bool, no_verify: bool):
+        """Verify the deployed content, then activate it if it was deployed as a
+        draft only so that it could be verified first."""
+        if not self.should_verify(no_verify):
+            return self
+        self.verify_deployment()
+        if not draft and self.deployed_info and self.deployed_info.get("draft_url"):
+            # The draft bundle verified successfully, so activate it.
+            self.activate_deployment().emit_task_log()
+        return self
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):
@@ -2847,10 +2842,10 @@ for shinyapps.io. See command help for further details."
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
                 # to get this from the remote.
-                if isinstance(self.remote_server, RSConnectServer):
+                if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
                     try:
                         with RSConnectClient(self.remote_server) as client:
-                            content = client.get_content_by_id(app_id)
+                            content = client.content_get(app_id)
                             existing_app_mode = AppModes.get_by_ordinal(content["app_mode"], True)
                     except RSConnectException as e:
                         raise RSConnectException(
@@ -3319,6 +3314,8 @@ class ConnectCloudAccount(TypedDict):
     id: str
     name: str
     permissions: NotRequired[list[str]]
+    role: NotRequired[Optional[str]]
+    sso_enabled: NotRequired[bool]
 
 
 class ConnectCloudAccountSearchResults(TypedDict):
@@ -3420,7 +3417,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
 
-        Uses the client credentials grant when a service account credential is
+        Uses the client credentials grant when client credentials are
         stored, and the refresh token otherwise. Returns whether a new token was
         obtained.
 
@@ -3447,8 +3444,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exc).__name__)
                 return False
             raise RSConnectException(
-                "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
-                "rotated. Create a new one at %s/identity/credentials, then save it with `%s`."
+                "The Posit Connect Cloud client credentials were rejected — they have been revoked or "
+                "rotated. Create new ones at %s/identity/credentials, then save them with `%s`."
                 % (server.urls().auth, self._add_command(service_account=True))
             ) from exc
         except InvalidGrantError as exc:
@@ -3545,7 +3542,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         # A refresh persists the new tokens and nothing else. Every other field
         # is taken from the saved entry alone — never from this run, which may
         # be publishing to a different account on the same login, or carrying
-        # service-account credentials from the environment that must not be
+        # client credentials from the environment that must not be
         # grafted onto an interactively created entry. `rsconnect add` is what
         # changes those. This is how the R client's withTokenRefreshRetry()
         # writes back too. ServerStore.set writes the file itself, and omits
@@ -3650,6 +3647,9 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "skipping the publish permission check." % name
             )
         if not self._can_publish(account):
+            sso_error = self._sso_blocked_error(self._server, account)
+            if sso_error:
+                raise sso_error
             raise RSConnectException(
                 'You have access to the Posit Connect Cloud account "%s" but do not have '
                 "permission to publish to it. Ask an account administrator for the publisher role." % name
@@ -3677,6 +3677,29 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         if permissions is None:
             return True
         return _CONNECT_CLOUD_PUBLISH_PERMISSION in permissions
+
+    @staticmethod
+    def _sso_blocked_error(server: ConnectCloudServer, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+        """The error for client credentials that SSO keeps from publishing to this account, if that is
+        why the account cannot be published to.
+
+        The server does not grant content:create on SSO accounts to tokens without
+        a recent SSO login, which client credentials never have.
+        """
+        if not (
+            server.client_id
+            and server.client_secret
+            and account.get("sso_enabled")
+            and account.get("role") in ("owner", "admin", "publisher")
+        ):
+            return None
+        name = account.get("name")
+        return RSConnectException(
+            'The Posit Connect Cloud account "%s" requires single sign-on (SSO). '
+            "Client credentials cannot publish to accounts that require SSO. Log in interactively "
+            "with SSO instead: run `rsconnect add --connect-cloud -n <nickname> -A %s` without "
+            "client credentials." % (name, name)
+        )
 
     def get_content(self, content_id: str) -> ConnectCloudContent:
         response = cast(Union[ConnectCloudContent, HTTPResponse], self.get(f"/contents/{content_id}"))
@@ -4100,6 +4123,12 @@ class ConnectCloudService:
         """
         return ConnectCloudClient._can_publish(account)
 
+    def sso_blocked_error(self, account: ConnectCloudAccount) -> Optional[RSConnectException]:
+        """The error get_account_by_name raises when SSO keeps client credentials from
+        publishing to this account, or None when that is not why publishing is refused.
+        """
+        return ConnectCloudClient._sso_blocked_error(self._server, account)
+
     def content_url(self, content_id: str, account_id: Optional[str]) -> str:
         """Build the browsable URL for a content item.
 
@@ -4306,8 +4335,7 @@ def emit_task_log(
     with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         result = connect_server.handle_bad_response(result)
-        # Get content (handles both numeric IDs and GUIDs)
-        content = client.get_content_by_id(app_id)
+        content = client.content_get(app_id)
         app_url = content["dashboard_url"]
         return (app_url, *result)
 

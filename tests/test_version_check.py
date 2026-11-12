@@ -1,317 +1,248 @@
+import importlib
 import json
-import os
+import platform
+import sys
 import threading
 import time
-from unittest.mock import patch
 
-import click
 import click.testing
+import httpretty
 import pytest
 
-from rsconnect.exception import RSConnectException
-from rsconnect.actions import cli_feedback
-from rsconnect.main import cli, deploy
-from rsconnect.version_check import (
-    RSCONNECT_DISABLE_VERSION_CHECK,
-    BackgroundVersionCheck,
-    _is_check_disabled,
-    _is_dev_version,
-    _read_cache,
-    _update_message,
-    _write_cache,
-)
+import rsconnect
+import rsconnect.version_check
+from rsconnect.main import cli
+from rsconnect.metadata import config_dirname
 
 
-def _cli_runner() -> click.testing.CliRunner:
-    """Build a CliRunner with stdout/stderr kept separate across Click versions.
+@pytest.fixture
+def release_cli(monkeypatch, tmp_path):
+    # The checkout normally has a development version, which skips the check.
+    with monkeypatch.context() as env:
+        env.setattr(rsconnect, "VERSION", "1.0.0")
+        env.setenv("HOME", str(tmp_path))
+        env.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        env.setenv("APPDATA", str(tmp_path))
+        env.delenv("RSCONNECT_DISABLE_VERSION_CHECK", raising=False)
+        importlib.reload(rsconnect.version_check)
+        yield tmp_path
+    importlib.reload(rsconnect.version_check)
 
-    Click < 8.2 needs ``mix_stderr=False`` to expose ``result.stderr``; Click >= 8.2
-    removed the argument and always separates the streams.
-    """
+
+def _runner():
     try:
         return click.testing.CliRunner(mix_stderr=False)
     except TypeError:
         return click.testing.CliRunner()
 
 
-# A throwaway deploy subcommand so we can exercise the deploy group's result
-# callback without contacting a real server.
-@deploy.command(name="_version_check_test_noop", hidden=True)
-def _version_check_test_noop():
-    click.echo("noop-ran")
+def _deploy():
+    # A real deploy that fails quickly, while still running the exit callback.
+    return _runner().invoke(cli, ["deploy", "html", "nonexistent-file.html"])
 
 
-# A deploy subcommand that fails the way real ones do: cli_feedback catches the
-# exception and calls sys.exit(1). The upgrade hint should still print.
-@deploy.command(name="_version_check_test_fail", hidden=True)
-def _version_check_test_fail():
-    with cli_feedback(""):
-        raise RSConnectException("boom")
+def _pypi(info):
+    httpretty.register_uri(
+        httpretty.GET,
+        "https://pypi.org/pypi/rsconnect-python/json",
+        body=json.dumps({"info": info}),
+        content_type="application/json",
+    )
 
 
-class TestIsCheckDisabled:
-    def test_unset(self):
-        with patch.dict(os.environ, {}, clear=True):
-            assert _is_check_disabled() is False
+def _cache_path():
+    from pathlib import Path
 
-    @pytest.mark.parametrize("value", ["1", "true", "yes", "TRUE", "Yes"])
-    def test_disabled(self, value):
-        with patch.dict(os.environ, {RSCONNECT_DISABLE_VERSION_CHECK: value}):
-            assert _is_check_disabled() is True
-
-    @pytest.mark.parametrize("value", ["0", "no", "false", ""])
-    def test_not_disabled(self, value):
-        with patch.dict(os.environ, {RSCONNECT_DISABLE_VERSION_CHECK: value}):
-            assert _is_check_disabled() is False
+    return Path(config_dirname()) / "version_check.json"
 
 
-class TestIsDevVersion:
-    def test_dev_version(self):
-        assert _is_dev_version("1.29.1.dev10+g68dd1934d.d20260622") is True
-
-    def test_release_version(self):
-        assert _is_dev_version("1.29.1") is False
-
-    def test_prerelease_version(self):
-        assert _is_dev_version("1.29.1rc1") is False
-
-    def test_unparseable(self):
-        assert _is_dev_version("NOTSET") is True
+def _write_cache(**data):
+    path = _cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"checked_at": time.time(), **data}))
 
 
-class TestUpdateMessage:
-    @patch("rsconnect.version_check.VERSION", "1.28.0")
-    def test_update_available(self):
-        message = _update_message("1.29.0")
-        assert message is not None
-        assert "1.29.0" in message
-        assert "pip install --upgrade rsconnect-python" in message
+@httpretty.activate(allow_net_connect=False)
+def test_incompatible_latest_is_reported_and_cached(release_cli):
+    _pypi({"version": "99.0.0", "requires_python": ">=100"})
+    result = _deploy()
+    python_version = platform.python_version()
+    assert result.exit_code != 0
+    assert "99.0.0" not in result.stdout
+    assert "99.0.0" in result.stderr
+    assert ">=100" in result.stderr
+    assert f"Python {python_version}" in result.stderr
+    assert '--python ">=100" rsconnect-python' in result.stderr
+    assert "pip install --upgrade" not in result.stderr
+    assert json.loads(_cache_path().read_text())["requires_python"] == ">=100"
 
-    @patch("rsconnect.version_check.VERSION", "1.29.0")
-    def test_up_to_date(self):
-        assert _update_message("1.29.0") is None
-
-    @patch("rsconnect.version_check.VERSION", "1.30.0")
-    def test_ahead_of_pypi(self):
-        assert _update_message("1.29.0") is None
-
-    def test_none_latest(self):
-        assert _update_message(None) is None
-
-    @patch("rsconnect.version_check.VERSION", "1.28.0")
-    def test_unparseable_latest(self):
-        assert _update_message("not-a-version") is None
+    httpretty.reset()
+    cached = _deploy()
+    assert '--python ">=100" rsconnect-python' in cached.stderr
+    assert not httpretty.latest_requests()
 
 
-class TestCache:
-    def test_round_trip(self, tmp_path):
-        path = str(tmp_path / "version_check.json")
-        with patch("rsconnect.version_check._cache_path", return_value=path):
-            _write_cache("1.29.0")
-            assert _read_cache() == (True, "1.29.0")
-
-    def test_caches_none(self, tmp_path):
-        path = str(tmp_path / "version_check.json")
-        with patch("rsconnect.version_check._cache_path", return_value=path):
-            _write_cache(None)
-            assert _read_cache() == (True, None)
-
-    def test_missing_cache(self, tmp_path):
-        path = str(tmp_path / "nope.json")
-        with patch("rsconnect.version_check._cache_path", return_value=path):
-            assert _read_cache() == (False, None)
-
-    def test_expired_cache(self, tmp_path):
-        # A stale entry is reported as not-fresh but still surfaces its value, so
-        # the upgrade hint can use it while a refresh runs in the background.
-        path = tmp_path / "version_check.json"
-        path.write_text(json.dumps({"checked_at": time.time() - 999999, "latest": "1.29.0"}))
-        with patch("rsconnect.version_check._cache_path", return_value=str(path)):
-            assert _read_cache() == (False, "1.29.0")
-
-    def test_corrupt_cache(self, tmp_path):
-        path = tmp_path / "version_check.json"
-        path.write_text("{not json")
-        with patch("rsconnect.version_check._cache_path", return_value=str(path)):
-            assert _read_cache() == (False, None)
+@pytest.mark.parametrize("has_receipt", [True, False])
+@httpretty.activate(allow_net_connect=False)
+def test_incompatible_notice_install_command(release_cli, monkeypatch, has_receipt):
+    monkeypatch.setattr(sys, "prefix", str(release_cli))
+    if has_receipt:
+        (release_cli / "uv-receipt.toml").touch()
+    _pypi({"version": "99.0.0", "requires_python": ">=100, <200"})
+    force = "" if has_receipt else "--force "
+    assert f'uv tool install {force}--python ">=100, <200" rsconnect-python' in _deploy().stderr
 
 
-class TestBackgroundVersionCheck:
-    @patch("rsconnect.version_check._read_cache", return_value=(True, "2.0.0"))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_fresh_cache_avoids_thread(self, _disabled, _dev, mock_read):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        assert checker._thread is None  # No network when the cache is fresh.
-        message = checker.get_warning_message()
-        assert message is not None
-        assert "2.0.0" in message
+@pytest.mark.parametrize("requirement", [">=3.0", None, "not a specifier", 42])
+@httpretty.activate(allow_net_connect=False)
+def test_compatible_or_unknown_requirement_keeps_upgrade_hint(release_cli, requirement):
+    _pypi({"version": "99.0.0", "requires_python": requirement})
+    result = _deploy()
+    assert (
+        "A new version of rsconnect-python is available: 99.0.0 (you have 1.0.0).\n"
+        "Upgrade with: pip install --upgrade rsconnect-python"
+    ) in result.stderr
+    assert "uv tool install" not in result.stderr
 
-    @patch("rsconnect.version_check._write_cache")
-    @patch("rsconnect.version_check._fetch_latest_version", return_value="3.0.0")
-    @patch("rsconnect.version_check._read_cache", return_value=(False, "2.0.0"))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_stale_cache_warns_from_cache_and_refreshes(self, _disabled, _dev, _read, mock_fetch, mock_write):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        # A stale cached value is enough to warn synchronously, so the message is
-        # available without waiting on the network (it names either the stale
-        # 2.0.0 or the freshly fetched 3.0.0, depending on thread timing -- both
-        # are newer than the running version, so either is a valid hint).
-        assert checker._thread is not None
-        message = checker.get_warning_message()
-        assert message is not None
-        # The fetch also refreshes the cache for the next invocation.
-        checker._thread.join()
-        mock_fetch.assert_called_once()
-        mock_write.assert_called_once_with("3.0.0")
 
-    @patch("rsconnect.version_check._write_cache")
-    @patch("rsconnect.version_check._fetch_latest_version", return_value="2.0.0")
-    @patch("rsconnect.version_check._read_cache", return_value=(False, None))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_absent_cache_blocks_briefly_and_warns(self, _disabled, _dev, _read, mock_fetch, mock_write):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        # With no cached value, the in-flight fetch is given a bounded chance to
-        # finish so even a cold cache (first run, or an ephemeral environment)
-        # can still warn this run -- not just refresh for the next one.
-        assert checker._thread is not None
-        message = checker.get_warning_message()
-        assert message is not None
-        assert "2.0.0" in message
-        checker._thread.join()
-        mock_write.assert_called_once_with("2.0.0")
+@httpretty.activate(allow_net_connect=False)
+def test_missing_requirement_in_pypi_response_is_compatible(release_cli):
+    _pypi({"version": "99.0.0"})
+    assert "pip install --upgrade rsconnect-python" in _deploy().stderr
+    assert json.loads(_cache_path().read_text())["requires_python"] is None
 
-    @patch("rsconnect.version_check._read_cache", return_value=(True, None))
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_no_warning_when_cache_has_no_version(self, _disabled, _dev, _read):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        assert checker.get_warning_message() is None
 
-    @patch("rsconnect.version_check._PYPI_TIMEOUT_SECONDS", 0.2)
-    @patch("rsconnect.version_check._write_cache")
-    @patch("rsconnect.version_check._read_cache", return_value=(False, None))
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_hung_fetch_does_not_block_beyond_timeout(self, _disabled, _dev, _read, _write):
-        # A fetch that never returns (network black hole) must not hang the CLI:
-        # the cold-cache wait is bounded by _PYPI_TIMEOUT_SECONDS, after which the
-        # run proceeds with no hint and the daemon thread is left behind.
-        release = threading.Event()
+@httpretty.activate(allow_net_connect=False)
+def test_legacy_cache_refreshes_without_blocking(release_cli):
+    _write_cache(latest="98.0.0")
+    request_started = threading.Event()
+    allow_response = threading.Event()
+    response_sent = threading.Event()
 
-        def hung_fetch():
-            release.wait(timeout=30)  # Far longer than the join timeout.
-            return "99.0.0"
+    def response(request, uri, headers):
+        request_started.set()
+        allow_response.wait(timeout=5)
+        response_sent.set()
+        return (200, headers, json.dumps({"info": {"version": "99.0.0", "requires_python": ">=100"}}))
 
+    httpretty.register_uri(httpretty.GET, "https://pypi.org/pypi/rsconnect-python/json", body=response)
+    try:
+        result = _deploy()
+        assert "98.0.0" in result.stderr
+        assert "pip install --upgrade rsconnect-python" in result.stderr
+        assert request_started.wait(timeout=2)
+    finally:
+        allow_response.set()
+    assert response_sent.wait(timeout=2)
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
         try:
-            with patch("rsconnect.version_check._fetch_latest_version", side_effect=hung_fetch):
-                checker = BackgroundVersionCheck()
-                checker.start()
-                assert checker._thread is not None
-                assert checker._thread.daemon  # Never blocks interpreter exit.
-                start = time.monotonic()
-                message = checker.get_warning_message()
-                elapsed = time.monotonic() - start
-            # Returned promptly (well under the 30s fetch) with no hint this run.
-            assert message is None
-            assert elapsed < 5
-        finally:
-            release.set()  # Let the background thread unwind.
-
-    @patch("rsconnect.version_check._read_cache")
-    @patch("rsconnect.version_check._is_dev_version", return_value=True)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_no_thread_for_dev_version(self, _disabled, _dev, mock_read):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        assert checker._thread is None
-        mock_read.assert_not_called()
-        assert checker.get_warning_message() is None
-
-    @patch("rsconnect.version_check._read_cache")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=True)
-    def test_no_thread_when_disabled(self, _disabled, _dev, mock_read):
-        checker = BackgroundVersionCheck()
-        checker.start()
-        assert checker._thread is None
-        mock_read.assert_not_called()
-        assert checker.get_warning_message() is None
+            data = json.loads(_cache_path().read_text())
+        except json.JSONDecodeError:
+            continue
+        if data.get("requires_python") == ">=100":
+            break
+        time.sleep(0.01)
+    assert data["latest"] == "99.0.0"
+    assert data["requires_python"] == ">=100"
+    assert "uv tool install" in _deploy().stderr
 
 
-class TestCLIIntegration:
-    @patch("rsconnect.version_check._read_cache", return_value=(True, "99.0.0"))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_warning_on_deploy_command_stderr(self, _disabled, _dev, _read):
-        runner = _cli_runner()
-        result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
-        assert result.exit_code == 0
-        # Use stdout (not output): in Click >= 8.2 result.output is the combined
-        # stream, while stdout stays stderr-free across Click versions.
-        assert "99.0.0" not in result.stdout
-        assert "99.0.0" in result.stderr
+@pytest.mark.parametrize("requirement", [">=3.0", ">=100"])
+@httpretty.activate(allow_net_connect=False)
+def test_disabled_suppresses_both_messages(release_cli, monkeypatch, requirement):
+    _write_cache(latest="99.0.0", requires_python=requirement)
+    monkeypatch.setenv("RSCONNECT_DISABLE_VERSION_CHECK", "true")
+    result = _deploy()
+    assert "99.0.0" not in result.stderr
+    assert "pip install --upgrade" not in result.stderr
+    assert "uv tool install" not in result.stderr
+    assert not httpretty.latest_requests()
 
-    @patch("rsconnect.version_check._read_cache", return_value=(True, "99.0.0"))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_warning_on_failed_deploy_command(self, _disabled, _dev, _read):
-        runner = _cli_runner()
-        result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
-        assert result.exit_code != 0
-        # The hint prints even though the deploy failed and exited non-zero.
-        assert "99.0.0" in result.stderr
 
-    @patch("rsconnect.version_check._write_cache")
-    @patch("rsconnect.version_check._read_cache", return_value=(False, None))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_warning_on_failed_deploy_with_cold_cache(self, _disabled, _dev, _read, _write):
-        # The original regression: a fast failure (missing requirements.txt, etc.)
-        # with no cache. The deploy raises and exits almost instantly, so a fetch
-        # with any real latency would lose the race -- the warning only prints
-        # because get_warning_message blocks briefly on the cold cache. The slow
-        # fetch below makes that race deterministic: without the blocking join the
-        # thread couldn't have set the version in time.
-        def slow_fetch():
-            time.sleep(0.3)
-            return "99.0.0"
+@httpretty.activate(allow_net_connect=False)
+def test_non_deploy_and_current_release_do_not_warn(release_cli):
+    _pypi({"version": "1.0.0", "requires_python": ">=100"})
+    result = _runner().invoke(cli, ["version"])
+    assert "99.0.0" not in result.stderr
+    assert not httpretty.latest_requests()
+    result = _deploy()
+    assert "uv tool install" not in result.stderr
+    assert "pip install --upgrade" not in result.stderr
 
-        runner = _cli_runner()
-        with patch("rsconnect.version_check._fetch_latest_version", side_effect=slow_fetch):
-            result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
-        assert result.exit_code != 0
-        assert "99.0.0" in result.stderr
 
-    @patch("rsconnect.version_check._read_cache", return_value=(True, None))
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_no_warning_when_current(self, _disabled, _dev, _read):
-        runner = _cli_runner()
-        result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
-        assert result.exit_code == 0
-        assert "new version" not in result.stderr
+@httpretty.activate(allow_net_connect=False)
+def test_expired_cache_refreshes(release_cli):
+    _write_cache(latest=None, requires_python=None, checked_at=time.time() - 90000)
+    _pypi({"version": "99.0.0", "requires_python": ">=100"})
+    assert "uv tool install" in _deploy().stderr
 
-    @patch("rsconnect.version_check._read_cache", return_value=(True, "99.0.0"))
-    @patch("rsconnect.version_check.VERSION", "1.0.0")
-    @patch("rsconnect.version_check._is_dev_version", return_value=False)
-    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_no_check_on_non_deploy_command(self, _disabled, _dev, _read):
-        runner = _cli_runner()
-        result = runner.invoke(cli, ["version"])
-        assert result.exit_code == 0
+
+@httpretty.activate(allow_net_connect=False)
+def test_cold_cache_waits_for_slow_response(release_cli):
+    def response(request, uri, headers):
+        time.sleep(0.2)
+        return (200, headers, json.dumps({"info": {"version": "99.0.0", "requires_python": ">=100"}}))
+
+    httpretty.register_uri(httpretty.GET, "https://pypi.org/pypi/rsconnect-python/json", body=response)
+    assert "uv tool install" in _deploy().stderr
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_failed_fetch_is_cached(release_cli):
+    httpretty.register_uri(httpretty.GET, "https://pypi.org/pypi/rsconnect-python/json", status=503, body="")
+    assert "pip install --upgrade" not in _deploy().stderr
+    assert json.loads(_cache_path().read_text())["latest"] is None
+    httpretty.reset()
+    assert "pip install --upgrade" not in _deploy().stderr
+    assert not httpretty.latest_requests()
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_development_release_skips_check(release_cli, monkeypatch):
+    monkeypatch.setattr(rsconnect, "VERSION", "1.0.0.dev1")
+    importlib.reload(rsconnect.version_check)
+    _write_cache(latest="99.0.0", requires_python=">=100")
+    assert "99.0.0" not in _deploy().stderr
+    assert not httpretty.latest_requests()
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_corrupt_cache_refreshes(release_cli):
+    path = _cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{invalid json")
+    _pypi({"version": "99.0.0", "requires_python": ">=100"})
+    assert "uv tool install" in _deploy().stderr
+
+
+@httpretty.activate(allow_net_connect=False)
+def test_cold_cache_wait_is_bounded(release_cli):
+    release_response = threading.Event()
+    request_started = threading.Event()
+
+    def response(request, uri, headers):
+        request_started.set()
+        release_response.wait(timeout=10)
+        return (200, headers, json.dumps({"info": {"version": "99.0.0", "requires_python": ">=100"}}))
+
+    httpretty.register_uri(httpretty.GET, "https://pypi.org/pypi/rsconnect-python/json", body=response)
+    try:
+        started = time.monotonic()
+        result = _deploy()
+        elapsed = time.monotonic() - started
+        assert request_started.is_set()
+        assert elapsed < 5
         assert "99.0.0" not in result.stderr
-        # The check never runs for non-deploy commands, so the cache isn't even read.
-        _read.assert_not_called()
+    finally:
+        release_response.set()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        try:
+            if "requires_python" in json.loads(_cache_path().read_text()):
+                break
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        time.sleep(0.01)
+    else:
+        pytest.fail("Background refresh did not finish")

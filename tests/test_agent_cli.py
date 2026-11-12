@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import os
+import sys
 from unittest.mock import Mock, patch
 
 import click
@@ -151,7 +152,7 @@ def test_finish_selected_login_and_pending_json(command, kind):
         (["login", "-n", "target", "--finish", "--timeout", "-1"], "Invalid value"),
         (["add", "-n", "target", "--no-wait"], "require --connect-cloud"),
         (["add", "--connect-cloud", "--no-wait"], "requires --account"),
-        (["add", "--connect-cloud", "-A", "team", "--client-id", "id", "--no-wait"], "service account"),
+        (["add", "--connect-cloud", "-A", "team", "--client-id", "id", "--no-wait"], "client credentials"),
         (["add", "--connect-cloud", "-A", "team", "-s", "https://other.example", "--no-wait"], "cannot be combined"),
         (["add", "--connect-cloud", "-A", "team", "--insecure", "--no-wait"], "Posit Connect options"),
         (["add", "--connect-cloud", "-A", "team", "--api-key", "synthetic", "--no-wait"], "Posit Connect options"),
@@ -197,7 +198,7 @@ def test_preflight_json_and_exit_status(tmp_path, status, exit_code):
             result = cli_runner().invoke(cli, ["preflight", "-n", "target", str(tmp_path), "--fix", "--new"])
     assert result.exit_code == exit_code, result.output
     assert json.loads(result.stdout) == expected
-    check.assert_called_once_with(executor, str(tmp_path), True)
+    check.assert_called_once_with(executor, str(tmp_path), True, None)
     assert create.call_args.kwargs["path"] == str(tmp_path)
     assert create.call_args.kwargs["new"] is True
 
@@ -207,6 +208,32 @@ def test_preflight_new_and_explicit_content_are_exclusive():
     assert result.exit_code == 2
     assert result.stdout == ""
     assert "only one" in result.stderr
+
+
+def test_preflight_guid_targets_existing_content(tmp_path):
+    guid = "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"
+    executor = Mock()
+    executor.validate_server.return_value = executor
+    with patch("rsconnect.main.RSConnectExecutor", return_value=executor) as create:
+        with patch("rsconnect.preflight.run_preflight", return_value={"status": "ok", "changed_files": []}):
+            result = cli_runner().invoke(cli, ["preflight", "-n", "target", str(tmp_path), "--guid", guid])
+    assert result.exit_code == 0, result.output
+    assert create.call_args.kwargs["app_id"] == guid
+
+
+@pytest.mark.parametrize(
+    "arguments,message",
+    [
+        (["--guid", "1234"], "is not a content GUID"),
+        (["--new", "--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b"], "--new or --guid"),
+        (["--guid", "f0a1b2c3-d4e5-4f60-8a9b-0c1d2e3f4a5b", "--app-id", "other"], "--guid or --app-id"),
+    ],
+)
+def test_preflight_guid_usage_errors(tmp_path, arguments, message):
+    result = cli_runner().invoke(cli, ["preflight", str(tmp_path)] + arguments)
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert message in result.stderr
 
 
 def test_node_preflight_dispatch_and_incompatible_exit(tmp_path):
@@ -230,6 +257,7 @@ def test_node_preflight_dispatch_and_incompatible_exit(tmp_path):
     [
         (["--runtime", "nodejs", "--fix"], "--fix applies only to Python"),
         (["--runtime", "unsupported"], "Invalid value"),
+        (["--runtime", "nodejs", "--python", sys.executable], "--python applies only to --runtime python"),
     ],
 )
 def test_node_preflight_invalid_options(arguments, message):

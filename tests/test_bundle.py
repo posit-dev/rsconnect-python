@@ -4,6 +4,7 @@ import io
 import json
 import os
 import sys
+import subprocess
 import tarfile
 import tempfile
 from os.path import abspath, basename, dirname, join
@@ -12,6 +13,7 @@ from typing import Any
 from unittest import TestCase, mock
 
 import pytest
+import uv
 
 import rsconnect.bundle
 from rsconnect.bundle import (
@@ -70,6 +72,214 @@ def create_fake_quarto_rendered_output(target_dir, name):
     os.mkdir(files_dir)
     with open(join(files_dir, "resource.js"), "w") as fp:
         fp.write("// fake resource.js\n")
+
+
+@pytest.mark.parametrize("link_name", ["data.csv", ".venv/bin/python"])
+def test_api_bundle_reports_dangling_symlink(tmp_path, link_name):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    link = tmp_path / link_name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link.symlink_to("missing-target")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with pytest.raises(RSConnectException) as error:
+        make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], [])
+
+    assert str(link) in str(error.value)
+    assert "dangling symlink" in str(error.value)
+
+
+def test_api_bundle_keeps_valid_symlink(tmp_path):
+    (tmp_path / "app.py").write_text("app = object()\n")
+    (tmp_path / "requirements.txt").write_text("flask\n")
+    (tmp_path / "data.csv").write_bytes(b"data\n")
+    try:
+        (tmp_path / "data-link.csv").symlink_to("data.csv")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    with make_api_bundle(str(tmp_path), "app:app", AppModes.PYTHON_API, environment, [], []) as bundle:
+        with tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read())
+            assert manifest["files"]["data-link.csv"]["checksum"] == file_checksum(tmp_path / "data.csv")
+            assert tar.getmember("data-link.csv").isfile()
+            assert tar.extractfile("data-link.csv").read() == b"data\n"
+
+
+def make_symlink(link, target, *, directory=False):
+    try:
+        link.symlink_to(target, target_is_directory=directory)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are unavailable")
+
+
+def assert_regular_archive(tar):
+    assert all(not member.issym() and not member.islnk() for member in tar.getmembers())
+
+
+def test_linked_content_in_shiny_manifest_and_bundles(tmp_path):
+    from click.testing import CliRunner
+
+    from rsconnect.main import cli
+
+    app = tmp_path / "app"
+    app.mkdir()
+    source = tmp_path / "source.py"
+    source.write_bytes(b"app = object()\n")
+    data = tmp_path / "shared"
+    data.mkdir()
+    (data / "foo.csv").write_bytes(b"hello\n")
+    make_symlink(app / "app.py", source)
+    make_symlink(app / "data", data, directory=True)
+    make_symlink(data / "nested.csv", data / "foo.csv")
+    (app / "requirements.txt").write_text("shiny\n")
+    environment = Environment.create_python_environment(str(app))
+
+    result = CliRunner().invoke(cli, ["write-manifest", "shiny", str(app)])
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((app / "manifest.json").read_text())
+    for name, contents in {
+        "app.py": b"app = object()\n",
+        "data/foo.csv": b"hello\n",
+        "data/nested.csv": b"hello\n",
+    }.items():
+        assert manifest["files"][name]["checksum"] == rsconnect.bundle.buffer_checksum(contents)
+
+    bundles = [
+        make_api_bundle(str(app), "app:app", AppModes.PYTHON_SHINY, environment, [], []),
+        make_manifest_bundle(app / "manifest.json"),
+    ]
+    for bundle in bundles:
+        with bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            assert_regular_archive(tar)
+            for name, contents in {
+                "app.py": b"app = object()\n",
+                "data/foo.csv": b"hello\n",
+                "data/nested.csv": b"hello\n",
+            }.items():
+                assert tar.getmember(name).isfile()
+                assert tar.extractfile(name).read() == contents
+                bundled_manifest = json.loads(tar.extractfile("manifest.json").read())
+                assert bundled_manifest["files"][name]["checksum"] == rsconnect.bundle.buffer_checksum(contents)
+
+
+def test_linked_directory_loops_excludes_and_config(tmp_path, monkeypatch, caplog):
+    app = tmp_path / "app"
+    app.mkdir()
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "foo.csv").write_text("data")
+    make_symlink(shared / "loop", app, directory=True)
+    make_symlink(app / "data", shared, directory=True)
+    make_symlink(app / "other", shared, directory=True)
+    make_symlink(app / "ignored.csv", shared / "foo.csv")
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "credentials").write_text("secret")
+    make_symlink(app / "secret", config, directory=True)
+    make_symlink(app / "secret-file", config / "credentials")
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config))
+
+    files = rsconnect.bundle.create_file_list(str(app), [], ["data", "ignored.csv"])
+    assert files == [os.path.join("other", "foo.csv")]
+    assert "other/loop" in caplog.text.replace("\\", "/")
+    assert rsconnect.bundle.create_file_list(str(app), ["data/foo.csv"], ["data", "ignored.csv"]) == [
+        "data/foo.csv",
+        os.path.join("other", "foo.csv"),
+    ]
+    assert rsconnect.bundle.create_file_list(str(app), [], ["d*", "ignored.csv"]) == [os.path.join("other", "foo.csv")]
+
+
+def test_linked_directory_loop_with_case_alias(tmp_path, caplog):
+    app = tmp_path / "app"
+    app.mkdir()
+    case_alias = tmp_path / "APP"
+    if not case_alias.exists():
+        pytest.skip("requires a case-insensitive filesystem")
+    (app / "payload.txt").write_text("payload")
+    make_symlink(app / "loop", case_alias, directory=True)
+
+    assert rsconnect.bundle.create_file_list(str(app), [], []) == ["payload.txt"]
+    warnings = [record.getMessage() for record in caplog.records if "symlink loop" in record.getMessage()]
+    assert warnings == [f"Skipping directory symlink loop: {app / 'loop'}"]
+
+
+@pytest.mark.parametrize("config_name", ["custom-config", ".rsconnect-python"])
+def test_bundle_filters_config_case_aliases(tmp_path, monkeypatch, config_name):
+    app = tmp_path / "app"
+    app.mkdir()
+    config = tmp_path / config_name
+    config.mkdir()
+    case_alias = tmp_path / config_name.upper()
+    if not case_alias.exists():
+        pytest.skip("requires a case-insensitive filesystem")
+    (config / "nested").mkdir()
+    (config / "nested" / "credentials").write_text("SECRET")
+    make_symlink(app / "secret", case_alias, directory=True)
+    make_symlink(app / "secret-file", case_alias / "nested" / "credentials")
+    active_config = config if config_name == "custom-config" else tmp_path / "active-config"
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(active_config))
+
+    (app / "app.py").write_text("app = object()")
+    (app / "requirements.txt").write_text("flask\n")
+    environment = _make_test_environment()
+    extras = ["secret/nested/credentials", "secret-file"]
+    with make_api_bundle(str(app), "app:app", AppModes.PYTHON_API, environment, extras, []) as bundle:
+        members, manifest = _bundle_snapshot(bundle)
+
+    assert set(manifest["files"]) == {"app.py", "requirements.txt"}
+    assert set(members) == {"app.py", "requirements.txt", "manifest.json"}
+    assert b"SECRET" not in b"".join(members.values())
+    with pytest.raises(RSConnectException, match="inside the rsconnect-python configuration directory"):
+        rsconnect.bundle.create_file_list(str(case_alias / "nested"), [], [])
+
+
+def test_uppercase_reserved_name_on_case_sensitive_filesystem(tmp_path, monkeypatch):
+    app = tmp_path / "app"
+    app.mkdir()
+    uppercase_directory = app / ".RSCONNECT-PYTHON"
+    uppercase_directory.mkdir()
+    if (app / ".rsconnect-python").exists():
+        pytest.skip("requires a case-sensitive filesystem")
+    (uppercase_directory / "data.txt").write_text("safe")
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(tmp_path / "config"))
+
+    assert rsconnect.bundle.create_file_list(str(app), [], []) == [os.path.join(".RSCONNECT-PYTHON", "data.txt")]
+
+
+def test_notebook_and_bundle_class_dereference_links(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    notebook = tmp_path / "source.ipynb"
+    notebook.write_text('{"cells": []}')
+    data = tmp_path / "data.csv"
+    data.write_text("data")
+    make_symlink(app / "notebook.ipynb", notebook)
+    make_symlink(app / "data.csv", data)
+    make_symlink(app / "data-again.csv", data)
+    (app / "requirements.txt").write_text("notebook\n")
+    environment = Environment.create_python_environment(str(app))
+    bundle = rsconnect.bundle.Bundle()
+    bundle.add_file(str(app / "data.csv"))
+    bundle.add_file(str(app / "data-again.csv"))
+    bundle.add_file(str(app / "notebook.ipynb"))
+    bundles = [
+        make_notebook_source_bundle(
+            str(app / "notebook.ipynb"), environment, ["data.csv", "data-again.csv"], False, False
+        ),
+        bundle.to_file(str(app)),
+    ]
+    for archive in bundles:
+        with archive, tarfile.open(mode="r:gz", fileobj=archive) as tar:
+            assert_regular_archive(tar)
+            assert tar.extractfile("data.csv").read() == b"data"
+            assert tar.extractfile("data-again.csv").read() == b"data"
+            assert tar.extractfile("notebook.ipynb").read() == b'{"cells": []}'
 
 
 class TestBundle(TestCase):
@@ -3516,6 +3726,17 @@ def test_notebook_html_bundle_rejects_config_paths_before_conversion(tmp_path, m
     assert callback_calls == []
 
 
+def test_static_notebook_reports_missing_nbconvert_in_selected_environment(tmp_path):
+    environment_dir = tmp_path / "env"
+    subprocess.run([uv.find_uv_bin(), "venv", "--python", sys.executable, str(environment_dir)], check=True)
+    python = environment_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text("{}")
+
+    with pytest.raises(RSConnectException, match="nbconvert is not installed in the selected Python environment"):
+        make_notebook_html_bundle(str(notebook), str(python), hide_all_input=False, hide_tagged_input=False)
+
+
 def test_standalone_quarto_bundle_filters_config_extras(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
@@ -3950,6 +4171,32 @@ def make_generated_environment(contents: str) -> Environment:
     environment.contents = contents
     environment.source = "pip_freeze"
     return environment
+
+
+@pytest.mark.parametrize("requirement", ["-e .", "-e file:./local%20package"])
+@pytest.mark.parametrize("kind", ["notebook_bundle", "notebook_manifest", "voila_file"])
+def test_single_notebook_rejects_local_editable(tmp_path: Path, requirement: str, kind: str):
+    notebook = tmp_path / "notebook.ipynb"
+    notebook.write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    environment = make_generated_environment(f"{requirement}\n")
+
+    with pytest.raises(RSConnectException, match="Local editable dependencies are not included"):
+        if kind == "notebook_bundle":
+            make_notebook_source_bundle(str(notebook), environment, [], False, False)
+        elif kind == "notebook_manifest":
+            write_notebook_manifest_json(str(notebook), environment, AppModes.JUPYTER_NOTEBOOK, [], False, False)
+        else:
+            make_voila_bundle(str(notebook), None, [], [], True, environment)
+
+
+def test_voila_directory_includes_local_editable(tmp_path: Path):
+    (tmp_path / "notebook.ipynb").write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    (tmp_path / "setup.py").write_text("from setuptools import setup\nsetup()\n")
+    environment = make_generated_environment("-e .\n")
+
+    with make_voila_bundle(str(tmp_path), None, [], [], True, environment) as bundle:
+        with tarfile.open(fileobj=bundle, mode="r:gz") as tar:
+            assert "setup.py" in tar.getnames()
 
 
 def test_write_api_manifest_checksum_matches_environment_file(tmp_path: Path, windows_text_mode: None):

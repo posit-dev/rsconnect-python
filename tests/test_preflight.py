@@ -35,7 +35,7 @@ class Client(RSConnectClient):
     def python_settings(self) -> Any:
         return self.settings
 
-    def get_content_by_id(self, id: str) -> Any:
+    def content_get(self, id: str) -> Any:
         self.content_requests.append(id)
         return self.content.get(id, {})
 
@@ -92,8 +92,38 @@ def save_deployment_record(app_file: Path, app_id: str) -> None:
 
 @pytest.fixture(autouse=True)
 def preflight_environment(monkeypatch):
+    for variable in ("VIRTUAL_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setattr("rsconnect.preflight.platform.python_version", lambda: "3.12.2")
     monkeypatch.setattr("rsconnect.preflight.shutil.which", lambda _: "/usr/bin/quarto")
+
+
+def make_interpreter(path: Path, version: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!/bin/sh\necho {version}\n")
+    path.chmod(0o755)
+    return path
+
+
+def test_local_python_comes_from_project_environment(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.11.4")
+    executor, _, _ = make_executor(tmp_path, new=True)
+
+    result = run_preflight(executor, str(tmp_path), fix=True)
+
+    assert result["local_python"] == "3.11.4"
+    assert result["recommended_python"] == "3.11"
+    assert (tmp_path / ".python-version").read_text().strip() == "3.11"
+
+
+def test_explicit_python_overrides_project_environment(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.11.4")
+    explicit = make_interpreter(tmp_path / "other" / "python", "3.12.1")
+    executor, _, _ = make_executor(tmp_path, new=True)
+
+    result = run_preflight(executor, str(tmp_path), python=str(explicit))
+
+    assert result["local_python"] == "3.12.1"
 
 
 def test_metadata_precedence_and_explicit_constraint_are_preserved(tmp_path):
@@ -196,7 +226,7 @@ def test_incomplete_deployment_record_is_unknown_and_does_not_fix(tmp_path):
     assert result["status"] == "unknown"
     assert result["existing_content"]["exists"] is True
     assert any("no content ID" in warning for warning in result["warnings"])
-    assert any("--app-id" in action and "--new" in action for action in result["actions"])
+    assert any("--guid" in action and "--new" in action for action in result["actions"])
     assert not (tmp_path / ".python-version").exists()
 
     executor.new = True
@@ -548,7 +578,7 @@ def test_unreadable_redeploy_content_is_unknown_with_recovery_action(tmp_path, m
     def fail_read(_app_id: str):
         raise RSConnectException("content lookup failed", status=status_code)
 
-    monkeypatch.setattr(client, "get_content_by_id", fail_read)
+    monkeypatch.setattr(client, "content_get", fail_read)
     result = run_preflight(executor, str(tmp_path))
 
     assert result["status"] == "unknown"
@@ -700,9 +730,22 @@ def test_unpinned_local_version_mismatch_is_unknown_until_pin_applied(tmp_path, 
     result = run_preflight(executor, str(tmp_path))
 
     assert result["status"] == "unknown"
+    assert result["local_python_publishable"] is False
     assert result["recommended_python"] == "3.12"
     assert result["changed_files"] == []
     assert any("dependency compatibility has not been tested" in warning for warning in result["warnings"])
+
+
+def test_project_environment_with_missing_publishable_flags_is_unknown(tmp_path):
+    make_interpreter(tmp_path / ".venv" / "bin" / "python", "3.9.6")
+    executor, _, _ = make_executor(tmp_path, new=True, settings={"installations": [{"version": "3.12.8"}]})
+
+    result = run_preflight(executor, str(tmp_path))
+
+    assert result["local_python"] == "3.9.6"
+    assert result["status"] == "unknown"
+    assert result["local_python_publishable"] is None
+    assert any("publishable flag" in warning for warning in result["warnings"])
 
 
 def test_existing_python_version_pin_warns_when_local_python_does_not_match(tmp_path):

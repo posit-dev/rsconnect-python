@@ -99,6 +99,14 @@ def test_pyprojecttoml_python_requires(project_dir, expected):
     assert parse_pyproject_python_requires(pyproject_file) == expected
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_pyprojecttoml_python_requires_encoding(tmp_path, encoding):
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text('[project]\nname = "café"\nrequires-python = ">=3.8"\n', encoding=encoding)
+
+    assert parse_pyproject_python_requires(pyproject_file) == ">=3.8"
+
+
 @pytest.mark.parametrize(
     "project_dir, expected",
     [
