@@ -345,6 +345,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
         [project]
         name = "hello_app"
         version = "0.0.1"
+        dependencies = []
 
         [tool.{table}]
         app_mode = "{app_mode}"
@@ -465,6 +466,7 @@ def test_deploy_pyproject_uses_title_from_tool_rsconnect(
         [project]
         name = "hello_app"
         version = "0.0.1"
+        dependencies = []
 
         [tool.rsconnect]
         app_mode = "python-streamlit"
@@ -596,20 +598,28 @@ def test_deploy_pyproject_defaults_requirements_to_pyproject_toml(
     assert captured["requirements_file"] == "pyproject.toml"
 
 
-def test_deploy_pyproject_ignores_uv_lock_unless_requested(
+def test_deploy_pyproject_prefers_uv_lock(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """A ``uv.lock`` next to ``pyproject.toml`` does NOT auto-take over.
-
-    Implicitly preferring a lockfile would silently deploy stale pins if the
-    user edited ``pyproject.toml`` without re-running ``uv lock``. Users who
-    want lockfile reproducibility must opt in with ``-r uv.lock``.
-    """
+    """A lockfile takes precedence and is validated during inspection."""
     captured = _capture_environment(monkeypatch)
     _write_pyproject(project_dir, _REQ_PYPROJECT)
-    (project_dir / "uv.lock").write_text("# placeholder; presence must not change the default\n")
+    (project_dir / "uv.lock").write_text("# placeholder\n")
     runner.invoke(cli, ["deploy", "pyproject", str(project_dir), "-s", "http://x", "-k", "k"])
-    assert captured["requirements_file"] == "pyproject.toml"
+    assert captured["requirements_file"] == "uv.lock"
+
+
+def test_deploy_pyproject_force_generate_bypasses_sources(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT + '\nrequirements_file = "missing.txt"\n')
+    runner.invoke(cli, ["deploy", "pyproject", "-g", str(project_dir), "-s", "http://x", "-k", "k"])
+    assert captured["requirements_file"] is None
+    result = runner.invoke(
+        cli, ["deploy", "pyproject", "-g", "-r", "other.txt", str(project_dir), "-s", "http://x", "-k", "k"]
+    )
+    assert "cannot be combined" in result.output
 
 
 def test_deploy_pyproject_requirements_file_flag_overrides_default(

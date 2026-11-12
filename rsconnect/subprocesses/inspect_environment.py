@@ -100,12 +100,18 @@ def detect_environment(
     elif os.path.basename(requirements_file) == "pyproject.toml":
         result = pyproject_dependencies(dirname, requirements_file)
     else:
+        if os.path.basename(requirements_file) in ("poetry.lock", "Pipfile.lock", "pdm.lock"):
+            raise EnvironmentException(
+                f"Unsupported dependency source {requirements_file}. "
+                "Provide a requirements file, pyproject.toml, or uv.lock instead."
+            )
         file_result = output_file(dirname, requirements_file, "pip")
         if file_result is None:
             raise EnvironmentException(
                 "The requirements file '%s' was not found in '%s'. "
                 "Please create it or use --force-generate to use pip freeze." % (requirements_file, dirname)
             )
+        validate_requirements(file_result["contents"], requirements_file, dirname)
         result = file_result
 
     if result is not None:
@@ -187,6 +193,27 @@ def output_file(dirname: str, filename: str, package_manager: str):
         raise EnvironmentException("Error reading %s: %s" % (filename, str(exception)))
 
 
+def validate_requirements(contents: str, filename: str, dirname: str) -> None:
+    """Check requirement specifiers while leaving pip options and paths to pip."""
+    logical_lines = re.sub(r"\\\r?\n", " ", contents)
+    for number, raw_line in enumerate(logical_lines.splitlines(), 1):
+        line = re.split(r"\s+#", raw_line, maxsplit=1)[0].strip()
+        if not line or line.startswith(("#", "-", ".", "/", "file:", "http:", "https:", "git+", "hg+", "svn+", "bzr+")):
+            continue
+        if "${" in line or re.match(r"^[A-Za-z]:[\\/]", line) or os.path.exists(os.path.join(dirname, line)):
+            continue
+        requirement = re.split(r"\s+--(?:hash|config-settings)(?:=|\s)", line, maxsplit=1)[0]
+        if re.search(r"\.(?:whl|zip|tar\.gz|tar\.bz2|tgz)(?:\[.*\])?$", requirement):
+            continue
+        try:
+            Requirement(requirement)
+        except InvalidRequirement as err:
+            raise EnvironmentException(
+                f"Invalid requirement in {filename} near line {number}: {err}. "
+                "Fix the file or select another dependency source."
+            ) from err
+
+
 def pip_freeze(python: str, uv_path: str, pip_version: Optional[str], python_version: str):
     """Inspect the environment using `pip freeze`.
 
@@ -266,6 +293,11 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
 
     if not os.path.exists(lock_path):
         raise EnvironmentException("uv.lock not found: %s" % lock_filename)
+    if not os.path.isfile(os.path.join(os.path.dirname(lock_path), "pyproject.toml")):
+        raise EnvironmentException(
+            f"Cannot validate {lock_filename}: its companion pyproject.toml is missing. "
+            "Restore the project metadata or choose another dependency source."
+        )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = os.path.join(tmpdir, "requirements.txt.lock")
@@ -276,7 +308,7 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
                     "export",
                     "--format",
                     "requirements-txt",
-                    "--frozen",
+                    "--locked",
                     "--no-hashes",
                     "--no-annotate",
                     "--offline",
@@ -288,15 +320,23 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
                     output_path,
                 ],
                 cwd=os.path.dirname(lock_path),
-                stdout=sys.stderr,
-                stderr=sys.stderr,
+                capture_output=True,
+                text=True,
                 check=False,
             )
         except Exception as exception:
             raise EnvironmentException("Error during uv export: %s" % str(exception))
 
         if result.returncode != 0:
-            raise EnvironmentException("Error during uv export: exited with code %d" % result.returncode)
+            detail = result.stderr.strip()
+            if "lockfile" in detail.lower() and "needs to be updated" in detail.lower():
+                raise EnvironmentException(f"uv.lock is stale; run `uv lock` and retry. {detail}")
+            raise EnvironmentException(
+                f"Could not validate or export uv.lock offline: {detail}. "
+                "Ensure uv can find a Python interpreter compatible with the project's requires-python "
+                "(for example, install one with `uv python install <version>` while online), "
+                "and prepare the lock and uv cache before retrying."
+            )
 
         with open(output_path, mode="r", encoding="utf-8") as output_file:
             exported = output_file.read()
@@ -343,10 +383,21 @@ def pyproject_dependencies(dirname: str, pyproject_filename: str):
     except Exception as exception:
         raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
 
-    project = project_data or {}
-    dependencies: list[object] = project.get("dependencies", [])
-    if not isinstance(dependencies, list) or not all(isinstance(dep, str) for dep in dependencies):
+    if not isinstance(project_data, dict) or "dependencies" not in project_data:
+        raise EnvironmentException(
+            f"No static project.dependencies in {pyproject_filename}; declare a list or choose another source."
+        )
+    raw_dependencies: object = project_data["dependencies"]
+    if not isinstance(raw_dependencies, list):
         raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
+    dependencies = cast(List[object], raw_dependencies)
+    if not all(isinstance(dep, str) for dep in dependencies):
+        raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
+    try:
+        for dependency in cast(List[str], dependencies):
+            Requirement(dependency)
+    except InvalidRequirement as err:
+        raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: {err}") from err
 
     requirements = filter_pip_freeze_output("\n".join(cast(List[str], dependencies)))
     if requirements and not requirements.endswith("\n"):
