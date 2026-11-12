@@ -3123,7 +3123,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">#</a></h3>
 <ul>
-<li>Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by <code>uv.lock</code>, static <code>pyproject.toml</code> dependencies, and <code>requirements.txt</code>. Lockfiles are validated offline; generated requirements are kept separately from user-managed sources.</li>
+<li>Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by <code>uv.lock</code>, static <code>pyproject.toml</code> dependencies, and <code>requirements.txt</code>. Lockfiles are validated offline; generated requirements are kept in <code>requirements-connect.txt</code> separately from user-managed sources.</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">#</a></h3>
 <ul>
