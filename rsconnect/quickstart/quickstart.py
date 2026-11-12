@@ -168,7 +168,7 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 #
 # The registry is the single source of truth that ties together what each
 # supported mode produces: the canonical Connect ``app_mode`` written to
-# ``[tool.rsconnect]``, the entrypoint form, the local-run command
+# ``[tool.posit-cli]``, the entrypoint form, the local-run command
 # documented in the post-scaffold stdout and the README, the minimum
 # dependencies for the hello-world, and the source files the per-mode
 # template materializes.

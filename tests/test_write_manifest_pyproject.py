@@ -107,14 +107,14 @@ def _fake_quarto(monkeypatch: pytest.MonkeyPatch, engines: list[str]) -> None:
 _NOTEBOOK_JSON = '{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}\n'
 
 
-def _pyproject_body(app_mode: str, entrypoint: str) -> str:
+def _pyproject_body(app_mode: str, entrypoint: str, table: str = "rsconnect") -> str:
     return f"""
     [project]
     name = "hello_app"
     version = "0.0.1"
     dependencies = ["flask"]
 
-    [tool.rsconnect]
+    [tool.{table}]
     app_mode = "{app_mode}"
     entrypoint = "{entrypoint}"
     title = "hello_app"
@@ -137,6 +137,7 @@ DISPATCH_MATRIX: list[typing.Any] = [
 
 
 @pytest.mark.parametrize("app_mode,entrypoint,expected_entrypoint", DISPATCH_MATRIX)
+@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
 def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     runner: CliRunner,
     project_dir: pathlib.Path,
@@ -144,10 +145,13 @@ def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     entrypoint: str,
     expected_entrypoint: str,
     monkeypatch: pytest.MonkeyPatch,
+    table: str,
 ):
-    """Each ``[tool.rsconnect].app_mode`` produces a manifest.json with the matching appmode."""
+    """Each configured app mode produces a manifest.json with the matching appmode."""
+    warnings = []
+    monkeypatch.setattr("rsconnect.main.logger.warning", warnings.append)
     _fake_python_environment(monkeypatch)
-    _write_pyproject(project_dir, _pyproject_body(app_mode, entrypoint))
+    _write_pyproject(project_dir, _pyproject_body(app_mode, entrypoint, table))
     if entrypoint.endswith(".ipynb"):
         (project_dir / entrypoint).write_text(_NOTEBOOK_JSON)
     else:
@@ -156,6 +160,7 @@ def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
+    assert not warnings
     manifest = _read_manifest(project_dir)
     assert manifest["metadata"]["appmode"] == app_mode
     assert manifest["metadata"]["entrypoint"] == expected_entrypoint
@@ -254,19 +259,20 @@ def test_write_manifest_pyproject_requirements_file_flag_overrides_default(
         pass
 
 
+@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
 def test_write_manifest_pyproject_honors_requirements_file_from_tool_rsconnect(
-    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch, table: str
 ):
     captured = _fake_python_environment(monkeypatch)
     _write_pyproject(
         project_dir,
-        """
+        f"""
         [project]
         name = "hello_app"
         version = "0.0.1"
         dependencies = ["flask"]
 
-        [tool.rsconnect]
+        [tool.{table}]
         app_mode = "python-api"
         entrypoint = "app:app"
         title = "hello_app"
@@ -537,12 +543,23 @@ def test_write_manifest_pyproject_errors_on_malformed_pyproject(
     ["no-such-mode", "python-dash", "nodejs-api"],
     ids=["unknown", "valid-but-unhandled", "aliased"],
 )
+@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
 def test_write_manifest_pyproject_errors_on_unsupported_app_mode(
-    runner: CliRunner, project_dir: pathlib.Path, app_mode: str
+    runner: CliRunner, project_dir: pathlib.Path, app_mode: str, table: str
 ):
     """Unsupported app modes fail with deploy's exact message and no quickstart hint."""
-    _write_pyproject(project_dir, _pyproject_body(app_mode, "app.py"))
+    _write_pyproject(project_dir, _pyproject_body(app_mode, "app.py", table))
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
     assert result.exit_code != 0
-    assert f"Unsupported app_mode '{app_mode}' in [tool.rsconnect]" in result.output
+    assert f"Unsupported app_mode '{app_mode}' in [tool.{table}]" in result.output
     assert "quickstart" not in result.output.lower()
+
+
+@pytest.mark.parametrize("table", ["posit-cli", "rsconnect"])
+def test_write_manifest_pyproject_flag_overrides_configured_requirements(runner, project_dir, monkeypatch, table):
+    captured = _fake_python_environment(monkeypatch)
+    _write_pyproject(project_dir, _pyproject_body("python-api", "app:app", table) + '\nrequirements_file = "uv.lock"\n')
+    (project_dir / "app.py").write_text("app = None\n")
+    result = runner.invoke(cli, ["write-manifest", "pyproject", "-r", "pyproject.toml", str(project_dir)])
+    assert result.exit_code == 0, result.output
+    assert captured["requirements_file"] == "pyproject.toml"
