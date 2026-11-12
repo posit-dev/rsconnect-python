@@ -195,6 +195,63 @@ def test_linked_directory_loops_excludes_and_config(tmp_path, monkeypatch, caplo
     assert rsconnect.bundle.create_file_list(str(app), [], ["d*", "ignored.csv"]) == [os.path.join("other", "foo.csv")]
 
 
+def test_linked_directory_loop_with_case_alias(tmp_path, caplog):
+    app = tmp_path / "app"
+    app.mkdir()
+    case_alias = tmp_path / "APP"
+    if not case_alias.exists():
+        pytest.skip("requires a case-insensitive filesystem")
+    (app / "payload.txt").write_text("payload")
+    make_symlink(app / "loop", case_alias, directory=True)
+
+    assert rsconnect.bundle.create_file_list(str(app), [], []) == ["payload.txt"]
+    warnings = [record.getMessage() for record in caplog.records if "symlink loop" in record.getMessage()]
+    assert warnings == [f"Skipping directory symlink loop: {app / 'loop'}"]
+
+
+@pytest.mark.parametrize("config_name", ["custom-config", ".rsconnect-python"])
+def test_bundle_filters_config_case_aliases(tmp_path, monkeypatch, config_name):
+    app = tmp_path / "app"
+    app.mkdir()
+    config = tmp_path / config_name
+    config.mkdir()
+    case_alias = tmp_path / config_name.upper()
+    if not case_alias.exists():
+        pytest.skip("requires a case-insensitive filesystem")
+    (config / "nested").mkdir()
+    (config / "nested" / "credentials").write_text("SECRET")
+    make_symlink(app / "secret", case_alias, directory=True)
+    make_symlink(app / "secret-file", case_alias / "nested" / "credentials")
+    active_config = config if config_name == "custom-config" else tmp_path / "active-config"
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(active_config))
+
+    (app / "app.py").write_text("app = object()")
+    (app / "requirements.txt").write_text("flask\n")
+    environment = _make_test_environment()
+    extras = ["secret/nested/credentials", "secret-file"]
+    with make_api_bundle(str(app), "app:app", AppModes.PYTHON_API, environment, extras, []) as bundle:
+        members, manifest = _bundle_snapshot(bundle)
+
+    assert set(manifest["files"]) == {"app.py", "requirements.txt"}
+    assert set(members) == {"app.py", "requirements.txt", "manifest.json"}
+    assert b"SECRET" not in b"".join(members.values())
+    with pytest.raises(RSConnectException, match="inside the rsconnect-python configuration directory"):
+        rsconnect.bundle.create_file_list(str(case_alias / "nested"), [], [])
+
+
+def test_uppercase_reserved_name_on_case_sensitive_filesystem(tmp_path, monkeypatch):
+    app = tmp_path / "app"
+    app.mkdir()
+    uppercase_directory = app / ".RSCONNECT-PYTHON"
+    uppercase_directory.mkdir()
+    if (app / ".rsconnect-python").exists():
+        pytest.skip("requires a case-sensitive filesystem")
+    (uppercase_directory / "data.txt").write_text("safe")
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(tmp_path / "config"))
+
+    assert rsconnect.bundle.create_file_list(str(app), [], []) == [os.path.join(".RSCONNECT-PYTHON", "data.txt")]
+
+
 def test_notebook_and_bundle_class_dereference_links(tmp_path):
     app = tmp_path / "app"
     app.mkdir()

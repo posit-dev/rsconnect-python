@@ -92,8 +92,39 @@ def _resolved_config_dir() -> Path:
     return Path(metadata.config_dirname()).expanduser().resolve()
 
 
+def _path_identity(path: Path) -> tuple[int, int]:
+    stat = path.stat()
+    return stat.st_dev, stat.st_ino
+
+
 def _path_is_within(path: Path, directory: Path) -> bool:
-    return path == directory or directory in path.parents
+    if path == directory or directory in path.parents:
+        return True
+    try:
+        directory_identity = _path_identity(directory)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    for ancestor in (path, *path.parents):
+        try:
+            if _path_identity(ancestor) == directory_identity:
+                return True
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+    return False
+
+
+def _has_reserved_config_directory(path: Path) -> bool:
+    if _config_dir_names.intersection(path.parts):
+        return True
+    for ancestor in (path, *path.parents):
+        name = ancestor.name.casefold()
+        if name in _config_dir_names:
+            try:
+                if ancestor.samefile(ancestor.with_name(name)):
+                    return True
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+    return False
 
 
 def _is_config_path(
@@ -104,14 +135,14 @@ def _is_config_path(
     candidate = Path(path)
     if base_dir is not None and not candidate.is_absolute():
         candidate = Path(base_dir) / candidate
-    if _config_dir_names.intersection(candidate.parts):
+    if _has_reserved_config_directory(candidate):
         return True
     if config_dir is None:
         if base_dir is None and not candidate.is_absolute():
             return False
         config_dir = _resolved_config_dir()
     resolved = candidate.resolve()
-    return bool(_config_dir_names.intersection(resolved.parts)) or _path_is_within(resolved, config_dir)
+    return _has_reserved_config_directory(resolved) or _path_is_within(resolved, config_dir)
 
 
 def _ensure_content_root_is_safe(path: str | Path, config_dir: Path) -> None:
@@ -1363,11 +1394,11 @@ def _iter_directory_files(
         if _should_skip_walk_directory(cur_dir, sub_dirs, exclude_paths, config_dir):
             sub_dirs[:] = []
             continue
-        ancestors = set()
+        ancestors: set[tuple[int, int]] = set()
         current = Path(cur_dir)
         root = Path(path)
         while True:
-            ancestors.add(current.resolve())
+            ancestors.add(_path_identity(current))
             if current == root:
                 break
             current = current.parent
@@ -1381,7 +1412,7 @@ def _iter_directory_files(
                 config_dir=config_dir,
             ):
                 sub_dirs.remove(sub_dir)
-            elif sub_path.resolve() in ancestors:
+            elif _path_identity(sub_path) in ancestors:
                 logger.warning("Skipping directory symlink loop: %s", sub_path)
                 sub_dirs.remove(sub_dir)
         for file in files:
