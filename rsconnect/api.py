@@ -13,7 +13,6 @@ import json
 import os
 import re
 import shlex
-import sys
 import tarfile
 import time
 import typing
@@ -29,7 +28,10 @@ from typing import (
     Literal,
     Mapping,
     NamedTuple,
+    NotRequired,
     Optional,
+    ParamSpec,
+    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -40,19 +42,6 @@ from urllib.parse import urlencode, urlparse
 from warnings import warn
 
 import click
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
 
 from . import connect_cloud, validation
 from .bundle import _default_title, _find_manifest_member

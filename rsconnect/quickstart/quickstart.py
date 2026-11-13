@@ -16,10 +16,9 @@ See ``docs/commands/quickstart.md`` for the user-facing command reference.
 from __future__ import annotations
 
 import dataclasses
-import io
+import importlib.resources
 import os
 import pathlib
-import pkgutil
 import re
 import shutil
 import string
@@ -188,7 +187,7 @@ class FileSpec:
         ``<name>/<name>/`` Python package layout.
     :param str template: path to the template body under
         ``rsconnect/quickstart/templates/``, loaded via
-        :func:`pkgutil.get_data`. Template files use the ``.tmpl`` suffix
+        :func:`importlib.resources.files`. Template files use the ``.tmpl`` suffix
         to signal "needs substitution before becoming a usable artifact"
         and to prevent accidental Python import of files that may not be
         valid source on their own. The single token ``{name}`` in the body
@@ -383,17 +382,11 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec, requires_p
 
 
 def _load_template(path: str) -> str:
-    """Read a template file from the ``rsconnect.quickstart.templates`` package.
-
-    ``pkgutil.get_data`` is stdlib since Python 3.0 and works under wheel
-    install, unlike ``importlib.resources.files`` which is 3.9+. It returns
-    raw bytes, so we wrap the buffer in :class:`io.TextIOWrapper` to get the
-    same universal-newlines decoding as ``open(path, 'rt')``.
-    """
-    data = pkgutil.get_data("rsconnect.quickstart.templates", path)
-    if data is None:
-        raise RSConnectException(f"Template not found: {path}")
-    return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8").read()
+    """Read a template file from the ``rsconnect.quickstart.templates`` package."""
+    try:
+        return importlib.resources.files("rsconnect.quickstart.templates").joinpath(path).read_text(encoding="utf-8")
+    except FileNotFoundError as err:
+        raise RSConnectException(f"Template not found: {path}") from err
 
 
 # ``requires-python`` is the single source of truth for the scaffold's Python

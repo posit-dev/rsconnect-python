@@ -246,7 +246,7 @@ def build_start(
         # were allowed to shut down gracefully, they may have been interrupted.
         build_store.set_build_running(False)
         if content_executor:
-            content_executor.shutdown(wait=False)
+            content_executor.shutdown(wait=False, cancel_futures=True)
         if build_monitor:
             build_monitor.shutdown()
 
@@ -303,9 +303,7 @@ def _build_content_item(
 ):
     build_store = ensure_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
-        # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
-        # so just exit immediately if the current build has been aborted.
-        # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
+        # A worker can pick up a queued item after the abort flag is set but before shutdown cancels it.
         if build_store.aborted():
             return
 

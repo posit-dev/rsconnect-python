@@ -5,6 +5,7 @@ import json
 import tempfile
 import shutil
 import subprocess
+import tomllib
 import zipfile
 from pathlib import Path
 from unittest import TestCase
@@ -532,14 +533,8 @@ def test_pyproject_dependencies_invalid_toml(tmp_path, encoding):
         "3",
         "[3]",
         "[{a = 'b'}]",
-        pytest.param(
-            "['flask', 3]",
-            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
-        ),
-        pytest.param(
-            "['flask', {a = 'b'}]",
-            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"),
-        ),
+        "['flask', 3]",
+        "['flask', {a = 'b'}]",
         "[true]",
         "[['flask']]",
     ],
@@ -986,7 +981,7 @@ class TestPythonVersionRequirements:
         with pytest.raises(RSConnectException, match="Error reading pyproject.toml:") as exc_info:
             Environment.create_python_environment(str(tmp_path))
 
-        assert isinstance(exc_info.value.__cause__, rsconnect.environment.pyproject.TOMLDecodeError)
+        assert isinstance(exc_info.value.__cause__, tomllib.TOMLDecodeError)
         assert str(exc_info.value.__cause__) in str(exc_info.value)
 
     def test_pyproject_toml(self):

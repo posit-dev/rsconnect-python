@@ -67,7 +67,8 @@ just install
 
 - `ruff format` (120-character lines) and `ruff check` are enforced in CI. `tests/test_metadata.py` is exempt from the line-length rule.
 - Pyright runs in strict mode (`typeCheckingMode = "strict"`). It is advisory and doesn't fail `just lint`.
-- Support Python 3.8+. Import newer typing features from `typing_extensions`.
+- Support Python 3.11+ (see ADR-0001). The CLI Python and the content Python are separate: all of `rsconnect/` runs on the CLI Python, including `subprocesses/inspect_environment.py`, which only shells out to the content Python for its version and packages.
+- Import typing features from `typing`, never `typing_extensions`. It's installed in dev environments through other tools, but it's not a runtime dependency, so imports pass tests and then fail for users.
 - Use `TypedDict` for structured dictionaries such as API responses and manifest data.
 
 ## Important Patterns

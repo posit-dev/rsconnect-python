@@ -9,6 +9,7 @@ import configparser
 import dataclasses
 import pathlib
 import re
+import tomllib
 import typing
 from collections.abc import Mapping
 
@@ -17,18 +18,6 @@ from packaging.version import InvalidVersion
 
 from .log import logger
 from .models import AppMode, AppModes
-
-TOMLDecodeError: typing.Type[Exception]
-try:
-    import tomllib
-
-    TOMLDecodeError = tomllib.TOMLDecodeError
-except ImportError:
-    # Python 3.11+ has tomllib in the standard library
-    import toml as tomllib  # type: ignore[no-redef]
-
-    TOMLDecodeError = tomllib.TomlDecodeError
-
 
 PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
 VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"

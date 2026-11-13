@@ -36,23 +36,16 @@ from typing import (
     Callable,
     Iterator,
     Literal,
+    NotRequired,
     Optional,
     Sequence,
+    TypedDict,
     Union,
     cast,
 )
 from urllib.parse import urlsplit
 
 from . import metadata
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
-
 
 from .environment import Environment, list_environment_dirs, is_environment_dir
 from .environment_node import NodeEnvironment
@@ -535,13 +528,8 @@ def manifest_add_buffer(manifest: ManifestData, filename: str, buf: str | bytes)
 
 
 def make_hasher():
-    try:
-        return hashlib.md5()
-    except Exception:
-        # md5 is not available in FIPS mode, see if the usedforsecurity option is available
-        # (it was added in python 3.9). We set usedforsecurity=False since we are only
-        # using this for a file upload integrity check.
-        return hashlib.md5(usedforsecurity=False)
+    # MD5 checks upload integrity, not security; the flag keeps it available in FIPS mode.
+    return hashlib.md5(usedforsecurity=False)
 
 
 def file_checksum(path: str | Path) -> str:

@@ -20,23 +20,15 @@ from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Callable,
-    Dict,
     Generic,
     Mapping,
+    NotRequired,
     Optional,
+    TypedDict,
     TypeVar,
     Union,
 )
 from urllib.parse import urlparse
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
-
 
 if TYPE_CHECKING:
     from .api import RSConnectServer, SPCSConnectServer
@@ -971,8 +963,7 @@ class ContentBuildStoreData(TypedDict):
     rsconnect_content: dict[str, ContentItemWithBuildState]
 
 
-# Python<=3.8 needs `Dict`. After dropping 3.8 support it can be changed to `dict`.
-class ContentBuildStore(DataStore[Dict[str, object]]):
+class ContentBuildStore(DataStore[dict[str, object]]):
     """
     Defines a metadata store for information about content builds.
 

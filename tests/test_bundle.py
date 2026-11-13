@@ -310,16 +310,19 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = Environment.create_python_environment(directory)
-        with make_notebook_source_bundle(
-            nb_path,
-            environment,
-            None,
-            hide_all_input=False,
-            hide_tagged_input=False,
-            image=None,
-            env_management_py=None,
-            env_management_r=None,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_notebook_source_bundle(
+                nb_path,
+                environment,
+                None,
+                hide_all_input=False,
+                hide_tagged_input=False,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -340,9 +343,7 @@ class TestBundle(TestCase):
             del manifest["locale"]
             del manifest["python"]["package_manager"]["version"]
 
-            if sys.version_info[0] == 2:
-                ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
-            elif sys.platform == "win32":
+            if sys.platform == "win32":
                 ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
@@ -387,16 +388,19 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = Environment.create_python_environment(directory, requirements_file=None)
 
-        with make_notebook_source_bundle(
-            nb_path,
-            environment,
-            ["data.csv"],
-            hide_all_input=False,
-            hide_tagged_input=False,
-            image="rstudio/connect:bionic",
-            env_management_py=False,
-            env_management_r=False,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_notebook_source_bundle(
+                nb_path,
+                environment,
+                ["data.csv"],
+                hide_all_input=False,
+                hide_tagged_input=False,
+                image="rstudio/connect:bionic",
+                env_management_py=False,
+                env_management_r=False,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -422,9 +426,7 @@ class TestBundle(TestCase):
             del manifest["locale"]
             del manifest["python"]["package_manager"]["version"]
 
-            if sys.version_info[0] == 2:
-                ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
-            elif sys.platform == "win32":
+            if sys.platform == "win32":
                 ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
                 data_csv_hash = "56a7e0581160202c8045351ef2591df1"
             else:
@@ -468,16 +470,19 @@ class TestBundle(TestCase):
         nb_path = join(directory, "dummy.ipynb")
         environment = Environment.create_python_environment(directory, package_manager=PackageInstaller.UV)
 
-        with make_notebook_source_bundle(
-            nb_path,
-            environment,
-            None,
-            hide_all_input=False,
-            hide_tagged_input=False,
-            image=None,
-            env_management_py=None,
-            env_management_r=None,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_notebook_source_bundle(
+                nb_path,
+                environment,
+                None,
+                hide_all_input=False,
+                hide_tagged_input=False,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             assert manifest["python"]["package_manager"]["name"] == "uv"
             assert manifest["python"]["package_manager"]["allow_uv"] is True
@@ -489,17 +494,20 @@ class TestBundle(TestCase):
         environment = Environment.create_python_environment(directory, package_manager=PackageInstaller.PIP)
         entrypoint = "app:app"
 
-        with make_api_bundle(
-            directory,
-            entrypoint,
-            AppModes.PYTHON_FASTAPI,
-            environment,
-            extra_files=[],
-            excludes=[],
-            image=None,
-            env_management_py=None,
-            env_management_r=None,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_api_bundle(
+                directory,
+                entrypoint,
+                AppModes.PYTHON_FASTAPI,
+                environment,
+                extra_files=[],
+                excludes=[],
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             assert manifest["python"]["package_manager"]["name"] == "pip"
             assert manifest["python"]["package_manager"].get("allow_uv") is False
@@ -528,15 +536,18 @@ class TestBundle(TestCase):
             )
         r_environment = REnvironment.create(lock_dir)
 
-        with make_api_bundle(
-            directory,
-            entrypoint,
-            AppModes.PYTHON_FASTAPI,
-            environment,
-            extra_files=[],
-            excludes=[],
-            r_environment=r_environment,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_api_bundle(
+                directory,
+                entrypoint,
+                AppModes.PYTHON_FASTAPI,
+                environment,
+                extra_files=[],
+                excludes=[],
+                r_environment=r_environment,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             assert manifest["platform"] == "4.3.1"
             assert manifest["packages"]["R6"]["Source"] == "CRAN"
@@ -544,14 +555,17 @@ class TestBundle(TestCase):
 
         # Without an R environment (e.g. no renv.lock or --exclude-renv), the
         # manifest is unchanged: no R sections are emitted.
-        with make_api_bundle(
-            directory,
-            entrypoint,
-            AppModes.PYTHON_FASTAPI,
-            environment,
-            extra_files=[],
-            excludes=[],
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_api_bundle(
+                directory,
+                entrypoint,
+                AppModes.PYTHON_FASTAPI,
+                environment,
+                extra_files=[],
+                excludes=[],
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             assert "platform" not in manifest
             assert "packages" not in manifest
@@ -561,16 +575,19 @@ class TestBundle(TestCase):
         nb_path = join(directory, "dummy.ipynb")
         environment = Environment.create_python_environment(directory)
 
-        with make_notebook_source_bundle(
-            nb_path,
-            environment,
-            None,
-            hide_all_input=False,
-            hide_tagged_input=False,
-            image=None,
-            env_management_py=None,
-            env_management_r=None,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_notebook_source_bundle(
+                nb_path,
+                environment,
+                None,
+                hide_all_input=False,
+                hide_tagged_input=False,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             assert manifest["python"]["package_manager"]["name"] == "pip"
             assert "allow_uv" not in manifest["python"]["package_manager"]
@@ -613,9 +630,10 @@ class TestBundle(TestCase):
             },
         }
 
-        with make_quarto_source_bundle(
-            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -721,9 +739,10 @@ class TestBundle(TestCase):
             },
         }
 
-        with make_quarto_source_bundle(
-            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -812,9 +831,10 @@ class TestBundle(TestCase):
             },
         }
 
-        with make_quarto_source_bundle(
-            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -878,9 +898,10 @@ class TestBundle(TestCase):
             "engines": ["markdown"],
         }
 
-        with make_quarto_source_bundle(
-            filename, inspect, AppModes.STATIC_QUARTO, None, [], [], None
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(filename, inspect, AppModes.STATIC_QUARTO, None, [], [], None) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -2120,16 +2141,19 @@ def test_make_voila_bundle(
                 multi_notebook=False,
             )
     else:
-        with make_voila_bundle(
-            path,
-            entrypoint,
-            extra_files=None,
-            excludes=None,
-            force_generate=True,
-            environment=environment,
-            image=None,
-            multi_notebook=False,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=False,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             assert names == [
                 "bqplot.ipynb",
@@ -2234,16 +2258,19 @@ def test_make_voila_bundle_multi_notebook(
                 multi_notebook=True,
             )
     else:
-        with make_voila_bundle(
-            path,
-            entrypoint,
-            extra_files=None,
-            excludes=None,
-            force_generate=True,
-            environment=environment,
-            image=None,
-            multi_notebook=True,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=True,
+            ) as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             assert names == [
                 "bqplot/bqplot.ipynb",
@@ -2306,16 +2333,19 @@ def test_make_voila_bundle_2(
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
-    with make_voila_bundle(
-        path,
-        entrypoint,
-        extra_files=None,
-        excludes=None,
-        force_generate=True,
-        environment=environment,
-        image=None,
-        multi_notebook=False,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_voila_bundle(
+            path,
+            entrypoint,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=False,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "bqplot.ipynb",
@@ -2364,16 +2394,19 @@ def test_make_voila_bundle_extra():
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
-    with make_voila_bundle(
-        dashboard_ipynb,
-        None,
-        extra_files=[dashboard_extra_ipynb],
-        excludes=None,
-        force_generate=True,
-        environment=environment,
-        image=None,
-        multi_notebook=False,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_voila_bundle(
+            dashboard_ipynb,
+            None,
+            extra_files=[dashboard_extra_ipynb],
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=False,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "bqplot.ipynb",
@@ -2587,12 +2620,15 @@ def test_make_html_bundle():
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": index_hash}},
     }
-    with make_html_bundle(
-        single_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            single_file_index_file,
+            None,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2609,12 +2645,15 @@ def test_make_html_bundle():
             "test_folder1/testfoldertext1.txt": {"checksum": folder_txt_hash},
         },
     }
-    with make_html_bundle(
-        single_file_index_dir,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            single_file_index_dir,
+            None,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2624,12 +2663,15 @@ def test_make_html_bundle():
         ]
         assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
-    with make_html_bundle(
-        single_file_index_dir,
-        single_file_index_file,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            single_file_index_dir,
+            single_file_index_file,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2650,12 +2692,15 @@ def test_make_html_bundle():
         "files": {"index.html": {"checksum": index_checksum}},
     }
 
-    with make_html_bundle(
-        multi_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_index_file,
+            None,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2671,12 +2716,15 @@ def test_make_html_bundle():
             "main.html": {"checksum": index_checksum},
         },
     }
-    with make_html_bundle(
-        multi_file_index_dir,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_index_dir,
+            None,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2685,12 +2733,15 @@ def test_make_html_bundle():
         ]
         assert multi_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
-    with make_html_bundle(
-        multi_file_index_dir,
-        multi_file_index_file,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_index_dir,
+            multi_file_index_file,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2704,12 +2755,15 @@ def test_make_html_bundle():
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {"b.html": {"checksum": index_checksum}},
     }
-    with make_html_bundle(
-        multi_file_nonindex_fileb,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_nonindex_fileb,
+            None,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "b.html",
@@ -2725,12 +2779,15 @@ def test_make_html_bundle():
             "b.html": {"checksum": index_checksum},
         },
     }
-    with make_html_bundle(
-        multi_file_nonindex_dir,
-        multi_file_nonindex_fileb,
-        extra_files=tuple(),
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_nonindex_dir,
+            multi_file_nonindex_fileb,
+            extra_files=tuple(),
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "a.html",
@@ -2749,12 +2806,15 @@ def test_make_html_bundle():
             "b.html": {"checksum": index_checksum},
         },
     }
-    with make_html_bundle(
-        multi_file_nonindex_fileb,
-        None,
-        extra_files=[multi_file_nonindex_filea],
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_nonindex_fileb,
+            None,
+            extra_files=[multi_file_nonindex_filea],
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "a.html",
@@ -2774,12 +2834,15 @@ def test_make_html_bundle():
         },
     }
 
-    with make_html_bundle(
-        multi_file_index_dir,
-        None,
-        extra_files=[multi_file_index_file2],
-        excludes=tuple(),
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_html_bundle(
+            multi_file_index_dir,
+            None,
+            extra_files=[multi_file_index_file2],
+            excludes=tuple(),
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2848,14 +2911,17 @@ def test_make_api_bundle_fastapi():
     environment = Environment.create_python_environment(
         fastapi_dir,
     )
-    with make_api_bundle(
-        fastapi_dir,
-        None,
-        AppModes.PYTHON_FASTAPI,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            fastapi_dir,
+            None,
+            AppModes.PYTHON_FASTAPI,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2924,14 +2990,17 @@ def test_make_api_bundle_flask():
     environment = Environment.create_python_environment(
         flask_dir,
     )
-    with make_api_bundle(
-        flask_dir,
-        None,
-        AppModes.PYTHON_API,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            flask_dir,
+            None,
+            AppModes.PYTHON_API,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2999,14 +3068,17 @@ def test_make_api_bundle_streamlit():
     environment = Environment.create_python_environment(
         streamlit_dir,
     )
-    with make_api_bundle(
-        streamlit_dir,
-        None,
-        AppModes.STREAMLIT_APP,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            streamlit_dir,
+            None,
+            AppModes.STREAMLIT_APP,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -3076,14 +3148,17 @@ def test_make_api_bundle_dash():
     environment = Environment.create_python_environment(
         dash_dir,
     )
-    with make_api_bundle(
-        dash_dir,
-        None,
-        AppModes.DASH_APP,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            dash_dir,
+            None,
+            AppModes.DASH_APP,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -3153,14 +3228,17 @@ def test_make_api_bundle_bokeh():
     environment = Environment.create_python_environment(
         bokeh_dir,
     )
-    with make_api_bundle(
-        bokeh_dir,
-        None,
-        AppModes.BOKEH_APP,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            bokeh_dir,
+            None,
+            AppModes.BOKEH_APP,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -3229,14 +3307,17 @@ def test_make_api_bundle_shiny():
     environment = Environment.create_python_environment(
         shiny_dir,
     )
-    with make_api_bundle(
-        shiny_dir,
-        None,
-        AppModes.PYTHON_SHINY,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            shiny_dir,
+            None,
+            AppModes.PYTHON_SHINY,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -3270,9 +3351,12 @@ def test_make_manifest_bundle():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    with make_manifest_bundle(
-        pyshiny_manifest_file,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_manifest_bundle(
+            pyshiny_manifest_file,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -3337,14 +3421,17 @@ def test_make_api_bundle_gradio():
     environment = Environment.create_python_environment(
         gradio_dir,
     )
-    with make_api_bundle(
-        gradio_dir,
-        None,
-        AppModes.PYTHON_GRADIO,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            gradio_dir,
+            None,
+            AppModes.PYTHON_GRADIO,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "app.py",
@@ -3407,14 +3494,17 @@ def test_make_api_bundle_panel():
     environment = Environment.create_python_environment(
         panel_dir,
     )
-    with make_api_bundle(
-        panel_dir,
-        None,
-        AppModes.PYTHON_PANEL,
-        environment,
-        None,
-        None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    with (
+        make_api_bundle(
+            panel_dir,
+            None,
+            AppModes.PYTHON_PANEL,
+            environment,
+            None,
+            None,
+        ) as bundle,
+        tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+    ):
         names = sorted(tar.getnames())
         assert names == [
             "app.py",

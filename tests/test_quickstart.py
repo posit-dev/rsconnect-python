@@ -25,15 +25,11 @@ import shutil
 import stat
 import subprocess
 import sys
+import tomllib
 import typing
 from unittest import mock
 
 import pytest
-
-try:
-    import tomllib
-except ImportError:  # pragma: no cover - Python 3.10 fallback
-    import toml as tomllib  # type: ignore[no-redef]
 
 from click.testing import CliRunner
 
@@ -791,14 +787,12 @@ def test_quickstart_registry_accepts_new_mode(
     touching the pre-flight, pyproject writer, or post-scaffold output
     modules.
     """
-    import pkgutil
-
     from rsconnect.models import AppMode, AppModes
     from rsconnect.quickstart import quickstart as qs
 
     # Stand in for ``rsconnect/quickstart/templates/newmode/pyproject.toml.tmpl``:
     # the contract is "drop a template file under the package", so we hook
-    # ``pkgutil.get_data`` to materialize the body without touching the
+    # ``_load_template`` to materialize the body without touching the
     # installed package on disk.
     new_pyproject_body = (
         "[project]\n"
@@ -817,14 +811,14 @@ def test_quickstart_registry_accepts_new_mode(
         "newmode/pyproject.toml.tmpl": new_pyproject_body,
         "newmode/README.md.tmpl": new_readme_body,
     }
-    real_get_data = pkgutil.get_data
+    real_load_template = qs._load_template
 
-    def fake_get_data(package: str, resource: str):
-        if resource in fake_templates:
-            return fake_templates[resource].encode("utf-8")
-        return real_get_data(package, resource)
+    def fake_load_template(path: str) -> str:
+        if path in fake_templates:
+            return fake_templates[path]
+        return real_load_template(path)
 
-    monkeypatch.setattr(pkgutil, "get_data", fake_get_data)
+    monkeypatch.setattr(qs, "_load_template", fake_load_template)
 
     new_spec = qs.TemplateSpec(
         pyproject_template="newmode/pyproject.toml.tmpl",
