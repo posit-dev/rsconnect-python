@@ -2020,7 +2020,7 @@ def info(file: str):
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
         "notebook, voila, quarto. Writes a pyproject.toml "
-        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "with a [tool.posit.connect] section, creates a uv-managed virtualenv, "
         "and prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
@@ -2718,7 +2718,7 @@ def deploy_bundle(
     short_help="Deploy content to Posit Connect, Posit Connect Cloud, or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
-        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "a pyproject.toml with a [tool.posit.connect] table specifying app_mode and entrypoint. "
         "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
@@ -2735,7 +2735,7 @@ def deploy_bundle(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
     ),
@@ -2894,7 +2894,7 @@ def deploy_pyproject(
             "r_environment": r_environment,
         }
     else:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -3178,6 +3178,7 @@ def deploy_quarto(
                 requirements_file=requirements_file,
                 python=python,
                 override_python_version=override_python_version,
+                package_manager=package_installer,
             )
 
     # R/Quarto content can use renv regardless of the Quarto engine, so detect it
@@ -4355,7 +4356,7 @@ def write_manifest_quarto(
     short_help="Create a manifest.json file from a project's pyproject.toml.",
     help=(
         "Create a manifest.json file for later deployment, for content described by a project's "
-        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.posit.connect] "
         "table specifying app_mode and entrypoint. This will also write the environment file the "
         'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
         "itself the requirements source. Designed as the write-manifest partner for projects "
@@ -4371,7 +4372,7 @@ def write_manifest_quarto(
     default=None,
     help=(
         "Path to the requirements source, relative to the project directory. "
-        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "Overrides ``[tool.posit.connect].requirements_file`` in pyproject.toml; "
         "defaults to ``pyproject.toml`` (the project's declared dependencies). "
         "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
     ),
@@ -4431,7 +4432,7 @@ def write_manifest_pyproject(
         AppModes.SHINY_QUARTO,
     )
     if app_mode not in api_modes and app_mode not in entrypoint_manifest_modes:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in {target.table}")
 
     with cli_feedback("Checking arguments"):
         # The bundle.py writers put manifest.json in different places: API modes
@@ -4889,6 +4890,7 @@ def _write_framework_manifest(
             requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
+            package_manager=package_installer,
         )
     r_environment = None if exclude_renv else REnvironment.create(directory)
 

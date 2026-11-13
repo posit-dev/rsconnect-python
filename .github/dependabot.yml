@@ -9,5 +9,16 @@ updates:
         patterns:
           - "*"
 
-# Python deps are upgraded by .github/workflows/uv-lock-upgrade.yml instead:
+  # Use pip to update build-system.requires without rewriting uv.lock.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "uv-build"
+    versioning-strategy: "widen"
+    commit-message:
+      prefix: "chore(deps)"
+
+# Runtime deps are upgraded by .github/workflows/uv-lock-upgrade.yml instead:
 # dependabot can't update a uv.lock that forks by Python version.

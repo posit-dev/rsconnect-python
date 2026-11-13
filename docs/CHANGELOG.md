@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning.
+
 ### Removed
 
 - **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions [#972](https://github.com/posit-dev/rsconnect-python/pull/972).
@@ -14,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. [#955](https://github.com/posit-dev/rsconnect-python/pull/955)
+- Passes `--package-installer` through in `write-manifest <framework>` and `deploy quarto`. The option was accepted but ignored, so the manifest always recorded `pip`. [#877](https://github.com/posit-dev/rsconnect-python/pull/877)
+- `system caches delete` exits with status 1 when the Connect task that deletes the cache fails. [#876](https://github.com/posit-dev/rsconnect-python/pull/876)
 
 ## [1.33.2] - 2026-11-10
 
