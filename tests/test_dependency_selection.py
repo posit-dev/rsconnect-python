@@ -66,9 +66,10 @@ def test_manifest_refreshes_generated_dependencies_without_touching_source(tmp_p
         assert source.read_text() == "old==1\n"
         assert f"flask=={version}" in generated.read_text()
         assert manifest["files"][name]["checksum"] == file_checksum(generated)
-        with make_manifest_bundle(tmp_path / "manifest.json") as bundle, tarfile.open(
-            fileobj=bundle, mode="r:gz"
-        ) as archive:
+        with (
+            make_manifest_bundle(tmp_path / "manifest.json") as bundle,
+            tarfile.open(fileobj=bundle, mode="r:gz") as archive,
+        ):
             assert f"flask=={version}" in archive.extractfile(name).read().decode()
 
 

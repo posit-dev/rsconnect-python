@@ -8,13 +8,7 @@ import json
 import logging
 import sys
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, TypeVar
-
-if sys.version_info >= (3, 10):
-    from typing import Concatenate, ParamSpec
-else:
-    from typing_extensions import Concatenate, ParamSpec
-
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Literal, Optional, ParamSpec, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import MutableMapping
@@ -94,13 +88,7 @@ class JsonLogFormatter(logging.Formatter):
         return json.dumps(message_dict, default=str)
 
 
-# This is a workaround for LoggerAdapter not being generic in Python<=3.10.
-# See also:
-# https://github.com/python/typeshed/issues/7855#issuecomment-1128857842
-if sys.version_info >= (3, 11):
-    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
-else:
-    _LoggerAdapter = logging.LoggerAdapter
+_LoggerAdapter = logging.LoggerAdapter[logging.Logger]
 
 
 class RSLogger(_LoggerAdapter):

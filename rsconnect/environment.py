@@ -14,22 +14,14 @@ import subprocess
 import json
 import pathlib
 import os.path
-import enum
+import tomllib
+from enum import StrEnum
 
 from . import pyproject
 from .subprocesses import inspect_environment
 from .log import logger, warn_user
 from .exception import RSConnectException
 from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
-
-
-try:
-    from enum import StrEnum
-except ImportError:  # Python <3.11
-
-    class StrEnum(str, enum.Enum):
-        def __str__(self) -> str:
-            return str(self.value)
 
 
 class PackageInstaller(StrEnum):
@@ -138,7 +130,7 @@ class Environment:
 
         try:
             python_version_requirement = pyproject.detect_python_version_requirement(directory)
-        except pyproject.TOMLDecodeError as err:
+        except tomllib.TOMLDecodeError as err:
             raise RSConnectException(f"Error reading pyproject.toml: {err}") from err
         _warn_on_missing_python_version(python_version_requirement)
 

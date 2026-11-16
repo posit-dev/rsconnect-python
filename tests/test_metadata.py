@@ -304,9 +304,11 @@ class TestServerMetadata(TestCase):
             ftruncate(descriptor, length)
 
         try:
-            with patch("rsconnect.metadata.os.open", side_effect=check_open), patch(
-                "rsconnect.metadata.os.fchmod", side_effect=check_fchmod
-            ), patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate):
+            with (
+                patch("rsconnect.metadata.os.open", side_effect=check_open),
+                patch("rsconnect.metadata.os.fchmod", side_effect=check_fchmod),
+                patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate),
+            ):
                 store = ServerStore(base_dir=base_dir)
                 store.set("private", "https://connect.example.test", api_key="new-secret")
         finally:
@@ -355,9 +357,11 @@ class TestServerMetadata(TestCase):
                 self.assertEqual(metadata_file.read(), previous_data)
             ftruncate(descriptor, length)
 
-        with patch("rsconnect.metadata.os.open", side_effect=check_open), patch(
-            "rsconnect.metadata.os.fchmod", side_effect=check_fchmod
-        ), patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate):
+        with (
+            patch("rsconnect.metadata.os.open", side_effect=check_open),
+            patch("rsconnect.metadata.os.fchmod", side_effect=check_fchmod),
+            patch("rsconnect.metadata.os.ftruncate", side_effect=check_ftruncate),
+        ):
             self.server_store.save()
 
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
@@ -380,8 +384,9 @@ class TestServerMetadata(TestCase):
             descriptor = open_file(*args, **kwargs)
             return descriptor
 
-        with patch("rsconnect.metadata.os.open", side_effect=record_open), patch(
-            "rsconnect.metadata.os.fdopen", side_effect=OSError("fdopen failed")
+        with (
+            patch("rsconnect.metadata.os.open", side_effect=record_open),
+            patch("rsconnect.metadata.os.fdopen", side_effect=OSError("fdopen failed")),
         ):
             with self.assertRaisesRegex(OSError, "fdopen failed"):
                 store.save()
@@ -430,8 +435,9 @@ class TestServerMetadata(TestCase):
             descriptor = open_file(*args, **kwargs)
             return descriptor
 
-        with patch("rsconnect.metadata.os.open", side_effect=record_open), patch(
-            "rsconnect.metadata.os.ftruncate", side_effect=OSError("truncate failed")
+        with (
+            patch("rsconnect.metadata.os.open", side_effect=record_open),
+            patch("rsconnect.metadata.os.ftruncate", side_effect=OSError("truncate failed")),
         ):
             with self.assertRaisesRegex(OSError, "truncate failed"):
                 store.save()
