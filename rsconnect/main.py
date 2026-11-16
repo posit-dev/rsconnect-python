@@ -3488,10 +3488,10 @@ def resolve_requirements_file(
         if os.path.lexists(Path(directory) / "uv.lock"):
             return "uv.lock"
         if os.path.lexists(project_path):
-            project = pyproject.tomllib.loads(project_path.read_text(encoding="utf-8-sig")).get("project", {})
+            project = tomllib.loads(project_path.read_text(encoding="utf-8-sig")).get("project", {})
             if isinstance(project, dict) and "dependencies" in project:
                 return "pyproject.toml"
-    except (OSError, pyproject.TOMLDecodeError, InvalidPyprojectConfigError) as err:
+    except (OSError, tomllib.TOMLDecodeError, InvalidPyprojectConfigError) as err:
         raise RSConnectException(f"Cannot read pyproject.toml: {err}") from err
     if os.path.lexists(Path(directory) / "requirements.txt"):
         return "requirements.txt"
