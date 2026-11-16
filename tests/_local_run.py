@@ -27,7 +27,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Iterator, Mapping, Optional, Sequence, Tuple
+from collections.abc import Iterator, Mapping, Sequence
 
 
 def find_free_port() -> int:
@@ -50,7 +50,7 @@ def spawn(
     cmd: Sequence[str],
     *,
     cwd: Path,
-    extra_env: Optional[Mapping[str, str]] = None,
+    extra_env: Mapping[str, str] | None = None,
 ) -> Iterator[subprocess.Popen]:
     """Run ``uv run <cmd>`` in ``cwd`` and tear down the whole process group on exit.
 
@@ -108,7 +108,7 @@ def spawn(
 def wait_for_http(
     port: int,
     *,
-    proc: Optional[subprocess.Popen] = None,
+    proc: subprocess.Popen | None = None,
     timeout: float = 60.0,
 ) -> None:
     """Poll ``http://127.0.0.1:<port>/`` until any non-5xx response arrives.
@@ -125,7 +125,7 @@ def wait_for_http(
     the liveness check still requires our child to be running.
     """
     deadline = time.monotonic() + timeout
-    last_error: Optional[BaseException] = None
+    last_error: BaseException | None = None
     url = f"http://127.0.0.1:{port}/"
     while time.monotonic() < deadline:
         if proc is not None and proc.poll() is not None:
@@ -171,7 +171,7 @@ def wait_for_artifact(
     assert artifact.stat().st_size > 0, f"expected artifact empty: {artifact}"
 
 
-def http_command(app_type: str, port: int) -> Tuple[Sequence[str], Mapping[str, str]]:
+def http_command(app_type: str, port: int) -> tuple[Sequence[str], Mapping[str, str]]:
     """Return the argv tail and env overrides that boot ``app_type`` on ``port``.
 
     Different frameworks accept their bind port through different channels:
@@ -192,7 +192,7 @@ def http_command(app_type: str, port: int) -> Tuple[Sequence[str], Mapping[str, 
     raise ValueError(f"no http command for app_type={app_type!r}")
 
 
-def artifact_command(app_type: str) -> Tuple[str, ...]:
+def artifact_command(app_type: str) -> tuple[str, ...]:
     """Return the argv tail (after ``uv run``) that renders ``app_type`` to disk."""
     if app_type == "notebook":
         # ``--to notebook`` is required by recent nbconvert versions and yields

@@ -44,18 +44,18 @@ class Environment:
     def __init__(
         self,
         data: EnvironmentData,
-        python_interpreter: typing.Optional[str] = None,
-        python_version_requirement: typing.Optional[str] = None,
+        python_interpreter: str | None = None,
+        python_version_requirement: str | None = None,
     ):
         self._data = data
 
         # Fields that are not loaded from the environment subprocess
         self.python_version_requirement = python_version_requirement
         self.python_interpreter = python_interpreter
-        self.uv: typing.Optional[str] = None
+        self.uv: str | None = None
         # Optional override of server install behavior. If None, server-driven
         # default is used.
-        self.package_manager_allow_uv: typing.Optional[bool] = None
+        self.package_manager_allow_uv: bool | None = None
 
     def __getattr__(self, name: str) -> typing.Any:
         # We directly proxy the attributes of the EnvironmentData object
@@ -91,9 +91,9 @@ class Environment:
     @classmethod
     def from_dict(
         cls,
-        data: typing.Dict[str, typing.Any],
-        python_interpreter: typing.Optional[str] = None,
-        python_version_requirement: typing.Optional[str] = None,
+        data: dict[str, typing.Any],
+        python_interpreter: str | None = None,
+        python_version_requirement: str | None = None,
     ) -> "Environment":
         """Create an Environment instance from the dictionary representation of EnvironmentData."""
         return cls(
@@ -106,10 +106,10 @@ class Environment:
     def create_python_environment(
         cls,
         directory: str,
-        requirements_file: typing.Optional[str] = "requirements.txt",
-        python: typing.Optional[str] = None,
-        override_python_version: typing.Optional[str] = None,
-        package_manager: typing.Optional[PackageInstaller] = None,
+        requirements_file: str | None = "requirements.txt",
+        python: str | None = None,
+        override_python_version: str | None = None,
+        package_manager: PackageInstaller | None = None,
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
 
@@ -190,9 +190,9 @@ class Environment:
     def _get_python_env_info(
         cls,
         file_name: str,
-        python: typing.Optional[str],
-        requirements_file: typing.Optional[str] = "requirements.txt",
-        project_directory: typing.Optional[str] = None,
+        python: str | None,
+        requirements_file: str | None = "requirements.txt",
+        project_directory: str | None = None,
     ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
@@ -217,7 +217,7 @@ class Environment:
         cls,
         python: str,
         directory: str,
-        requirements_file: typing.Optional[str] = "requirements.txt",
+        requirements_file: str | None = "requirements.txt",
         check_output: typing.Callable[..., bytes] = subprocess.check_output,
     ) -> "Environment":
         """Run the environment inspector against the specified python binary.
@@ -274,7 +274,7 @@ def _uv_bin() -> str:
         return "uv"
 
 
-def which_python(python: typing.Optional[str] = None, directory: typing.Optional[str] = None) -> str:
+def which_python(python: str | None = None, directory: str | None = None) -> str:
     """Determines which Python executable to use.
 
     Explicit paths take precedence over active and project environments.
@@ -288,7 +288,7 @@ def which_python(python: typing.Optional[str] = None, directory: typing.Optional
             raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
         return python
 
-    def interpreter(environment: typing.Union[str, pathlib.Path], conda: bool = False) -> typing.Optional[str]:
+    def interpreter(environment: str | pathlib.Path, conda: bool = False) -> str | None:
         executable = (
             "python.exe" if os.name == "nt" and conda else "Scripts/python.exe" if os.name == "nt" else "bin/python"
         )
@@ -348,7 +348,7 @@ def fake_module_file_from_directory(directory: str) -> str:
     return os.path.join(directory, app_name + ".py")
 
 
-def is_environment_dir(directory: typing.Union[str, pathlib.Path]) -> bool:
+def is_environment_dir(directory: str | pathlib.Path) -> bool:
     """Detect whether `directory` is a virtualenv"""
 
     # A virtualenv will have Python at ./bin/python
@@ -358,9 +358,9 @@ def is_environment_dir(directory: typing.Union[str, pathlib.Path]) -> bool:
     return os.path.exists(python_path) or os.path.exists(win_path)
 
 
-def list_environment_dirs(directory: typing.Union[str, pathlib.Path]) -> typing.List[str]:
+def list_environment_dirs(directory: str | pathlib.Path) -> list[str]:
     """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
-    envs: typing.List[str] = []
+    envs: list[str] = []
 
     for name in os.listdir(directory):
         path = os.path.join(directory, name)
@@ -380,7 +380,7 @@ def _warn_on_ignored_manifest(directory: str) -> None:
         warn_user("    Warning: the existing manifest.json file will not be used or considered.")
 
 
-def _check_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> typing.Optional[str]:
+def _check_requirements_file(directory: str, requirements_file: str | None) -> str | None:
     """
     Verify that a requirements file exists inside the deployment directory.
 
@@ -409,7 +409,7 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
     return str(relative_path)
 
 
-def _warn_if_environment_directory(directory: typing.Union[str, pathlib.Path]) -> None:
+def _warn_if_environment_directory(directory: str | pathlib.Path) -> None:
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
@@ -434,7 +434,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -
         warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
 
 
-def _warn_on_missing_python_version(version_constraint: typing.Optional[str]) -> None:
+def _warn_on_missing_python_version(version_constraint: str | None) -> None:
     """
     Check that the project has a Python version constraint requested.
     If it doesn't warn the user that it should be specified.

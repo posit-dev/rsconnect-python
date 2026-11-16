@@ -8,7 +8,8 @@ import shutil
 import subprocess
 from collections.abc import Mapping as MappingABC
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
+from typing import Any, cast
+from collections.abc import Mapping
 
 from .api import ConnectCloudServer, RSConnectClient, RSConnectExecutor, RSConnectServer, SPCSConnectServer
 from .environment_node import NodeEnvironment
@@ -41,7 +42,7 @@ def _project_directory(project: str) -> str:
     return str(path if path.is_dir() else path.parent)
 
 
-def _project_node_requirement(project: str, warnings: List[str], actions: List[str]) -> Tuple[Optional[str], bool]:
+def _project_node_requirement(project: str, warnings: list[str], actions: list[str]) -> tuple[str | None, bool]:
     directory = Path(project)
     package_path = directory / "package.json"
     lock_path = directory / "package-lock.json"
@@ -62,7 +63,7 @@ def _project_node_requirement(project: str, warnings: List[str], actions: List[s
         warnings.append("package.json must contain a JSON object.")
         actions.append("Repair package.json before deploying Node.js content.")
         return None, False
-    package = cast(Dict[str, Any], package)
+    package = cast(dict[str, Any], package)
 
     engines = package.get("engines")
     if "engines" in package and not isinstance(engines, dict):
@@ -72,7 +73,7 @@ def _project_node_requirement(project: str, warnings: List[str], actions: List[s
 
     if not isinstance(engines, dict):
         return None, True
-    engines = cast(Dict[str, Any], engines)
+    engines = cast(dict[str, Any], engines)
     if "node" not in engines:
         return None, True
     requirement = engines["node"]
@@ -83,7 +84,7 @@ def _project_node_requirement(project: str, warnings: List[str], actions: List[s
     return requirement, True
 
 
-def _local_node_version(project: str, node: Optional[str], warnings: List[str], actions: List[str]) -> Optional[str]:
+def _local_node_version(project: str, node: str | None, warnings: list[str], actions: list[str]) -> str | None:
     try:
         return NodeEnvironment.create(project, node_executable=node).node_version
     except (RSConnectException, OSError, UnicodeDecodeError) as err:
@@ -105,12 +106,12 @@ def _is_npm_installation(npm_cli: Path) -> bool:
         return False
     if not isinstance(npm_metadata, dict) or not isinstance(semver_metadata, dict):
         return False
-    npm_package = cast(Dict[str, Any], npm_metadata)
-    semver_package = cast(Dict[str, Any], semver_metadata)
+    npm_package = cast(dict[str, Any], npm_metadata)
+    semver_package = cast(dict[str, Any], semver_metadata)
     return npm_package.get("name") == "npm" and semver_package.get("name") == "semver"
 
 
-def _npm_cli_path() -> Optional[str]:
+def _npm_cli_path() -> str | None:
     npm = shutil.which("npm")
     if not npm:
         return None
@@ -118,28 +119,28 @@ def _npm_cli_path() -> Optional[str]:
     return str(npm_cli) if npm_cli.is_file() and _is_npm_installation(npm_cli) else None
 
 
-def _parse_node_evaluation(stdout: str, version_count: int) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+def _parse_node_evaluation(stdout: str, version_count: int) -> tuple[dict[str, Any] | None, str | None]:
     try:
         evaluation = json.loads(stdout)
     except json.JSONDecodeError as err:
         return None, f"npm's semver evaluator returned invalid output: {err}"
     if not isinstance(evaluation, dict):
         return None, "npm's semver evaluator returned incomplete output."
-    evaluation = cast(Dict[str, Any], evaluation)
+    evaluation = cast(dict[str, Any], evaluation)
     if (
         not isinstance(evaluation.get("range_valid"), bool)
         or not isinstance(evaluation.get("valid_versions"), list)
         or not isinstance(evaluation.get("matches"), list)
     ):
         return None, "npm's semver evaluator returned incomplete output."
-    valid_versions = cast(List[Any], evaluation["valid_versions"])
-    matches = cast(List[Any], evaluation["matches"])
+    valid_versions = cast(list[Any], evaluation["valid_versions"])
+    matches = cast(list[Any], evaluation["matches"])
     if not _valid_node_results(evaluation["range_valid"], valid_versions, matches, version_count):
         return None, "npm's semver evaluator returned incomplete version results."
     return evaluation, None
 
 
-def _valid_node_results(range_valid: bool, valid_versions: List[Any], matches: List[Any], version_count: int) -> bool:
+def _valid_node_results(range_valid: bool, valid_versions: list[Any], matches: list[Any], version_count: int) -> bool:
     if len(valid_versions) != version_count:
         return False
     if any(not isinstance(value, bool) for value in valid_versions + matches):
@@ -150,8 +151,8 @@ def _valid_node_results(range_valid: bool, valid_versions: List[Any], matches: L
 
 
 def _evaluate_node_range(
-    node: str, requirement: Optional[str], versions: List[str]
-) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    node: str, requirement: str | None, versions: list[str]
+) -> tuple[dict[str, Any] | None, str | None]:
     npm_cli = _npm_cli_path()
     if npm_cli is None:
         return None, "Could not locate npm's local semver module."
@@ -176,7 +177,7 @@ def _evaluate_node_range(
     return _parse_node_evaluation(result.stdout, len(versions))
 
 
-def _server_status(value: Any, warnings: List[str], actions: List[str]) -> Tuple[Optional[Dict[str, Any]], bool]:
+def _server_status(value: Any, warnings: list[str], actions: list[str]) -> tuple[dict[str, Any] | None, bool]:
     if not isinstance(value, MappingABC):
         warnings.append("Connect did not return Node.js runtime status flags; compatibility is unknown.")
         actions.append("Check whether this Connect server exposes Node.js runtime status flags.")
@@ -198,14 +199,14 @@ def _server_status(value: Any, warnings: List[str], actions: List[str]) -> Tuple
     return status, complete
 
 
-def _server_installations(value: Any, warnings: List[str]) -> Tuple[List[Tuple[str, Optional[bool]]], bool, bool]:
+def _server_installations(value: Any, warnings: list[str]) -> tuple[list[tuple[str, bool | None]], bool, bool]:
     if not isinstance(value, list):
         warnings.append("Connect did not return Node.js installations; compatibility is unknown.")
         return [], False, False
-    installations: List[Tuple[str, Optional[bool]]] = []
+    installations: list[tuple[str, bool | None]] = []
     metadata_complete = True
     publishability_complete = True
-    for raw_item in cast(List[Any], value):
+    for raw_item in cast(list[Any], value):
         if not isinstance(raw_item, MappingABC):
             metadata_complete = False
             publishability_complete = False
@@ -227,8 +228,8 @@ def _server_installations(value: Any, warnings: List[str]) -> Tuple[List[Tuple[s
     return installations, metadata_complete, publishability_complete
 
 
-def _server_nodejs_info(settings: Any, warnings: List[str], actions: List[str]) -> Dict[str, Any]:
-    info: Dict[str, Any] = {
+def _server_nodejs_info(settings: Any, warnings: list[str], actions: list[str]) -> dict[str, Any]:
+    info: dict[str, Any] = {
         "enabled": None,
         "status": None,
         "installations": [],
@@ -259,7 +260,7 @@ def _server_nodejs_info(settings: Any, warnings: List[str], actions: List[str]) 
     return info
 
 
-def _nodejs_status_failures(info: Dict[str, Any]) -> List[str]:
+def _nodejs_status_failures(info: dict[str, Any]) -> list[str]:
     status = info["status"]
     if not isinstance(status, MappingABC):
         return []
@@ -267,29 +268,29 @@ def _nodejs_status_failures(info: Dict[str, Any]) -> List[str]:
     return [field for field in _NODEJS_STATUS_FLAGS if status.get(field) is False]
 
 
-def _eligible_installations(installations: List[Tuple[str, Optional[bool]]], is_new: bool) -> List[int]:
+def _eligible_installations(installations: list[tuple[str, bool | None]], is_new: bool) -> list[int]:
     return [index for index, (_, publishable) in enumerate(installations) if not is_new or publishable is True]
 
 
-def _valid_node_evaluation(evaluation: Optional[Dict[str, Any]]) -> bool:
+def _valid_node_evaluation(evaluation: dict[str, Any] | None) -> bool:
     return evaluation is not None and evaluation["range_valid"]
 
 
-def _has_matching_installation(indices: List[int], evaluation: Dict[str, Any]) -> bool:
+def _has_matching_installation(indices: list[int], evaluation: dict[str, Any]) -> bool:
     valid_versions = evaluation["valid_versions"]
     matches = evaluation["matches"]
     return any(valid_versions[index] and matches[index] for index in indices)
 
 
 def _unmatched_server_compatibility(
-    indices: List[int], is_new: bool, info: Dict[str, Any], evaluation: Dict[str, Any]
+    indices: list[int], is_new: bool, info: dict[str, Any], evaluation: dict[str, Any]
 ) -> str:
     versions_complete = all(evaluation["valid_versions"][index] for index in indices)
     flags_complete = info["publishability_complete"] or not is_new
     return "incompatible" if versions_complete and flags_complete else "unknown"
 
 
-def _server_compatibility(info: Dict[str, Any], is_new: bool, evaluation: Optional[Dict[str, Any]]) -> str:
+def _server_compatibility(info: dict[str, Any], is_new: bool, evaluation: dict[str, Any] | None) -> str:
     if info["enabled"] is False or _nodejs_status_failures(info):
         return "incompatible"
     if not info["runtime_complete"]:
@@ -302,14 +303,14 @@ def _server_compatibility(info: Dict[str, Any], is_new: bool, evaluation: Option
         return "incompatible" if flags_complete else "unknown"
     if not _valid_node_evaluation(evaluation):
         return "unknown"
-    if _has_matching_installation(indices, cast(Dict[str, Any], evaluation)):
+    if _has_matching_installation(indices, cast(dict[str, Any], evaluation)):
         return "compatible" if info["status_complete"] else "unknown"
-    return _unmatched_server_compatibility(indices, is_new, info, cast(Dict[str, Any], evaluation))
+    return _unmatched_server_compatibility(indices, is_new, info, cast(dict[str, Any], evaluation))
 
 
 def _existing_content_version(
-    client: RSConnectClient, app_id: str, warnings: List[str], actions: List[str]
-) -> Tuple[Optional[str], bool]:
+    client: RSConnectClient, app_id: str, warnings: list[str], actions: list[str]
+) -> tuple[str | None, bool]:
     try:
         content = client.content_get(app_id)
     except RSConnectException as err:
@@ -330,12 +331,12 @@ def _existing_content_version(
 def _existing_content(
     client: RSConnectClient,
     exists: bool,
-    app_id: Optional[str],
+    app_id: str | None,
     compatibility: str,
-    warnings: List[str],
-    actions: List[str],
-    target_issue: Optional[str],
-) -> Tuple[Dict[str, Any], bool]:
+    warnings: list[str],
+    actions: list[str],
+    target_issue: str | None,
+) -> tuple[dict[str, Any], bool]:
     node_version = None
     readable = not exists
     if exists and app_id:
@@ -351,7 +352,7 @@ def _existing_content(
     }, readable
 
 
-def _validated_executor(executor: RSConnectExecutor) -> Tuple[Any, RSConnectClient]:
+def _validated_executor(executor: RSConnectExecutor) -> tuple[Any, RSConnectClient]:
     server = executor.remote_server
     if isinstance(server, ConnectCloudServer) or not isinstance(server, (RSConnectServer, SPCSConnectServer)):
         raise RSConnectException("Node.js preflight supports self-hosted Posit Connect and Connect in SPCS.")
@@ -363,7 +364,7 @@ def _validated_executor(executor: RSConnectExecutor) -> Tuple[Any, RSConnectClie
     return server, client
 
 
-def _read_server_nodejs_info(client: RSConnectClient, warnings: List[str], actions: List[str]) -> Dict[str, Any]:
+def _read_server_nodejs_info(client: RSConnectClient, warnings: list[str], actions: list[str]) -> dict[str, Any]:
     try:
         settings = client.nodejs_settings()
     except RSConnectException as err:
@@ -374,12 +375,12 @@ def _read_server_nodejs_info(client: RSConnectClient, warnings: List[str], actio
 
 def _evaluate_project_range(
     node: str,
-    requirement: Optional[str],
-    versions: List[str],
+    requirement: str | None,
+    versions: list[str],
     project_metadata_valid: bool,
-    warnings: List[str],
-    actions: List[str],
-) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    warnings: list[str],
+    actions: list[str],
+) -> tuple[dict[str, Any] | None, str | None]:
     if not project_metadata_valid:
         return None, None
     evaluation, error = _evaluate_node_range(node, requirement, versions)
@@ -393,8 +394,8 @@ def _evaluate_project_range(
 
 
 def _project_details(
-    project: str, node: Optional[str], warnings: List[str], actions: List[str]
-) -> Tuple[str, Optional[str], bool, Optional[str]]:
+    project: str, node: str | None, warnings: list[str], actions: list[str]
+) -> tuple[str, str | None, bool, str | None]:
     directory = _project_directory(project)
     requirement, metadata_valid = _project_node_requirement(directory, warnings, actions)
     local_node = _local_node_version(directory, node, warnings, actions) if metadata_valid else None
@@ -403,9 +404,9 @@ def _project_details(
 
 def _local_checks_complete(
     metadata_valid: bool,
-    local_node: Optional[str],
-    evaluation: Optional[Dict[str, Any]],
-    evaluation_error: Optional[str],
+    local_node: str | None,
+    evaluation: dict[str, Any] | None,
+    evaluation_error: str | None,
 ) -> bool:
     return (
         metadata_valid
@@ -416,7 +417,7 @@ def _local_checks_complete(
     )
 
 
-def _add_status_failure_actions(info: Dict[str, Any], actions: List[str]) -> List[str]:
+def _add_status_failure_actions(info: dict[str, Any], actions: list[str]) -> list[str]:
     failures = _nodejs_status_failures(info)
     if info["enabled"] is False:
         actions.append("Enable Node.js on the Connect server before publishing.")
@@ -432,11 +433,11 @@ def _add_status_failure_actions(info: Dict[str, Any], actions: List[str]) -> Lis
 
 
 def _add_server_advice(
-    info: Dict[str, Any],
+    info: dict[str, Any],
     compatibility: str,
     exists: bool,
-    warnings: List[str],
-    actions: List[str],
+    warnings: list[str],
+    actions: list[str],
 ) -> None:
     failures = _add_status_failure_actions(info, actions)
     if info["enabled"] is False or failures or compatibility != "incompatible":
@@ -451,7 +452,7 @@ def _add_server_advice(
 
 def _reported_status(
     compatibility: str,
-    enabled: Optional[bool],
+    enabled: bool | None,
     local_checks_complete: bool,
     target_resolved: bool,
     content_readable: bool,
@@ -465,12 +466,12 @@ def _reported_status(
     return "ok" if compatibility == "compatible" else compatibility
 
 
-def run_node_preflight(executor: RSConnectExecutor, project: str, node: Optional[str] = None) -> Dict[str, Any]:
+def run_node_preflight(executor: RSConnectExecutor, project: str, node: str | None = None) -> dict[str, Any]:
     """Check Node.js project metadata against a validated Connect executor."""
     require_posix("Deployment preflight")
     server, client = _validated_executor(executor)
-    warnings: List[str] = []
-    actions: List[str] = []
+    warnings: list[str] = []
+    actions: list[str] = []
     target = project
     _, requirement, project_metadata_valid, local_node = _project_details(project, node, warnings, actions)
     info = _read_server_nodejs_info(client, warnings, actions)

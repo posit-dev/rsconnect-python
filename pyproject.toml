@@ -60,11 +60,13 @@ module-root = ""
 
 [tool.ruff]
 line-length = 120
+target-version = "py311"
 extend-exclude = ["rsconnect-build", "rsconnect-build-test", "tests/testdata"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W"]
-ignore = ["E203", "E231", "E302"]
+select = ["E", "F", "W", "UP"]
+# Percent formatting has subtly different behavior from str.format.
+ignore = ["E203", "E231", "E302", "UP031"]
 per-file-ignores = { "tests/test_metadata.py" = ["E501"] }
 
 [tool.coverage.run]

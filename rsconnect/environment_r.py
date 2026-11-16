@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional, Sequence, cast
+from typing import Any, cast
+from collections.abc import Sequence
 
 from .exception import RSConnectException
 from .log import logger
@@ -43,7 +44,7 @@ class REnvironment:
         self.lockfile = DEFAULT_R_PACKAGE_FILE
 
     @classmethod
-    def create(cls, directory: str) -> Optional["REnvironment"]:
+    def create(cls, directory: str) -> REnvironment | None:
         """Resolve R dependencies from an renv.lock file in a project directory.
 
         Returns None when there is no renv.lock to resolve, so callers can treat
@@ -178,7 +179,7 @@ def _resolve_package_source(pkg: Any, repo_name_to_url: dict[str, str]) -> tuple
     return pkg.get("Source") or "", pkg.get("Repository") or ""
 
 
-def _resolve_repo_and_source(repo_name_to_url: dict[str, str], repo_str: str, src: Optional[str]) -> tuple[str, str]:
+def _resolve_repo_and_source(repo_name_to_url: dict[str, str], repo_str: str, src: str | None) -> tuple[str, str]:
     if _is_url(repo_str):
         repo_url = repo_str.rstrip("/")
         repo_name = repo_url
@@ -291,7 +292,7 @@ def _remote_repo_url(remote_type: str, pkg_ref: str) -> str:
     return f"{host}{pkg_ref}" if host else ""
 
 
-def _join_list(value: Optional[Sequence[Optional[str]]]) -> Optional[str]:
+def _join_list(value: Sequence[str | None] | None) -> str | None:
     items = [v for v in value if v is not None] if value else []
     return ", ".join(items) if items else None
 

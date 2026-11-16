@@ -50,7 +50,7 @@ def test_deploy_quarto_passes_package_installer(tmp_path: pathlib.Path):
     (tmp_path / "doc.qmd").write_text("---\ntitle: t\n---\n")
     (tmp_path / "requirements.txt").write_text("jupyter\n")
     real_create = Environment.create_python_environment
-    environments: typing.List[Environment] = []
+    environments: list[Environment] = []
 
     def recording_create(*args: typing.Any, **kwargs: typing.Any) -> Environment:
         environment = real_create(*args, **kwargs)

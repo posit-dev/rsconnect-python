@@ -252,7 +252,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -654,7 +654,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -846,7 +846,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -967,7 +967,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1038,7 +1038,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1243,7 +1243,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1359,7 +1359,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1658,7 +1658,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/users/me",
-            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-user.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1666,14 +1666,14 @@ class TestMain:
             httpretty.GET,
             "https://api.shinyapps.io/v1/applications"
             "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
-            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-applications.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/accounts/",
-            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1687,7 +1687,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/rstudio-responses/application.json", "r").read(),
+                open("tests/testdata/rstudio-responses/application.json").read(),
             ]
 
         httpretty.register_uri(
@@ -1730,7 +1730,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/rstudio-responses/create-bundle.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-bundle.json").read(),
             ]
 
         httpretty.register_uri(
@@ -1769,7 +1769,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/bundles/12640",
-            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1783,7 +1783,7 @@ class TestMain:
             return [
                 303,
                 {"Location": "https://api.shinyapps.io/v1/tasks/333"},
-                open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
+                open("tests/testdata/rstudio-responses/post-deploy.json").read(),
             ]
 
         httpretty.register_uri(
@@ -1795,7 +1795,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/tasks/333",
-            body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-task.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1834,7 +1834,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/users/me",
-            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-user.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1842,14 +1842,14 @@ class TestMain:
             httpretty.GET,
             "https://api.shinyapps.io/v1/applications"
             "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
-            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-applications.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/accounts/",
-            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1857,7 +1857,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/applications/8442",
-            body=open("tests/testdata/rstudio-responses/application.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/application.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1896,7 +1896,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/rstudio-responses/create-bundle.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-bundle.json").read(),
             ]
 
         httpretty.register_uri(
@@ -1935,7 +1935,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/bundles/12640",
-            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -1949,7 +1949,7 @@ class TestMain:
             return [
                 303,
                 {"Location": "https://api.shinyapps.io/v1/tasks/333"},
-                open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
+                open("tests/testdata/rstudio-responses/post-deploy.json").read(),
             ]
 
         httpretty.register_uri(
@@ -1961,7 +1961,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/tasks/333",
-            body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-task.json").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -2282,7 +2282,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json").read())
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -2310,7 +2310,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json").read())
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -2341,7 +2341,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json").read())
         self.assertEqual(json_output, expected_output)
 
         del os.environ[SECRET_KEY_ENV]
@@ -2366,7 +2366,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/other_error.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/other_error.json").read())
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -2392,7 +2392,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/not_found_error.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/not_found_error.json").read())
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -2414,7 +2414,7 @@ class TestBootstrap(TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/forbidden_error.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/forbidden_error.json").read())
 
         self.assertEqual(json_output, expected_output)
 
@@ -2438,7 +2438,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/unauthorized_error.json").read())
 
         self.assertEqual(json_output, expected_output)
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import click
@@ -152,7 +152,7 @@ class TestRedeployTargetInference(unittest.TestCase):
         self,
         name: str = "cloud",
         account: str = "acme",
-        account_id: Optional[str] = "acct-1",
+        account_id: str | None = "acct-1",
         default: bool = False,
     ) -> None:
         self.store.set(

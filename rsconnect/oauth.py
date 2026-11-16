@@ -18,7 +18,8 @@ import time
 import webbrowser
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer as _HTTPServer
-from typing import Any, Dict, Generator, Iterable, Mapping, Optional, Tuple, cast
+from typing import Any, cast
+from collections.abc import Generator, Iterable, Mapping
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import click
@@ -73,7 +74,7 @@ class InvalidGrantError(RSConnectException):
     server's ``error_description`` is kept in ``description`` when it sends one.
     """
 
-    def __init__(self, description: Optional[str] = None) -> None:
+    def __init__(self, description: str | None = None) -> None:
         self.description = description
         super().__init__("The OAuth grant is invalid, expired, or has been revoked.")
 
@@ -105,21 +106,21 @@ def _unwrap_json_response(response: Any) -> dict[str, Any]:
     """
     if isinstance(response, HTTPResponse):
         if response.status and 200 <= response.status < 300 and isinstance(response.json_data, dict):
-            return cast(Dict[str, Any], response.json_data)
+            return cast(dict[str, Any], response.json_data)
         _check_oauth_error_response(response)
         raise RSConnectException(f"OAuth request failed: HTTP {response.status}.")
     if isinstance(response, dict):
-        return cast(Dict[str, Any], response)
+        return cast(dict[str, Any], response)
     raise RSConnectException("Unexpected OAuth response format.")
 
 
-def _oauth_response_data(response: Any) -> tuple[Optional[dict[str, Any]], Optional[int]]:
+def _oauth_response_data(response: Any) -> tuple[dict[str, Any] | None, int | None]:
     """Return an OAuth response's JSON object and HTTP status when available."""
     if isinstance(response, HTTPResponse):
         data = response.json_data
-        return (cast(Dict[str, Any], data) if isinstance(data, dict) else None, response.status)
+        return (cast(dict[str, Any], data) if isinstance(data, dict) else None, response.status)
     if isinstance(response, dict):
-        return cast(Dict[str, Any], response), 200
+        return cast(dict[str, Any], response), 200
     return None, None
 
 
@@ -137,9 +138,9 @@ def _post_oauth_form_request(
     path: str,
     params: Mapping[str, str],
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
+    ca_data: str | bytes | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> Any:
@@ -165,9 +166,9 @@ def _post_oauth_form_request(
 def discover_oauth_metadata(
     url: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
+    ca_data: str | bytes | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
@@ -204,9 +205,9 @@ def register_client(
     metadata: dict[str, Any],
     url: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
+    ca_data: str | bytes | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> str:
@@ -249,7 +250,7 @@ def register_client(
     return str(data["client_id"])
 
 
-def generate_pkce_pair() -> Tuple[str, str]:
+def generate_pkce_pair() -> tuple[str, str]:
     """Generate a PKCE code_verifier and code_challenge (S256)."""
     code_verifier = secrets.token_urlsafe(96)[:96]
     digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
@@ -264,7 +265,7 @@ def _exchange_code_for_token(
     code_verifier: str,
     redirect_uri: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
 ) -> dict[str, Any]:
     """Exchange an authorization code for tokens."""
     token_endpoint = str(metadata["token_endpoint"])
@@ -297,7 +298,7 @@ def _exchange_code_for_token(
 class _CallbackHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the OAuth redirect callback."""
 
-    result_queue: queue.Queue[Tuple[str, Optional[str], Optional[str]]]
+    result_queue: queue.Queue[tuple[str, str | None, str | None]]
 
     def do_GET(self) -> None:  # noqa: N802
         qs = parse_qs(urlparse(self.path).query)
@@ -330,7 +331,7 @@ def login_with_browser(
     client_id: str,
     metadata: dict[str, Any],
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
 ) -> dict[str, Any]:
     """Perform OAuth Authorization Code + PKCE flow via browser.
 
@@ -340,7 +341,7 @@ def login_with_browser(
     code_verifier, code_challenge = generate_pkce_pair()
     state = secrets.token_urlsafe(32)
 
-    result_queue: queue.Queue[Tuple[str, Optional[str], Optional[str]]] = queue.Queue()
+    result_queue: queue.Queue[tuple[str, str | None, str | None]] = queue.Queue()
 
     callback_server = _HTTPServer(("127.0.0.1", 0), _CallbackHandler)
     port = callback_server.server_address[1]
@@ -399,8 +400,8 @@ def login_with_device_code(
     client_id: str,
     metadata: dict[str, Any],
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    scope: Optional[str] = None,
+    ca_data: str | bytes | None = None,
+    scope: str | None = None,
     open_browser: bool = True,
 ) -> dict[str, Any]:
     """Perform OAuth Device Code flow.
@@ -461,8 +462,8 @@ def _poll_for_device_token(
     interval: int,
     expires_in: int,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    scope: Optional[str] = None,
+    ca_data: str | bytes | None = None,
+    scope: str | None = None,
 ) -> dict[str, Any]:
     """Poll the token endpoint for device code completion."""
     token_endpoint = str(metadata["token_endpoint"])
@@ -515,10 +516,10 @@ def refresh_access_token(
     client_id: str,
     refresh_token: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    scope: Optional[str] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
+    ca_data: str | bytes | None = None,
+    scope: str | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
@@ -554,9 +555,9 @@ def request_client_credentials_token(
     token_endpoint: str,
     client_id: str,
     client_secret: str,
-    scope: Optional[str] = None,
+    scope: str | None = None,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
 ) -> dict[str, Any]:
     """Request an access token using the OAuth client credentials grant (RFC 6749 4.4).
 
@@ -583,9 +584,9 @@ def _post_token_request(
     token_endpoint: str,
     params: dict[str, str],
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
+    ca_data: str | bytes | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
@@ -617,7 +618,7 @@ def exchange_token_for_api_key(
     url: str,
     subject_token: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
 ) -> str:
     """Exchange an OIDC identity token for a short-lived Connect API key (RFC 8693).
 
@@ -689,7 +690,7 @@ def exchange_token_for_api_key(
     raise _token_exchange_error(status, data)
 
 
-def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConnectException:
+def _token_exchange_error(status: int | None, data: dict[str, Any]) -> RSConnectException:
     """Translate a failed token-exchange response into an actionable exception."""
     error = str(data.get("error", "")) if data else ""
     description = str(data.get("error_description", "")) if data else ""
@@ -747,7 +748,7 @@ def _no_keyring_errors() -> tuple[type[BaseException], ...]:
     return (NoKeyringError,)
 
 
-def keyring_store_values(key: str, values: Mapping[str, Optional[str]]) -> bool:
+def keyring_store_values(key: str, values: Mapping[str, str | None]) -> bool:
     """Store credential values in the system keyring, deleting the empty ones.
 
     Entries are named "<key>:<field>". A Posit Connect caller passes the bare
@@ -797,7 +798,7 @@ def keyring_store_values(key: str, values: Mapping[str, Optional[str]]) -> bool:
         return False
 
 
-def keyring_read_value(key: str, field: str) -> Tuple[bool, Optional[str]]:
+def keyring_read_value(key: str, field: str) -> tuple[bool, str | None]:
     """Retrieve one credential value, saying whether the keyring could be read.
 
     A caller that decides what to write based on what is already stored needs to
@@ -820,7 +821,7 @@ def keyring_read_value(key: str, field: str) -> Tuple[bool, Optional[str]]:
         return False, None
 
 
-def keyring_get_value(key: str, field: str) -> Optional[str]:
+def keyring_get_value(key: str, field: str) -> str | None:
     """Retrieve one credential value from the system keyring, or None."""
     return keyring_read_value(key, field)[1]
 
@@ -874,7 +875,7 @@ def keyring_delete_values(key: str, fields: Iterable[str]) -> bool:
         return False
 
 
-def keyring_store_token(key: str, access_token: Optional[str], refresh_token: Optional[str]) -> bool:
+def keyring_store_token(key: str, access_token: str | None, refresh_token: str | None) -> bool:
     """Store OAuth tokens in the system keyring.
 
     Returns True on success, False if keyring is not available.
@@ -882,7 +883,7 @@ def keyring_store_token(key: str, access_token: Optional[str], refresh_token: Op
     return keyring_store_values(key, {ACCESS_TOKEN_FIELD: access_token, REFRESH_TOKEN_FIELD: refresh_token})
 
 
-def keyring_get_tokens(key: str) -> Tuple[Optional[str], Optional[str]]:
+def keyring_get_tokens(key: str) -> tuple[str | None, str | None]:
     """Retrieve OAuth tokens from the system keyring.
 
     Returns (access_token, refresh_token), or (None, None) if unavailable.
@@ -895,7 +896,7 @@ def keyring_delete_tokens(key: str) -> None:
     keyring_delete_values(key, (ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD))
 
 
-def stored_tokens(server_url: str, server_name: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+def stored_tokens(server_url: str, server_name: str | None = None) -> tuple[str | None, str | None]:
     """The (access_token, refresh_token) that `rsconnect login` stored for a Posit Connect server.
 
     The keyring is where a login stores its tokens; the server's saved entry holds
@@ -915,11 +916,11 @@ def stored_tokens(server_url: str, server_name: Optional[str] = None) -> Tuple[O
 def refresh_stored_tokens(
     server_url: str,
     client_id: str,
-    server_name: Optional[str] = None,
+    server_name: str | None = None,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
     *,
-    rejected_access_token: Optional[str],
+    rejected_access_token: str | None,
 ) -> str:
     """Exchange the stored refresh token for a new access token, store both, and return the access token.
 
@@ -965,7 +966,7 @@ def refresh_stored_tokens(
 
 
 def _replace_deleted_client(
-    server_url: str, server_name: Optional[str], insecure: bool, ca_data: Optional[str | bytes]
+    server_url: str, server_name: str | None, insecure: bool, ca_data: str | bytes | None
 ) -> None:
     """Clear the tokens of an OAuth client the server deleted, and register a new client in its place."""
     from .metadata import ServerStore

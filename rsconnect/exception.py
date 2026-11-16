@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
-
 
 class RSConnectException(Exception):
-    def __init__(self, message: str, cause: Optional[Exception] = None, status: Optional[int] = None):
-        super(RSConnectException, self).__init__(message)
+    def __init__(self, message: str, cause: Exception | None = None, status: int | None = None):
+        super().__init__(message)
         self.message = message
         self.cause = cause
         self.status = status

@@ -14,7 +14,8 @@ import threading
 import time
 from http import client as http
 from http.cookies import SimpleCookie
-from typing import IO, Any, Dict, List, Mapping, Optional, Tuple, Union, cast
+from typing import IO, Any, Union, cast
+from collections.abc import Mapping
 from urllib.parse import unquote_plus, urlencode, urljoin, urlparse
 from warnings import warn
 
@@ -23,15 +24,15 @@ from .log import logger
 from .timeouts import get_request_timeout
 
 # A union type that describes types that can be converted to and from JSON.
-JsonData = Union[
+JsonData = Union[  # noqa: UP007
     str,
     int,
     float,
     bool,
     None,
-    List["JsonData"],
-    Tuple["JsonData"],
-    Dict[str, "JsonData"],
+    list["JsonData"],
+    tuple["JsonData"],
+    dict[str, "JsonData"],
 ]
 
 _user_agent = f"RSConnectPython/{VERSION}"
@@ -167,9 +168,9 @@ def _redacted_body_for_log(body: object) -> object:
 # noinspection PyUnusedLocal,PyUnresolvedReferences
 def _create_plain_connection(
     host_name: str,
-    port: Optional[int],
+    port: int | None,
     disable_tls_check: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
 ):
     """
     This function is used to create a plain HTTP connection.  Note that the 3rd and 4th
@@ -215,9 +216,9 @@ def _get_proxy_headers(*args: object, **kwargs: object):
 # noinspection PyUnresolvedReferences
 def _create_ssl_connection(
     host_name: str,
-    port: Optional[int],
+    port: int | None,
     disable_tls_check: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
 ):
     """
     This function is used to create a TLS encrypted HTTP connection (SSL).
@@ -292,9 +293,9 @@ def append_to_path(uri: str, path: str):
 
 
 def create_multipart_form_data(
-    fields: Dict[str, Union[str, Tuple[str, bytes, str]]],
-    boundary: Optional[str] = None,
-) -> Tuple[bytes, str]:
+    fields: dict[str, str | tuple[str, bytes, str]],
+    boundary: str | None = None,
+) -> tuple[bytes, str]:
     """
     Create multipart/form-data body and content-type header.
 
@@ -312,14 +313,14 @@ def create_multipart_form_data(
     body_parts = []
 
     for field_name, field_value in fields.items():
-        body_parts.append(f"--{boundary}".encode("utf-8"))
+        body_parts.append(f"--{boundary}".encode())
 
         if isinstance(field_value, tuple):
             # File field
             filename, file_content, content_type = field_value
             disposition = f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'
             body_parts.append(disposition.encode("utf-8"))
-            body_parts.append(f"Content-Type: {content_type}".encode("utf-8"))
+            body_parts.append(f"Content-Type: {content_type}".encode())
             body_parts.append(b"")
             body_parts.append(file_content)
         else:
@@ -329,7 +330,7 @@ def create_multipart_form_data(
             body_parts.append(b"")
             body_parts.append(field_value.encode("utf-8"))
 
-    body_parts.append(f"--{boundary}--".encode("utf-8"))
+    body_parts.append(f"--{boundary}--".encode())
     body_parts.append(b"")
 
     body = b"\r\n".join(body_parts)
@@ -338,7 +339,7 @@ def create_multipart_form_data(
     return body, content_type
 
 
-def _interrupt_socket(sock: Optional[socket.socket]) -> None:
+def _interrupt_socket(sock: socket.socket | None) -> None:
     if sock is not None:
         try:
             sock.shutdown(socket.SHUT_RDWR)
@@ -347,7 +348,7 @@ def _interrupt_socket(sock: Optional[socket.socket]) -> None:
 
 
 def _close_failed_request(
-    connection: Union[http.HTTPConnection, http.HTTPSConnection], response: Optional[http.HTTPResponse]
+    connection: http.HTTPConnection | http.HTTPSConnection, response: http.HTTPResponse | None
 ) -> None:
     if response is not None:
         try:
@@ -360,7 +361,7 @@ def _close_failed_request(
         pass
 
 
-class HTTPResponse(object):
+class HTTPResponse:
     """
     This class represents the result of executing an HTTP request.
     """
@@ -368,9 +369,9 @@ class HTTPResponse(object):
     def __init__(
         self,
         full_uri: str,
-        response: Optional[http.HTTPResponse] = None,
-        body: Optional[str | bytes] = None,
-        exception: Optional[Exception] = None,
+        response: http.HTTPResponse | None = None,
+        body: str | bytes | None = None,
+        exception: Exception | None = None,
     ):
         """
         This constructs an HTTPResponse object.  One and only one of the arguments will
@@ -409,7 +410,7 @@ class HTTPResponse(object):
                 except json.decoder.JSONDecodeError:
                     self.response_body
 
-    def getheader(self, name: str) -> Optional[str]:
+    def getheader(self, name: str) -> str | None:
         """
         This method retrieves a specific header from the response.
 
@@ -421,7 +422,7 @@ class HTTPResponse(object):
         return self._response.getheader(name)
 
 
-class HTTPServer(object):
+class HTTPServer:
     """
     This class provides the means to simply and directly invoke HTTP requests against a
     server.
@@ -431,10 +432,10 @@ class HTTPServer(object):
         self,
         url: str,
         disable_tls_check: bool = False,
-        ca_data: Optional[str | bytes] = None,
-        cookies: Optional[CookieJar] = None,
-        request_timeout: Optional[float] = None,
-        request_deadline: Optional[float] = None,
+        ca_data: str | bytes | None = None,
+        cookies: CookieJar | None = None,
+        request_timeout: float | None = None,
+        request_deadline: float | None = None,
     ):
         """
         Constructs an HTTPServer object.
@@ -512,7 +513,7 @@ class HTTPServer(object):
     def get(
         self,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
         return self.request("GET", path, query_params, decode_response=decode_response)
@@ -520,9 +521,9 @@ class HTTPServer(object):
     def post(
         self,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
-        headers: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
     ) -> JsonData | HTTPResponse:
         if headers is None:
             headers = {}
@@ -531,7 +532,7 @@ class HTTPServer(object):
     def patch(
         self,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
     ) -> JsonData | HTTPResponse:
         return self.request("PATCH", path, query_params, body)
@@ -539,9 +540,9 @@ class HTTPServer(object):
     def put(
         self,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
-        headers: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
         if headers is None:
@@ -553,7 +554,7 @@ class HTTPServer(object):
     def delete(
         self,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
@@ -563,11 +564,11 @@ class HTTPServer(object):
         self,
         method: str,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         maximum_redirects: int = 5,
         decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
     ) -> JsonData | HTTPResponse:
         path = self._get_full_path(path)
         extra_headers = headers or {}
@@ -585,7 +586,7 @@ class HTTPServer(object):
             return
         remaining = self.request_deadline - time.monotonic()
         if remaining <= 0:
-            raise socket.timeout("HTTP request deadline exceeded.")
+            raise TimeoutError("HTTP request deadline exceeded.")
         timeout = self.request_timeout if self.request_timeout is not None else get_request_timeout()
         self.request_timeout = min(timeout, remaining) if timeout else remaining
         if self._conn is not None:
@@ -595,12 +596,12 @@ class HTTPServer(object):
 
     def _request_with_deadline(
         self,
-        connection: Union[http.HTTPConnection, http.HTTPSConnection],
+        connection: http.HTTPConnection | http.HTTPSConnection,
         method: str,
         full_uri: str,
         body: str | bytes | IO[bytes] | None,
         headers: dict[str, str],
-    ) -> Tuple[http.HTTPResponse, bytes]:
+    ) -> tuple[http.HTTPResponse, bytes]:
         deadline = self.request_deadline
         if deadline is None:
             connection.request(method, full_uri, body, headers)
@@ -610,7 +611,7 @@ class HTTPServer(object):
         self._apply_request_deadline()
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise socket.timeout("HTTP request deadline exceeded.")
+            raise TimeoutError("HTTP request deadline exceeded.")
 
         # ponytail: shutdown cannot cancel OS DNS or blocked source reads; revisit if either must fit this deadline.
         request_socket = connection.sock
@@ -625,17 +626,17 @@ class HTTPServer(object):
         timer = threading.Timer(remaining, interrupt_request)
         timer.daemon = True
         timer.start()
-        response: Optional[http.HTTPResponse] = None
+        response: http.HTTPResponse | None = None
         try:
             connection.request(method, full_uri, body, headers)
             with request_lock:
                 request_socket = connection.sock or request_socket
                 if time.monotonic() >= deadline:
-                    raise socket.timeout("HTTP request deadline exceeded.")
+                    raise TimeoutError("HTTP request deadline exceeded.")
             response = connection.getresponse()
             with request_lock:
                 if time.monotonic() >= deadline:
-                    raise socket.timeout("HTTP request deadline exceeded.")
+                    raise TimeoutError("HTTP request deadline exceeded.")
             response_body = response.read()
             with request_lock:
                 # A complete token response must reach its checkpoint even after the deadline.
@@ -643,7 +644,7 @@ class HTTPServer(object):
             return response, response_body
         except Exception:
             if time.monotonic() >= deadline:
-                raise socket.timeout("HTTP request deadline exceeded.") from None
+                raise TimeoutError("HTTP request deadline exceeded.") from None
             raise
         finally:
             timer.cancel()
@@ -693,7 +694,7 @@ class HTTPServer(object):
         self,
         method: str,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]],
+        query_params: Mapping[str, JsonData] | None,
         body: str | bytes | IO[bytes] | None,
         maximum_redirects: int,
         extra_headers: dict[str, str],
@@ -721,7 +722,7 @@ class HTTPServer(object):
                 local_connection = True
 
             # At this point we know that self._conn is not None.
-            conn = cast(Union[http.HTTPConnection, http.HTTPSConnection], self._conn)
+            conn = cast(http.HTTPConnection | http.HTTPSConnection, self._conn)
 
             try:
                 response, response_body = self._request_with_deadline(conn, method, full_uri, body, headers)
@@ -747,14 +748,12 @@ class HTTPServer(object):
 
             return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
         except (
+            TimeoutError,
             http.HTTPException,
             ssl.CertificateError,
-            IOError,
             OSError,
-            socket.error,
             socket.herror,
             socket.gaierror,
-            socket.timeout,
         ) as exception:
             logger.debug("An exception occurred processing the HTTP request (%s)." % type(exception).__name__)
             return HTTPResponse(full_uri, exception=exception)
@@ -762,7 +761,7 @@ class HTTPServer(object):
     def _follow_redirect(
         self,
         response: http.HTTPResponse,
-        query_params: Optional[Mapping[str, JsonData]],
+        query_params: Mapping[str, JsonData] | None,
         body: str | bytes | IO[bytes] | None,
         maximum_redirects: int,
         extra_headers: dict[str, str],
@@ -846,11 +845,11 @@ class BearerTokenHTTPServer(HTTPServer):
         self,
         method: str,
         path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
+        query_params: Mapping[str, JsonData] | None = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         maximum_redirects: int = 5,
         decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
     ) -> JsonData | HTTPResponse:
         if not self._can_refresh_token():
             return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
@@ -873,7 +872,7 @@ class BearerTokenHTTPServer(HTTPServer):
         return response
 
 
-class CookieJar(object):
+class CookieJar:
     @staticmethod
     def from_dict(source: dict[str, Any]):
         if not isinstance(source, dict):

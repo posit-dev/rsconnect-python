@@ -10,7 +10,8 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Tuple, Union, cast
+from typing import Any, cast
+from collections.abc import Mapping
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
@@ -32,7 +33,7 @@ _METADATA_FILES = (".python-version", "pyproject.toml", "setup.cfg")
 _APP_STORE_READ_ERRORS = (OSError, ValueError, RecursionError, AttributeError, TypeError)
 
 
-def _invalid_declared_metadata(project_path: Path) -> Optional[str]:
+def _invalid_declared_metadata(project_path: Path) -> str | None:
     for filename, metadata_file in lookup_metadata_file(project_path):
         parser = get_python_version_requirement_parser(metadata_file)
         try:
@@ -51,7 +52,7 @@ def _invalid_declared_metadata(project_path: Path) -> Optional[str]:
     return None
 
 
-def _project_constraint(project: str, warnings: list[str]) -> tuple[Optional[str], Optional[str]]:
+def _project_constraint(project: str, warnings: list[str]) -> tuple[str | None, str | None]:
     project_path = Path(project)
     for filename in _METADATA_FILES:
         if (project_path / filename).is_symlink():
@@ -80,7 +81,7 @@ def _server_python_versions(settings: Any) -> tuple[list[str], list[str], bool, 
     if not isinstance(raw_installations, list):
         return [], [], False, False
 
-    installations = cast(List[Any], raw_installations)
+    installations = cast(list[Any], raw_installations)
     installed: list[str] = []
     publishable: list[str] = []
     flags_complete = True
@@ -115,7 +116,7 @@ def _minor(version: str) -> tuple[int, int]:
     return release[0], release[1]
 
 
-def _pick_python_pin(versions: list[str], local_python: str) -> Optional[str]:
+def _pick_python_pin(versions: list[str], local_python: str) -> str | None:
     minors = sorted({_minor(version) for version in versions})
     if not minors:
         return None
@@ -130,13 +131,13 @@ def _pick_python_pin(versions: list[str], local_python: str) -> Optional[str]:
 
 def _local_publishable(
     local_python: str, versions: list[str], has_installations: bool, flags_complete: bool
-) -> Optional[bool]:
+) -> bool | None:
     if any(_minor(version) == _minor(local_python) for version in versions):
         return True
     return False if has_installations and flags_complete else None
 
 
-def _constraint_compatibility(constraint: Optional[str], versions: list[str]) -> str:
+def _constraint_compatibility(constraint: str | None, versions: list[str]) -> str:
     if constraint is None:
         return "unconstrained"
     if not versions:
@@ -179,7 +180,7 @@ def load_preflight_app_store(path: str) -> AppStore:
     return store
 
 
-def _read_app_store_record(store: Any, server_key: str) -> tuple[Optional[Mapping[str, Any]], Optional[str]]:
+def _read_app_store_record(store: Any, server_key: str) -> tuple[Mapping[str, Any] | None, str | None]:
     try:
         record = store.get(server_key)
     except _APP_STORE_READ_ERRORS as err:
@@ -191,7 +192,7 @@ def _read_app_store_record(store: Any, server_key: str) -> tuple[Optional[Mappin
     return cast(Mapping[str, Any], record), None
 
 
-def _read_deployment_records(executor: RSConnectExecutor, target: str) -> tuple[list[Mapping[str, Any]], Optional[str]]:
+def _read_deployment_records(executor: RSConnectExecutor, target: str) -> tuple[list[Mapping[str, Any]], str | None]:
     directory = os.path.isdir(target)
     module_file = fake_module_file_from_directory(target) if directory else None
     executor_module = fake_module_file_from_directory(executor.path)
@@ -215,7 +216,7 @@ def _read_deployment_records(executor: RSConnectExecutor, target: str) -> tuple[
     return records, None
 
 
-def _file_deployment_records(source: Path, server_key: str) -> tuple[list[Mapping[str, Any]], Optional[str]]:
+def _file_deployment_records(source: Path, server_key: str) -> tuple[list[Mapping[str, Any]], str | None]:
     records: list[Mapping[str, Any]] = []
     try:
         for app_file in (str(source), fake_module_file_from_directory(str(source))):
@@ -229,9 +230,7 @@ def _file_deployment_records(source: Path, server_key: str) -> tuple[list[Mappin
     return records, None
 
 
-def _directory_file_deployments(
-    executor: RSConnectExecutor, target: str
-) -> tuple[list[Mapping[str, Any]], Optional[str]]:
+def _directory_file_deployments(executor: RSConnectExecutor, target: str) -> tuple[list[Mapping[str, Any]], str | None]:
     records: list[Mapping[str, Any]] = []
     server_key = executor.record_server_key()
     try:
@@ -247,7 +246,7 @@ def _directory_file_deployments(
     return records, None
 
 
-def _target_from_records(records: list[Mapping[str, Any]]) -> tuple[bool, Optional[str], Optional[str]]:
+def _target_from_records(records: list[Mapping[str, Any]]) -> tuple[bool, str | None, str | None]:
     if len(records) > 1:
         return True, None, "Multiple local deployment records match this target."
     if not records:
@@ -258,7 +257,7 @@ def _target_from_records(records: list[Mapping[str, Any]]) -> tuple[bool, Option
     return True, record_id, None
 
 
-def _saved_deployment_target(executor: RSConnectExecutor, target: str) -> tuple[bool, Optional[str], Optional[str]]:
+def _saved_deployment_target(executor: RSConnectExecutor, target: str) -> tuple[bool, str | None, str | None]:
     records, issue = _read_deployment_records(executor, target)
     if issue:
         return True, None, issue
@@ -271,7 +270,7 @@ def _saved_deployment_target(executor: RSConnectExecutor, target: str) -> tuple[
     return _target_from_records(records)
 
 
-def _deployment_target(executor: RSConnectExecutor, target: str) -> tuple[bool, Optional[str], Optional[str]]:
+def _deployment_target(executor: RSConnectExecutor, target: str) -> tuple[bool, str | None, str | None]:
     if executor.new:
         return False, None, None
     if executor.app_id:
@@ -281,7 +280,7 @@ def _deployment_target(executor: RSConnectExecutor, target: str) -> tuple[bool, 
 
 def _current_python(
     client: RSConnectClient, app_id: str, warnings: list[str], actions: list[str]
-) -> tuple[Optional[str], bool]:
+) -> tuple[str | None, bool]:
     try:
         content = client.content_get(app_id)
     except RSConnectException as err:
@@ -308,13 +307,13 @@ def _current_python(
 def _existing_content(
     client: RSConnectClient,
     exists: bool,
-    app_id: Optional[str],
-    constraint: Optional[str],
+    app_id: str | None,
+    constraint: str | None,
     installed_versions: list[str],
     warnings: list[str],
     actions: list[str],
 ) -> tuple[dict[str, Any], bool]:
-    current_python: Optional[str] = None
+    current_python: str | None = None
     content_readable = True
     if exists and app_id:
         current_python, content_readable = _current_python(client, app_id, warnings, actions)
@@ -349,14 +348,14 @@ def _write_python_pin(project: str, version: str) -> bool:
 def _recommend_python_pin(
     project: str,
     is_new: bool,
-    constraint: Optional[str],
-    invalid_metadata: Optional[str],
+    constraint: str | None,
+    invalid_metadata: str | None,
     versions: list[str],
     local_python: str,
     fix: bool,
     warnings: list[str],
     actions: list[str],
-) -> tuple[Optional[str], Optional[str], list[str], Optional[str]]:
+) -> tuple[str | None, str | None, list[str], str | None]:
     if not is_new or constraint is not None or invalid_metadata:
         return constraint, None, [], invalid_metadata
     recommendation = _pick_python_pin(versions, local_python)
@@ -385,10 +384,10 @@ def _recommend_python_pin(
 
 
 def _new_content_status(
-    constraint: Optional[str],
+    constraint: str | None,
     publishable_versions: list[str],
     flags_complete: bool,
-    local_publishable: Optional[bool],
+    local_publishable: bool | None,
 ) -> str:
     if constraint is not None:
         compatibility = _constraint_compatibility(constraint, publishable_versions)
@@ -404,12 +403,12 @@ def _new_content_status(
 
 def _status(
     is_new: bool,
-    constraint: Optional[str],
-    invalid_metadata: Optional[str],
+    constraint: str | None,
+    invalid_metadata: str | None,
     installed_versions: list[str],
     publishable_versions: list[str],
     flags_complete: bool,
-    local_publishable: Optional[bool],
+    local_publishable: bool | None,
 ) -> str:
     if invalid_metadata or not installed_versions:
         return "unknown"
@@ -422,7 +421,7 @@ def _status(
 
 
 def _availability_advice(
-    settings_error: Optional[str],
+    settings_error: str | None,
     installed_versions: list[str],
     publishable_versions: list[str],
     has_installations: bool,
@@ -431,7 +430,7 @@ def _availability_advice(
     warnings: list[str],
     actions: list[str],
 ) -> None:
-    action: Optional[str] = None
+    action: str | None = None
     if settings_error:
         warnings.append(f"Could not read server Python settings: {settings_error}")
         action = "Check the server's Python installations before publishing."
@@ -452,7 +451,7 @@ def _availability_advice(
         actions.append(action)
 
 
-def _incompatible_advice(is_new: bool, constraint: Optional[str], warnings: list[str], actions: list[str]) -> None:
+def _incompatible_advice(is_new: bool, constraint: str | None, warnings: list[str], actions: list[str]) -> None:
     if not is_new:
         warnings.append("No installed server Python version satisfies the project requirement.")
         actions.append("Align the project requirement with an installed version before redeploying.")
@@ -466,8 +465,8 @@ def _incompatible_advice(is_new: bool, constraint: Optional[str], warnings: list
 
 def _unknown_advice(
     is_new: bool,
-    constraint: Optional[str],
-    recommended: Optional[str],
+    constraint: str | None,
+    recommended: str | None,
     warnings: list[str],
     actions: list[str],
 ) -> None:
@@ -485,7 +484,7 @@ def _unknown_advice(
         actions.append("Check the project's Python metadata and server availability before publishing.")
 
 
-def _local_python_version(project_dir: str, python: Optional[str]) -> str:
+def _local_python_version(project_dir: str, python: str | None) -> str:
     interpreter = which_python(python, project_dir)
     if interpreter == sys.executable:
         return platform.python_version()
@@ -504,7 +503,7 @@ def _local_python_version(project_dir: str, python: Optional[str]) -> str:
 
 def _validated_python_executor(
     executor: RSConnectExecutor,
-) -> Tuple[Union[RSConnectServer, SPCSConnectServer], RSConnectClient]:
+) -> tuple[RSConnectServer | SPCSConnectServer, RSConnectClient]:
     server = executor.remote_server
     if isinstance(server, ConnectCloudServer):
         raise RSConnectException(
@@ -522,8 +521,8 @@ def _validated_python_executor(
 
 
 def _python_project_metadata(
-    target: str, python: Optional[str], warnings: list[str]
-) -> tuple[str, str, Optional[str], Optional[str]]:
+    target: str, python: str | None, warnings: list[str]
+) -> tuple[str, str, str | None, str | None]:
     target_path = Path(target)
     project_dir = str(target_path.parent) if target_path.is_file() else target
     local_python = _local_python_version(project_dir, python)
@@ -537,9 +536,9 @@ def _python_project_metadata(
 def _status_advice(
     status: str,
     is_new: bool,
-    constraint: Optional[str],
-    invalid_metadata: Optional[str],
-    recommended: Optional[str],
+    constraint: str | None,
+    invalid_metadata: str | None,
+    recommended: str | None,
     warnings: list[str],
     actions: list[str],
 ) -> None:
@@ -552,7 +551,7 @@ def _status_advice(
 
 
 def run_preflight(
-    executor: RSConnectExecutor, project: str, fix: bool = False, python: Optional[str] = None
+    executor: RSConnectExecutor, project: str, fix: bool = False, python: str | None = None
 ) -> dict[str, Any]:
     """Check project Python metadata against a validated Connect executor."""
     require_posix("Deployment preflight")

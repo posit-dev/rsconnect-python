@@ -5,13 +5,12 @@ Git metadata detection utilities for bundle uploads
 from __future__ import annotations
 
 import subprocess
-from typing import Optional
 from urllib.parse import urlparse
 
 from .log import logger
 
 
-def _run_git_command(args: list[str], cwd: str) -> Optional[str]:
+def _run_git_command(args: list[str], cwd: str) -> str | None:
     """
     Run a git command and return its output.
 
@@ -59,7 +58,7 @@ def has_uncommitted_changes(directory: str) -> bool:
     return bool(result)
 
 
-def get_git_commit(directory: str) -> Optional[str]:
+def get_git_commit(directory: str) -> str | None:
     """
     Get the current git commit SHA.
 
@@ -69,7 +68,7 @@ def get_git_commit(directory: str) -> Optional[str]:
     return _run_git_command(["rev-parse", "HEAD"], directory)
 
 
-def get_git_branch(directory: str) -> Optional[str]:
+def get_git_branch(directory: str) -> str | None:
     """
     Get the current git branch name or tag.
 
@@ -88,7 +87,7 @@ def get_git_branch(directory: str) -> Optional[str]:
     return branch
 
 
-def get_git_remote_url(directory: str, remote: str = "origin") -> Optional[str]:
+def get_git_remote_url(directory: str, remote: str = "origin") -> str | None:
     """
     Get the URL of a git remote.
 
@@ -99,7 +98,7 @@ def get_git_remote_url(directory: str, remote: str = "origin") -> Optional[str]:
     return _run_git_command(["remote", "get-url", remote], directory)
 
 
-def normalize_git_url_to_https(url: Optional[str]) -> Optional[str]:
+def normalize_git_url_to_https(url: str | None) -> str | None:
     """
     Normalize a git URL to HTTPS format.
 

@@ -152,7 +152,7 @@ def test_quickstart_quarto_shiny_not_supported(runner: CliRunner, in_tmp_cwd: pa
 def test_quickstart_delegates_to_run_quickstart(
     runner: CliRunner,
     monkeypatch: pytest.MonkeyPatch,
-    args: typing.List[str],
+    args: list[str],
     expected: typing.Mapping[str, typing.Any],
 ):
     run_quickstart = mock.Mock()
@@ -848,7 +848,7 @@ def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_
 def test_install_venv_clears_virtual_env(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
     """``uv`` must not see the developer's activated venv (avoids the venv-mismatch warning)."""
     monkeypatch.setenv("VIRTUAL_ENV", "/some/parent/.venv")
-    captured_envs: typing.List[typing.Mapping[str, str]] = []
+    captured_envs: list[typing.Mapping[str, str]] = []
 
     def fake_run(cmd, cwd, env):
         captured_envs.append(env)
@@ -878,10 +878,10 @@ def test_quickstart_venv_interpreter(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
-    extra_args: typing.List[str],
-    expected_python: typing.Optional[str],
+    extra_args: list[str],
+    expected_python: str | None,
 ):
-    calls: typing.List[typing.Optional[str]] = []
+    calls: list[str | None] = []
     monkeypatch.setattr(
         "rsconnect.quickstart.quickstart._install_venv",
         lambda target, python=None: calls.append(python),
@@ -892,7 +892,7 @@ def test_quickstart_venv_interpreter(
 
 
 def test_install_venv_passes_python(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
-    commands: typing.List[typing.List[str]] = []
+    commands: list[list[str]] = []
 
     def fake_run(cmd, cwd, env):
         commands.append(cmd)

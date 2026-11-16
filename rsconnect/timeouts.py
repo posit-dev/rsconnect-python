@@ -1,7 +1,6 @@
 import os
 import textwrap
 
-from typing import Union
 
 from rsconnect.exception import RSConnectException
 
@@ -29,7 +28,7 @@ def get_request_timeout() -> int:
     :raises: `RSConnectException` if CONNECT_REQUEST_TIMEOUT is not a natural number.
     :return: the timeout value
     """
-    timeout: Union[int, str] = os.environ.get(_CONNECT_REQUEST_TIMEOUT_KEY, _CONNECT_REQUEST_TIMEOUT_DEFAULT_VALUE)
+    timeout: int | str = os.environ.get(_CONNECT_REQUEST_TIMEOUT_KEY, _CONNECT_REQUEST_TIMEOUT_DEFAULT_VALUE)
 
     try:
         timeout = int(timeout)
@@ -61,7 +60,7 @@ def get_task_timeout() -> int:
     :raises: `RSConnectException` if CONNECT_TASK_TIMEOUT is not a positive integer.
     :return: the timeout value
     """
-    timeout: Union[int, str] = os.environ.get(_CONNECT_TASK_TIMEOUT_KEY, _CONNECT_TASK_TIMEOUT_DEFAULT_VALUE)
+    timeout: int | str = os.environ.get(_CONNECT_TASK_TIMEOUT_KEY, _CONNECT_TASK_TIMEOUT_DEFAULT_VALUE)
 
     try:
         timeout = int(timeout)

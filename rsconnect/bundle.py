@@ -33,16 +33,12 @@ from pathlib import Path
 from typing import (
     IO,
     TYPE_CHECKING,
-    Callable,
-    Iterator,
     Literal,
     NotRequired,
-    Optional,
-    Sequence,
     TypedDict,
-    Union,
     cast,
 )
+from collections.abc import Callable, Iterator, Sequence
 from urllib.parse import urlsplit
 
 from . import metadata
@@ -236,18 +232,18 @@ class ManifestData(TypedDict):
 class Manifest:
     def __init__(
         self,
-        version: Optional[int] = None,
-        environment: Optional[Environment] = None,
-        r_environment: Optional[REnvironment] = None,
-        app_mode: Optional[AppMode] = None,
-        entrypoint: Optional[str] = None,
-        quarto_inspection: Optional[QuartoInspectResult] = None,
-        image: Optional[str] = None,
-        env_management_py: Optional[bool] = None,
-        env_management_r: Optional[bool] = None,
-        primary_html: Optional[str] = None,
-        metadata: Optional[ManifestDataMetadata] = None,
-        files: Optional[dict[str, ManifestDataFile]] = None,
+        version: int | None = None,
+        environment: Environment | None = None,
+        r_environment: REnvironment | None = None,
+        app_mode: AppMode | None = None,
+        entrypoint: str | None = None,
+        quarto_inspection: QuartoInspectResult | None = None,
+        image: str | None = None,
+        env_management_py: bool | None = None,
+        env_management_r: bool | None = None,
+        primary_html: str | None = None,
+        metadata: ManifestDataMetadata | None = None,
+        files: dict[str, ManifestDataFile] | None = None,
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
@@ -489,13 +485,13 @@ class Bundle:
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
-    environment: Optional[Environment] = None,
-    entrypoint: Optional[str] = None,
-    quarto_inspection: Optional[QuartoInspectResult] = None,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    environment: Environment | None = None,
+    entrypoint: str | None = None,
+    quarto_inspection: QuartoInspectResult | None = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> ManifestData:
     manifest: Manifest = Manifest(
         app_mode=app_mode,
@@ -613,9 +609,9 @@ def write_manifest(
     output_dir: str,
     hide_all_input: bool = False,
     hide_tagged_input: bool = False,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
 ) -> tuple[list[str], list[str]]:
     """Create a manifest for source publishing the specified notebook.
 
@@ -699,10 +695,10 @@ def make_notebook_source_bundle(
     extra_files: Sequence[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
@@ -769,13 +765,13 @@ def make_quarto_source_bundle(
     file_or_directory: str,
     inspect: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Optional[Environment],
+    environment: Environment | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
@@ -958,7 +954,7 @@ def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     return manifest, raw_manifest
 
 
-def _find_manifest_member(tar: tarfile.TarFile) -> Optional[tarfile.TarInfo]:
+def _find_manifest_member(tar: tarfile.TarFile) -> tarfile.TarInfo | None:
     """
     Locate the manifest.json member within a bundle tarball, mirroring the way
     Connect collapses single-subdirectory bundles when it extracts them.
@@ -1127,10 +1123,10 @@ def make_api_manifest(
     environment: Environment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for an API.
@@ -1184,7 +1180,7 @@ def make_api_manifest(
 
 def create_html_manifest(
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
 ) -> Manifest:
@@ -1244,7 +1240,7 @@ def make_tensorflow_manifest(
     directory: str,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
+    image: str | None = None,
 ) -> ManifestData:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1277,7 +1273,7 @@ def make_tensorflow_manifest(
 
 def make_html_bundle(
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
 ) -> typing.IO[bytes]:
@@ -1323,7 +1319,7 @@ def make_tensorflow_bundle(
     directory: str,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
+    image: str | None = None,
 ) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and/or entrypoint.
@@ -1483,7 +1479,7 @@ def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
     return mimetype_filelist[mimetype] or []
 
 
-def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
+def guess_deploy_dir(path: str | Path, entrypoint: str | None) -> str:
     if path and not exists(path):
         raise RSConnectException(f"Path {path} does not exist.")
     # The entrypoint is a bare basename meant to be resolved relative to ``path``
@@ -1563,15 +1559,15 @@ def abs_entrypoint(path: str | Path, entrypoint: str) -> str | None:
 
 def make_voila_bundle(
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
     force_generate: bool,
     environment: Environment,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
     multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
@@ -1637,10 +1633,10 @@ def make_api_bundle(
     environment: Environment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
@@ -1692,8 +1688,8 @@ def make_nodejs_manifest(
     node_environment: NodeEnvironment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_node: Optional[bool] = None,
+    image: str | None = None,
+    env_management_node: bool | None = None,
 ) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for a Node.js application.
@@ -1758,8 +1754,8 @@ def make_nodejs_bundle(
     node_environment: NodeEnvironment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_node: Optional[bool] = None,
+    image: str | None = None,
+    env_management_node: bool | None = None,
 ) -> typing.IO[bytes]:
     """
     Create a Node.js application bundle, given a directory path.
@@ -1828,13 +1824,13 @@ def make_quarto_manifest(
     file_or_directory: str,
     quarto_inspection: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Optional[Environment],
+    environment: Environment | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for a Quarto project.
@@ -1862,7 +1858,7 @@ def make_quarto_manifest(
         excludes = list(excludes or []) + [".quarto"]
 
         project_config = quarto_inspection.get("config", {}).get("project", {})
-        output_dir = cast(Union[str, None], project_config.get("output-dir", None))
+        output_dir = cast(str | None, project_config.get("output-dir", None))
         if output_dir:
             excludes = excludes + [output_dir]
 
@@ -2102,7 +2098,7 @@ def validate_node_entry_point(entry_point: str | None, directory: str) -> str:
     return entry_point
 
 
-def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
+def _warn_on_ignored_entrypoint(entrypoint: str | None) -> None:
     if entrypoint:
         warn_user("    Warning: entrypoint will not be used or considered for multi-notebook mode.")
 
@@ -2115,9 +2111,9 @@ def create_notebook_manifest_and_environment_file(
     force: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -2165,12 +2161,12 @@ def write_notebook_manifest_json(
     environment: Environment,
     app_mode: AppMode,
     extra_files: Sequence[str],
-    hide_all_input: Optional[bool],
-    hide_tagged_input: Optional[bool],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    hide_all_input: bool | None,
+    hide_tagged_input: bool | None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -2252,15 +2248,15 @@ Multi-notebook deployments need to be specified with the following:
 
 def create_voila_manifest(
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     environment: Environment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
     force_generate: bool = True,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
     multi_notebook: bool = False,
 ) -> Manifest:
     """
@@ -2344,15 +2340,15 @@ def create_voila_manifest(
 
 def write_voila_manifest_json(
     path: str,
-    entrypoint: Optional[str],
+    entrypoint: str | None,
     environment: Environment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
     force_generate: bool = True,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
     multi_notebook: bool = False,
 ) -> bool:
     """
@@ -2409,9 +2405,9 @@ def create_api_manifest_and_environment_file(
     extra_files: Sequence[str],
     excludes: Sequence[str],
     force: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -2458,10 +2454,10 @@ def write_api_manifest_json(
     app_mode: AppMode,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -2510,8 +2506,8 @@ def write_nodejs_manifest_json(
     node_environment: NodeEnvironment,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_node: Optional[bool] = None,
+    image: str | None = None,
+    env_management_node: bool | None = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for a Node.js application.
@@ -2586,13 +2582,13 @@ def write_quarto_manifest_json(
     file_or_directory: str,
     inspect: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Optional[Environment],
+    environment: Environment | None,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -2635,7 +2631,7 @@ def write_tensorflow_manifest_json(
     directory: str,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
+    image: str | None = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given TensorFlow content.

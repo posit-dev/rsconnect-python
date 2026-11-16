@@ -4,7 +4,6 @@ Public API for managing OAuth integrations on Posit Connect.
 
 from __future__ import annotations
 
-from typing import Optional, Union
 
 from .api import RSConnectClient, RSConnectServer, SPCSConnectServer
 from .models import (
@@ -17,14 +16,14 @@ from .models import (
 
 
 def list_oauth_integrations(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
 ) -> list[OAuthIntegration]:
     with RSConnectClient(connect_server) as client:
         return client.oauth_integration_list()
 
 
 def get_oauth_integration(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
 ) -> OAuthIntegration:
     with RSConnectClient(connect_server) as client:
@@ -32,13 +31,13 @@ def get_oauth_integration(
 
 
 def create_oauth_integration(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     template: str,
     config: dict[str, object],
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    user_guids: Optional[list[str]] = None,
-    group_guids: Optional[list[str]] = None,
+    name: str | None = None,
+    description: str | None = None,
+    user_guids: list[str] | None = None,
+    group_guids: list[str] | None = None,
 ) -> OAuthIntegration:
     permissions: list[OAuthIntegrationPermission] = []
     for g in user_guids or []:
@@ -62,13 +61,13 @@ def create_oauth_integration(
 
 
 def update_oauth_integration(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
-    config: Optional[dict[str, object]] = None,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    user_guids: Optional[list[str]] = None,
-    group_guids: Optional[list[str]] = None,
+    config: dict[str, object] | None = None,
+    name: str | None = None,
+    description: str | None = None,
+    user_guids: list[str] | None = None,
+    group_guids: list[str] | None = None,
 ) -> OAuthIntegration:
     with RSConnectClient(connect_server) as client:
         body: OAuthIntegrationUpdate = {}
@@ -96,7 +95,7 @@ def update_oauth_integration(
 
 
 def delete_oauth_integration(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
 ) -> None:
     with RSConnectClient(connect_server) as client:
@@ -104,14 +103,14 @@ def delete_oauth_integration(
 
 
 def list_oauth_templates(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
 ) -> list[OAuthTemplate]:
     with RSConnectClient(connect_server) as client:
         return client.oauth_template_list()
 
 
 def get_oauth_template(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     key: str,
 ) -> OAuthTemplate:
     with RSConnectClient(connect_server) as client:
