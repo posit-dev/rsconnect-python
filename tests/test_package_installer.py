@@ -57,11 +57,15 @@ def test_deploy_quarto_passes_package_installer(tmp_path: pathlib.Path):
         environments.append(environment)
         return environment
 
-    with mock.patch.object(Environment, "_get_python_env_info", return_value=_fake_env_info()), mock.patch.object(
-        Environment, "create_python_environment", side_effect=recording_create
-    ), mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
-        "rsconnect.main.quarto_inspect", return_value={"quarto": {"version": "1.4.0"}, "engines": ["jupyter"]}
-    ), mock.patch("rsconnect.main.RSConnectExecutor"):
+    with (
+        mock.patch.object(Environment, "_get_python_env_info", return_value=_fake_env_info()),
+        mock.patch.object(Environment, "create_python_environment", side_effect=recording_create),
+        mock.patch("rsconnect.main.which_quarto", return_value="quarto"),
+        mock.patch(
+            "rsconnect.main.quarto_inspect", return_value={"quarto": {"version": "1.4.0"}, "engines": ["jupyter"]}
+        ),
+        mock.patch("rsconnect.main.RSConnectExecutor"),
+    ):
         args = apply_common_args(
             ["deploy", "quarto", str(tmp_path / "doc.qmd"), "--package-installer", "uv", "--no-verify"],
             server="http://fake_server",

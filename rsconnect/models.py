@@ -7,21 +7,12 @@ from __future__ import annotations
 import fnmatch
 import pathlib
 import re
-import sys
-from typing import Callable, Literal, Optional, cast
+from typing import Callable, Literal, Optional, TypedDict, cast
 
 import click
 import semver
 from click import ParamType
 from click.types import StringParamType
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
 
 _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"

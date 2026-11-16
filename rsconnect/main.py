@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import tomllib
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
@@ -18,23 +19,15 @@ from typing import (
     Callable,
     ItemsView,
     Literal,
+    Never,
     Optional,
+    ParamSpec,
     Sequence,
     TypeVar,
     cast,
 )
 
 import click
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-if sys.version_info >= (3, 11):
-    from typing import Never
-else:
-    from typing_extensions import Never
 
 from rsconnect.certificates import read_certificate_file
 
@@ -148,7 +141,6 @@ from .models import (
 )
 from .pyproject import (
     InvalidPyprojectConfigError,
-    TOMLDecodeError,
     UnsupportedAppModeError,
     resolve_pyproject_deploy_target,
 )
@@ -201,20 +193,19 @@ def output_params(
     ctx: click.Context,
     vars: ItemsView[str, object],
 ):
-    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
-        logger.log(VERBOSE, "Detected the following inputs:")
-        for k, v in vars:
-            if k in {"ctx", "verbose", "quiet", "kwargs"}:
-                continue
-            if v is not None:
-                val: object = v
-                if k in _MASKED_PARAMS:
-                    val = "**********"
-                elif k == "env_vars" and isinstance(v, dict):
-                    # The values are sent to the server as secrets; log names only.
-                    val = "%s (values hidden)" % sorted(cast("dict[str, str]", v))
-                sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
-                logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
+    logger.log(VERBOSE, "Detected the following inputs:")
+    for k, v in vars:
+        if k in {"ctx", "verbose", "quiet", "kwargs"}:
+            continue
+        if v is not None:
+            val: object = v
+            if k in _MASKED_PARAMS:
+                val = "**********"
+            elif k == "env_vars" and isinstance(v, dict):
+                # The values are sent to the server as secrets; log names only.
+                val = "%s (values hidden)" % sorted(cast("dict[str, str]", v))
+            sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
+            logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
 
 
 def device_login_args(kind: Literal["connect", "cloud"]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -2811,7 +2802,7 @@ def deploy_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode
@@ -4421,7 +4412,7 @@ def write_manifest_pyproject(
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
         raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
-    except TOMLDecodeError as err:
+    except tomllib.TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
     app_mode = target.app_mode

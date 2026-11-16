@@ -372,13 +372,16 @@ class TestMain:
             args.append("--no-verify")
             if not expected_activate:
                 args.append("--draft")
-            with mock.patch("rsconnect.main.which_quarto", return_value=None), mock.patch(
-                "rsconnect.main.quarto_inspect", return_value={}
-            ), mock.patch(
-                # Do not validate app mode, so that the "target" content doesn't matter.
-                "rsconnect.api.RSConnectExecutor.validate_app_mode",
-                new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
+            with (
+                mock.patch("rsconnect.main.which_quarto", return_value=None),
+                mock.patch("rsconnect.main.quarto_inspect", return_value={}),
+                mock.patch(
+                    # Do not validate app mode, so that the "target" content doesn't matter.
+                    "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                    new=lambda self_, *args, **kwargs: self_,
+                ),
+                caplog.at_level("INFO"),
+            ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             assert deploy_api_invoked == [True]
@@ -541,8 +544,9 @@ class TestMain:
         data_file = tmp_path / "data.csv"
         data_file.write_text("")
 
-        with mock.patch("rsconnect.main.Environment.create_python_environment"), mock.patch(
-            "rsconnect.main.RSConnectExecutor"
+        with (
+            mock.patch("rsconnect.main.Environment.create_python_environment"),
+            mock.patch("rsconnect.main.RSConnectExecutor"),
         ):
             args = apply_common_args(
                 ["deploy", "notebook", str(notebook), str(data_file), "--no-verify", "-r", "requirements.txt", "-g"],
@@ -733,10 +737,13 @@ class TestMain:
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
-            with mock.patch(
-                "rsconnect.api.RSConnectExecutor.validate_app_mode",
-                new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
+            with (
+                mock.patch(
+                    "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                    new=lambda self_, *args, **kwargs: self_,
+                ),
+                caplog.at_level("INFO"),
+            ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             # First deploy is a draft, then verify, then a second deploy that activates it.
@@ -798,10 +805,13 @@ class TestMain:
             )
             if draft:
                 args.append("--draft")
-            with mock.patch(
-                "rsconnect.api.RSConnectExecutor.validate_app_mode",
-                new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
+            with (
+                mock.patch(
+                    "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                    new=lambda self_, *args, **kwargs: self_,
+                ),
+                caplog.at_level("INFO"),
+            ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             if draft:
@@ -917,10 +927,13 @@ class TestMain:
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
-            with mock.patch(
-                "rsconnect.api.RSConnectExecutor.validate_app_mode",
-                new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
+            with (
+                mock.patch(
+                    "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                    new=lambda self_, *args, **kwargs: self_,
+                ),
+                caplog.at_level("INFO"),
+            ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             # A single deploy that activates immediately: no "activate" field is sent,
@@ -2613,8 +2626,9 @@ def test_missing_requirements_reports_content_directory(
     expected_directory = str(content_dir) if path_kind == "absolute" else os.path.dirname(path) or "."
 
     requirements_option = ["--requirements-file", requirements_file] if requirements_file else []
-    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
-        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
+    with (
+        mock.patch("rsconnect.main.which_quarto", return_value="quarto"),
+        mock.patch("rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}),
     ):
         result = CliRunner().invoke(cli, [*command, *requirements_option, path])
 
@@ -2639,9 +2653,13 @@ def test_document_commands_export_uv_lock_for_bare_and_relative_paths(tmp_path, 
     (tmp_path / filename).write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
     subprocess.run([sys.executable, "-m", "uv", "lock", "--offline"], check=True)
 
-    with mock.patch("rsconnect.main.which_quarto", return_value="quarto"), mock.patch(
-        "rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}
-    ), mock.patch("rsconnect.main.RSConnectExecutor", side_effect=RSConnectException("deployment reached")) as executor:
+    with (
+        mock.patch("rsconnect.main.which_quarto", return_value="quarto"),
+        mock.patch("rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}),
+        mock.patch(
+            "rsconnect.main.RSConnectExecutor", side_effect=RSConnectException("deployment reached")
+        ) as executor,
+    ):
         result = CliRunner().invoke(cli, [*command, "-r", "uv.lock", "--exclude-renv", prefix + filename])
 
     if command[0] == "deploy":
@@ -2813,12 +2831,7 @@ class TestWriteManifestFramework:
     @pytest.mark.parametrize(
         "dependencies",
         [
-            pytest.param(
-                "['flask', 3, {a = 'b'}]",
-                marks=pytest.mark.skipif(
-                    sys.version_info < (3, 11), reason="toml fallback rejects heterogeneous arrays"
-                ),
-            ),
+            "['flask', 3, {a = 'b'}]",
             "[3]",
             "[{a = 'b'}]",
             "['flask']",
