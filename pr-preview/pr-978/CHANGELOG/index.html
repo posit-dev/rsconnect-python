@@ -1129,6 +1129,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1224,7 +1235,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed" class="md-nav__link">
+  <a href="#removed_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1318,7 +1329,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_1" class="md-nav__link">
+  <a href="#removed_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1396,7 +1407,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_2" class="md-nav__link">
+  <a href="#removed_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1686,7 +1697,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_3" class="md-nav__link">
+  <a href="#removed_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -1775,7 +1786,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_4" class="md-nav__link">
+  <a href="#removed_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2271,7 +2282,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_5" class="md-nav__link">
+  <a href="#removed_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -2807,7 +2818,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed_6" class="md-nav__link">
+  <a href="#removed_7" class="md-nav__link">
     <span class="md-ellipsis">
       
         Removed
@@ -3110,9 +3121,15 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>Reads deployment settings from <code>[tool.posit.connect]</code> in <code>pyproject.toml</code> and generates it in quickstart projects. The legacy <code>[tool.rsconnect]</code> name remains supported with a deprecation warning.</li>
 </ul>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">#</a></h3>
+<ul>
+<li><strong>Breaking:</strong> Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions <a href="https://github.com/posit-dev/rsconnect-python/pull/972">#972</a>.</li>
+</ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">#</a></h3>
 <ul>
 <li>Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. <a href="https://github.com/posit-dev/rsconnect-python/pull/955">#955</a></li>
+<li>Passes <code>--package-installer</code> through in <code>write-manifest &lt;framework&gt;</code> and <code>deploy quarto</code>. The option was accepted but ignored, so the manifest always recorded <code>pip</code>. <a href="https://github.com/posit-dev/rsconnect-python/pull/877">#877</a></li>
+<li><code>system caches delete</code> exits with status 1 when the Connect task that deletes the cache fails. <a href="https://github.com/posit-dev/rsconnect-python/pull/876">#876</a></li>
 </ul>
 <h2 id="1332-2026-11-10"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.33.1...1.33.2">1.33.2</a> - 2026-11-10<a class="headerlink" href="#1332-2026-11-10" title="Permanent link">#</a></h2>
 <h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">#</a></h3>
@@ -3135,7 +3152,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Warns when <code>pip freeze</code> generates requirements with a local Python version that does not satisfy the project requirement, as <code>rsconnect preflight</code> does <a href="https://github.com/posit-dev/rsconnect-python/pull/932">#932</a>.</li>
 <li>Recommends <code>rsconnect login</code> for Connect in the getting-started documentation, with API keys as an alternative <a href="https://github.com/posit-dev/rsconnect-python/pull/919">#919</a>.</li>
 </ul>
-<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">#</a></h3>
+<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">#</a></h3>
 <ul>
 <li><strong>Breaking:</strong> Removes support for targeting Posit Connect content by numeric ID. Use the content's globally unique identifier (GUID) instead. Numeric <code>--app-id</code> values fail with instructions for finding the GUID. Connect Cloud and shinyapps.io IDs still work <a href="https://github.com/posit-dev/rsconnect-python/pull/915">#915</a>.</li>
 </ul>
@@ -3378,7 +3395,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   <code>uv venv</code> and <code>uv sync</code> to populate the scaffolded project's virtualenv.
   <code>uv</code> installs as a self-contained wheel from PyPI alongside <code>rsconnect</code>.</li>
 </ul>
-<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">#</a></h3>
+<h3 id="removed_2">Removed<a class="headerlink" href="#removed_2" title="Permanent link">#</a></h3>
 <ul>
 <li>Removed the experimental <code>rsconnect mcp-server</code> command. Modern coding agents
   are already able to discover and invoke command-line tools directly, so the
@@ -3422,7 +3439,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>Corrected Changelog to show the correct version number of the 1.28.1 release.</li>
 </ul>
-<h3 id="removed_2">Removed<a class="headerlink" href="#removed_2" title="Permanent link">#</a></h3>
+<h3 id="removed_3">Removed<a class="headerlink" href="#removed_3" title="Permanent link">#</a></h3>
 <ul>
 <li>Removed support for publishing to Posit Cloud. Posit Cloud no longer hosts
   deployed content. Users should migrate to Connect Cloud or Posit Connect.</li>
@@ -3524,7 +3541,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   progress. (#608)</p>
 </li>
 </ul>
-<h3 id="removed_3">Removed<a class="headerlink" href="#removed_3" title="Permanent link">#</a></h3>
+<h3 id="removed_4">Removed<a class="headerlink" href="#removed_4" title="Permanent link">#</a></h3>
 <ul>
 <li>Uncalled <code>RSConnectClient.app_publish()</code> function, which referenced an
   obsolete workflow.</li>
@@ -3562,7 +3579,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <p>Patterns provided to <code>--exclude</code> allow NT-style paths on Windows. (#320)</p>
 </li>
 </ul>
-<h3 id="removed_4">Removed<a class="headerlink" href="#removed_4" title="Permanent link">#</a></h3>
+<h3 id="removed_5">Removed<a class="headerlink" href="#removed_5" title="Permanent link">#</a></h3>
 <ul>
 <li>Python 3.7 support.</li>
 </ul>
@@ -3792,7 +3809,7 @@ rsconnect deploy html -n local ./ -e second.html
 <ul>
 <li>You can now redeploy to a content with an "unknown" app mode. A content item's app mode is "unknown" if it was created, but never deployed to, or its deployment failed before an app mode could be determined.</li>
 </ul>
-<h3 id="removed_5">Removed<a class="headerlink" href="#removed_5" title="Permanent link">#</a></h3>
+<h3 id="removed_6">Removed<a class="headerlink" href="#removed_6" title="Permanent link">#</a></h3>
 <ul>
 <li>
 <p>Python 3.5 &amp; 3.6 support.</p>
@@ -3989,7 +4006,7 @@ rsconnect deploy html -n local ./ -e second.html
 <li>replace all internal "compatibility mode" references with "conda mode"</li>
 <li>CI moved to GitHub Actions</li>
 </ul>
-<h3 id="removed_6">Removed<a class="headerlink" href="#removed_6" title="Permanent link">#</a></h3>
+<h3 id="removed_7">Removed<a class="headerlink" href="#removed_7" title="Permanent link">#</a></h3>
 <ul>
 <li>generation and publishing of <code>sdist</code> artifact</li>
 </ul>
