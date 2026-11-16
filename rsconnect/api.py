@@ -13,7 +13,6 @@ import json
 import os
 import re
 import shlex
-import sys
 import tarfile
 import time
 import typing
@@ -29,7 +28,10 @@ from typing import (
     Literal,
     Mapping,
     NamedTuple,
+    NotRequired,
     Optional,
+    ParamSpec,
+    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -40,19 +42,6 @@ from urllib.parse import urlencode, urlparse
 from warnings import warn
 
 import click
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
-# they should both come from the same typing module.
-# https://peps.python.org/pep-0655/#usage-in-python-3-11
-if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
-else:
-    from typing_extensions import NotRequired, TypedDict
 
 from . import connect_cloud, validation
 from .bundle import _default_title, _find_manifest_member
@@ -2995,7 +2984,7 @@ for shinyapps.io. See command help for further details."
             print("Dry run finished")
             return result, None
         else:
-            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
+            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info)
             return result, task
 
 

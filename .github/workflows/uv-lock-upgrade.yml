@@ -38,7 +38,7 @@ jobs:
         title: "chore(deps): upgrade uv.lock"
         body: |
           Automated `uv lock --upgrade`. Dependabot can't update this lockfile because it
-          resolves different versions per Python version (`requires-python = ">=3.8"`).
+          resolves different versions per Python version (`requires-python = ">=3.11"`).
 
           ```
           ${{ steps.upgrade.outputs.summary }}
