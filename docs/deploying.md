@@ -1,3 +1,17 @@
+### Choosing the content Python
+
+The Python that runs rsconnect-python (the CLI Python) can differ from the Python
+you use to run your notebook, API, or application (the content Python). You do
+not need to install rsconnect-python in the content Python environment.
+
+rsconnect-python uses the content Python to inspect its version and, when
+generating requirements, its packages. To select the content Python, pass its
+executable with `--python` or use an active or project environment. The selection
+order is `--python`, `VIRTUAL_ENV`, a non-base `CONDA_PREFIX`, a project
+environment (`.venv` in the content directory or any parent directory), and a
+base `CONDA_PREFIX`. If none is available, rsconnect-python falls back to the
+CLI Python.
+
 ### Notebook Deployment Options
 
 There are a variety of options available to you when deploying a Jupyter notebook to
@@ -21,11 +35,7 @@ the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
-selected Python environment. It checks `--python`, `VIRTUAL_ENV`, a non-base
-`CONDA_PREFIX`, a project environment (`.venv` in the
-content directory or any parent directory), and a base `CONDA_PREFIX`, in that order,
-like `uv pip`. If none is available, it uses the Python interpreter running
-rsconnect-python.
+content Python environment.
 
 To select a Python executable explicitly:
 
@@ -33,8 +43,7 @@ To select a Python executable explicitly:
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
 ```
 
-You can see the packages list that will be included by running `pip list --format=freeze` yourself,
-ensuring that you use the same Python that you use to run your Jupyter Notebook:
+To see the package list, run `pip list --format=freeze` with the content Python:
 
 ```bash
 /path/to/python -m pip list --format=freeze
@@ -62,11 +71,11 @@ that requires Python 3.8.
        In such case the requirement specified in the field will be used
        if **1** or **2** were not already satisfied.
     4. If no other source of version requirement was found, then
-       the interpreter in use is considered the one required to run the content.
+       the content Python is considered the one required to run the content.
 
 On Posit Connect `>=2025.03.0` the requirement detected by `rsconnect` is
 always respected. Older Connect versions will instead rely only on the
-python version used to deploy the content to determine the requirement.
+content Python version to determine the requirement.
 
 For more information see the [Posit Connect Admin Guide chapter titled Python Version
 Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
@@ -99,10 +108,9 @@ Install `nbconvert` in the selected Python environment to render static notebook
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
 in a later deployment. Use the `write-manifest` command to do this.
 
-The `write-manifest` command will also create a `requirements.txt` file, if it does
-not already exist or the `--force-generate` option is specified. It will contain the
-package dependencies from the selected Python environment, or from an alternative
-Python executable specified in the `--python` option.
+The `write-manifest` command also creates a `requirements.txt` file if it does
+not already exist or if you specify `--force-generate`. It contains package
+dependencies from the content Python environment.
 
 Here is an example of the `write-manifest` command:
 
@@ -207,14 +215,13 @@ the API or application. Posit Connect will reconstruct the Python environment us
 the specified package list.
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
-selected Python environment. Use `--python` to select an interpreter explicitly:
+content Python environment. Use `--python` to select an interpreter explicitly:
 
 ```bash
 rsconnect deploy api --python /path/to/python my-api/
 ```
 
-You can see the packages list that will be included by running `pip list --format=freeze` yourself,
-ensuring that you use the same Python that you use to run your API or application:
+To see the package list, run `pip list --format=freeze` with the content Python:
 
 ```bash
 /path/to/python -m pip list --format=freeze
@@ -291,10 +298,9 @@ RENV_PATHS_LOCKFILE=/path/to/renv.lock rsconnect deploy api my-api/
 You can create a `manifest.json` file for an API or application, then use that
 manifest in a later deployment. Use the `write-manifest` command to do this.
 
-The `write-manifest` command will also create a `requirements.txt` file, if it does
-not already exist or the `--force-generate` option is specified. It will contain
-the package dependencies from the selected Python environment, or from an alternative
-Python executable specified in the `--python` option.
+The `write-manifest` command also creates a `requirements.txt` file if it does
+not already exist or if you specify `--force-generate`. It contains package
+dependencies from the content Python environment.
 
 Here is an example of the `write-manifest` command:
 
