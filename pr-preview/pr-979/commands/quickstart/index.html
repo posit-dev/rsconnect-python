@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#quickstart" class="md-skip">
+        <a href="#python-version-selection" class="md-skip">
           Skip to content
         </a>
       
@@ -1128,18 +1128,52 @@
 
 
 
+<h1 id="python-version-selection">Python version selection<a class="headerlink" href="#python-version-selection" title="Permanent link">#</a></h1>
+<p>Without <code>--python</code>, quickstart uses the newest usable Python installation
+marked publishable for new content on the selected Posit Connect server.
+It writes a <code>&gt;=major.minor</code> requirement and asks uv to create the environment
+with that major/minor. uv may download Python according to your uv settings.
+Server selection and credentials use the usual <code>--name</code>, <code>--server</code>,
+<code>--api-key</code>, TLS options, environment variables, and saved servers.</p>
+<p>If no server is configured, quickstart uses the Python interpreter running
+rsconnect. If the server cannot be queried or credentials are missing, it
+warns and uses that interpreter without checking server compatibility. If a
+successful lookup finds no usable publishable Python, quickstart fails: check
+the server's Python configuration or use <code>--python</code>. A failed Python download
+or dependency installation also fails and removes the incomplete project.
+If several servers are saved without a default, select one with <code>--name</code> or
+<code>--server</code>, or set a default. Invalid server nicknames and CA certificate paths
+are errors.</p>
+<p><code>--python</code> overrides discovery and makes no server request. A major/minor
+version permits any patch release, a full version is exact, and a specifier
+such as <code>&gt;=3.10,&lt;3.13</code> is used as supplied. Explicit server options are ignored
+when <code>--python</code> is supplied.</p>
 <h1 id="quickstart">quickstart<a class="headerlink" href="#quickstart" title="Permanent link">#</a></h1>
 <p>Create a new Posit Connect project of the given TYPE in ./<name>/. Supported TYPE values: streamlit, shiny, fastapi, api, flask, notebook, voila, quarto. Writes a pyproject.toml with a [tool.posit.connect] section, creates a uv-managed virtualenv, and prints the local-run and deploy commands.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>quickstart [OPTIONS] TYPE NAME
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  --python VERSION  Python version for 'requires-python' in the generated
-                    pyproject.toml. A bare 'major.minor' like '3.10' means any
-                    3.10.x; a full '3.11.14' is exact; pass an operator for
-                    full control (e.g. '&gt;=3.11' or '&gt;=3.11,&lt;3.14'). Defaults
-                    to '&gt;=&lt;major.minor&gt;' of the interpreter running rsconnect.
-  --help            Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT     The nickname of the Posit Connect server to deploy to.
+  -s, --server TEXT   The URL for the Posit Connect server to deploy to. (Also
+                      settable via CONNECT_SERVER environment variable.)
+  -k, --api-key TEXT  The API key to use to authenticate with Posit Connect.
+                      (Also settable via CONNECT_API_KEY environment
+                      variable.)
+  -i, --insecure      Disable TLS certification/host validation. (Also
+                      settable via CONNECT_INSECURE environment variable.)
+  -c, --cacert FILE   The path to trusted TLS CA certificates. (Also settable
+                      via CONNECT_CA_CERTIFICATE environment variable.)
+  -v, --verbose       Enable verbose output. Use -vv for very verbose (debug)
+                      output.
+  --python VERSION    Python version for 'requires-python' in the generated
+                      pyproject.toml. A bare 'major.minor' like '3.10' means
+                      any 3.10.x; a full '3.11.14' is exact; pass an operator
+                      for full control (e.g. '&gt;=3.11' or '&gt;=3.11,&lt;3.14'). By
+                      default, use the newest publishable Python on the
+                      selected Connect server, or the interpreter running
+                      rsconnect.
+  --help              Show this message and exit.
 </code></pre></div>
 
 
