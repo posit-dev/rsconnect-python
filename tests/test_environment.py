@@ -87,7 +87,7 @@ class TestEnvironment(TestCase):
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
-            assert result.filename == "requirements-connect.txt"
+            assert result.filename == "requirements.txt"
             assert result.contents.endswith("foo==1.0\nbar>=2.0\n")
             assert result.source == "derived_file"
 
@@ -106,7 +106,7 @@ class TestEnvironment(TestCase):
         expected = Environment.from_dict(
             dict(
                 contents=result.contents,
-                filename="requirements-connect.txt",
+                filename="requirements.txt",
                 locale=result.locale,
                 package_manager="pip",
                 pip=result.pip,
@@ -445,7 +445,7 @@ requires-dist = [
     }[lock_location]
     env = Environment.create_python_environment(dirname, requirements_file=lock_file, python=str(python))
 
-    assert env.filename == "requirements-connect.txt"
+    assert env.filename == "requirements.txt"
     assert "aiofiles==24.1.0" in env.contents
     assert "annotated-doc==0.0.4" in env.contents
     assert "annotated-types==0.7.0" in env.contents

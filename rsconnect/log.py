@@ -106,6 +106,11 @@ class RSLogger(_LoggerAdapter):
         self._in_feedback = value
         self._have_feedback_output = False
 
+    def end_feedback_line(self) -> None:
+        if self._in_feedback and not self._have_feedback_output:
+            click.echo(err=self._quiet)
+            self._have_feedback_output = True
+
     def set_quiet(self, value: bool):
         self._quiet = value
 
@@ -187,6 +192,7 @@ def warn_user(message: str, fg: str = "yellow") -> None:
     In quiet mode the warning is routed to stderr so that stdout stays
     reserved for the content URL.
     """
+    logger.end_feedback_line()
     click.secho(message, fg=fg, err=logger.quiet)
 
 
