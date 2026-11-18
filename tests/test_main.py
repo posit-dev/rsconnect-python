@@ -1223,7 +1223,9 @@ class TestMain:
         assert missing == [], f"deploy subcommands missing --quiet: {missing}"
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_bundle(self, caplog):
+    def test_deploy_bundle(self, caplog, monkeypatch):
+        # Keep the background PyPI request out of HTTPretty's socket mocks.
+        monkeypatch.setenv("RSCONNECT_DISABLE_VERSION_CHECK", "1")
         # Deploying a downloaded bundle should upload the tarball as-is (no
         # re-bundling) and run the standard Connect deploy flow.
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
