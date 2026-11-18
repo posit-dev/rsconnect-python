@@ -9,7 +9,7 @@ grant (non-interactive, for CI).
 from __future__ import annotations
 
 import os
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
@@ -121,12 +121,12 @@ def environment_name() -> str:
     return name
 
 
-def urls(environment: Optional[str] = None) -> ConnectCloudUrls:
+def urls(environment: str | None = None) -> ConnectCloudUrls:
     """The URLs for the given (or currently selected) Connect Cloud environment."""
     return _ENVIRONMENTS[environment or environment_name()]
 
 
-def client_id(environment: Optional[str] = None) -> str:
+def client_id(environment: str | None = None) -> str:
     """The OAuth client ID to authenticate this CLI with."""
     override = os.environ.get(OAUTH_CLIENT_ID_ENV_VAR)
     if override:
@@ -139,7 +139,7 @@ def client_id(environment: Optional[str] = None) -> str:
 SERVER_NAME = "connect.posit.cloud"
 
 
-def _canonical_api_url(url: str) -> Optional[str]:
+def _canonical_api_url(url: str) -> str | None:
     """The environment API base URL that `url` refers to, or None.
 
     Tolerates only scheme/host case and a trailing slash; the path, port, and
@@ -155,7 +155,7 @@ def _canonical_api_url(url: str) -> Optional[str]:
     return None
 
 
-def is_connect_cloud_url(url: Optional[str]) -> bool:
+def is_connect_cloud_url(url: str | None) -> bool:
     """Whether a --server value or stored URL refers to Connect Cloud.
 
     Matches the pseudo-server name and the API base URL of every environment,
@@ -171,7 +171,7 @@ def is_connect_cloud_url(url: Optional[str]) -> bool:
     return _canonical_api_url(url) is not None
 
 
-def resolve_url(url: Optional[str]) -> str:
+def resolve_url(url: str | None) -> str:
     """Turn a --server value into the API base URL for the selected environment.
 
     Recognized API URLs are canonicalized (case, trailing slash), so the stored
@@ -182,7 +182,7 @@ def resolve_url(url: Optional[str]) -> str:
     return _canonical_api_url(url) or url
 
 
-def environment_for_url(url: Optional[str]) -> str:
+def environment_for_url(url: str | None) -> str:
     """Which environment an API base URL belongs to.
 
     A saved server records only its API URL, so this is how everything else about
@@ -199,7 +199,7 @@ def environment_for_url(url: Optional[str]) -> str:
     return environment_name()
 
 
-def login_interactive(environment: Optional[str] = None) -> dict[str, Any]:
+def login_interactive(environment: str | None = None) -> dict[str, Any]:
     """Authenticate with the OAuth device code flow.
 
     Prints a verification URL and user code, then polls until the user
@@ -219,7 +219,7 @@ def login_interactive(environment: Optional[str] = None) -> dict[str, Any]:
 def login_client_credentials(
     client_id_value: str,
     client_secret: str,
-    environment: Optional[str] = None,
+    environment: str | None = None,
 ) -> dict[str, Any]:
     """Authenticate with the OAuth client credentials grant, for CI.
 
@@ -238,10 +238,10 @@ def login_client_credentials(
 
 def refresh(
     refresh_token: str,
-    environment: Optional[str] = None,
-    request_timeout: Optional[float] = None,
-    request_deadline: Optional[float] = None,
-    client_id_override: Optional[str] = None,
+    environment: str | None = None,
+    request_timeout: float | None = None,
+    request_deadline: float | None = None,
+    client_id_override: str | None = None,
     *,
     suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
@@ -279,9 +279,9 @@ def keyring_key(url: str, nickname: str) -> str:
 def store_credentials_in_keyring(
     url: str,
     nickname: str,
-    access_token: Optional[str],
-    refresh_token: Optional[str],
-    client_secret: Optional[str],
+    access_token: str | None,
+    refresh_token: str | None,
+    client_secret: str | None,
 ) -> bool:
     """Store a saved credential's secrets in the system keyring, replacing all of them.
 
@@ -298,7 +298,7 @@ def store_credentials_in_keyring(
     )
 
 
-def store_tokens_in_keyring(url: str, nickname: str, access_token: Optional[str], refresh_token: Optional[str]) -> bool:
+def store_tokens_in_keyring(url: str, nickname: str, access_token: str | None, refresh_token: str | None) -> bool:
     """Store (or, for empty values, delete) a saved credential's tokens.
 
     Leaves any stored client secret alone: a token refresh rotates the tokens
@@ -310,7 +310,7 @@ def store_tokens_in_keyring(url: str, nickname: str, access_token: Optional[str]
     )
 
 
-def client_secret_from_keyring(url: str, nickname: str) -> tuple[bool, Optional[str]]:
+def client_secret_from_keyring(url: str, nickname: str) -> tuple[bool, str | None]:
     """The stored client secret, and whether the keyring could be read.
 
     A read failure is not the same as no secret: overwriting one that may be there
@@ -319,7 +319,7 @@ def client_secret_from_keyring(url: str, nickname: str) -> tuple[bool, Optional[
     return keyring_read_value(keyring_key(url, nickname), CLIENT_SECRET_FIELD)
 
 
-def credentials_from_keyring(url: str, nickname: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+def credentials_from_keyring(url: str, nickname: str) -> tuple[str | None, str | None, str | None]:
     """A saved credential's secrets from the system keyring, as
     (access token, refresh token, client secret). Each is None when absent."""
     key = keyring_key(url, nickname)
@@ -351,7 +351,7 @@ _VERSION_CHOSEN_BY_CONNECT_CLOUD = (
 _LOWER_BOUND_OPERATORS = (">=", ">", "==", "===", "~=")
 
 
-def _clause_version(clause: Specifier) -> Optional[Version]:
+def _clause_version(clause: Specifier) -> Version | None:
     """The version a single specifier clause names, or None if it cannot be parsed.
 
     Strips the wildcard from "==3.11.*", which is not a version on its own.
@@ -362,7 +362,7 @@ def _clause_version(clause: Specifier) -> Optional[Version]:
         return None
 
 
-def _effective_floor(specifier: SpecifierSet) -> Optional[Version]:
+def _effective_floor(specifier: SpecifierSet) -> Version | None:
     """The lowest version the constraint admits, or None if it has no lower bound.
 
     Clauses are ANDed, so the highest of their floors is the one that binds:
@@ -423,7 +423,7 @@ def _line_permits_some_patch(minor: str, specifier: SpecifierSet) -> bool:
 _LINE_SCAN_LIMIT = 20
 
 
-def _lowest_admitted_line(floor: Version, specifier: SpecifierSet) -> Optional[str]:
+def _lowest_admitted_line(floor: Version, specifier: SpecifierSet) -> str | None:
     """The lowest MAJOR.MINOR at or above `floor` that the constraint admits.
 
     Usually the floor's own line. It is not when an exclusion empties that line, as
@@ -441,7 +441,7 @@ def _lowest_admitted_line(floor: Version, specifier: SpecifierSet) -> Optional[s
     return None
 
 
-def _minor_version(version: Version) -> Optional[str]:
+def _minor_version(version: Version) -> str | None:
     """A version as the MAJOR.MINOR string Connect Cloud names its interpreters by.
 
     None when the version names no minor, as "==3.*" does: there is no single line
@@ -452,7 +452,7 @@ def _minor_version(version: Version) -> Optional[str]:
     return "%d.%d" % (version.release[0], version.release[1])
 
 
-def _parsed(version: str) -> Optional[Version]:
+def _parsed(version: str) -> Version | None:
     try:
         return Version(version)
     except InvalidVersion:
@@ -471,7 +471,7 @@ def _log_requested(minor: str) -> str:
     return minor
 
 
-def resolve_python_version(requires: Optional[str], local_version: Optional[str]) -> Optional[str]:
+def resolve_python_version(requires: str | None, local_version: str | None) -> str | None:
     """Pick the Connect Cloud Python version for a deploy.
 
     `requires` is the PEP 440 constraint from the manifest's

@@ -4,7 +4,7 @@ import pytest
 import json
 import jwt
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 import os
 from rsconnect.exception import RSConnectException
 
@@ -212,11 +212,11 @@ class TestJsonWebToken(TestCase):
         with pytest.raises(RSConnectException):
             produce_bootstrap_output(400, {"api_key": api_key})
 
-        expected_successful_result = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        expected_successful_result = json.loads(open("tests/testdata/initial-admin-responses/success.json").read())
         self.assertEqual(produce_bootstrap_output(200, {"api_key": api_key}), expected_successful_result)
 
         expected_forbidden_result = json.loads(
-            open("tests/testdata/initial-admin-responses/forbidden_error.json", "r").read()
+            open("tests/testdata/initial-admin-responses/forbidden_error.json").read()
         )
         self.assertEqual(produce_bootstrap_output(403, None), expected_forbidden_result)
         self.assertEqual(produce_bootstrap_output(403, {}), expected_forbidden_result)
@@ -224,7 +224,7 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(produce_bootstrap_output(403, {"something": "else"}), expected_forbidden_result)
 
         expected_unauthorized_error_result = json.loads(
-            open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read()
+            open("tests/testdata/initial-admin-responses/unauthorized_error.json").read()
         )
         self.assertEqual(produce_bootstrap_output(401, None), expected_unauthorized_error_result)
         self.assertEqual(produce_bootstrap_output(401, {}), expected_unauthorized_error_result)
@@ -232,16 +232,14 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(produce_bootstrap_output(401, {"something": "else"}), expected_unauthorized_error_result)
 
         expected_not_found_error_result = json.loads(
-            open("tests/testdata/initial-admin-responses/not_found_error.json", "r").read()
+            open("tests/testdata/initial-admin-responses/not_found_error.json").read()
         )
         self.assertEqual(produce_bootstrap_output(404, None), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {}), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {"api_key": ""}), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {"something": "else"}), expected_not_found_error_result)
 
-        expected_other_error_result = json.loads(
-            open("tests/testdata/initial-admin-responses/other_error.json", "r").read()
-        )
+        expected_other_error_result = json.loads(open("tests/testdata/initial-admin-responses/other_error.json").read())
         self.assertEqual(produce_bootstrap_output(500, None), expected_other_error_result)
         self.assertEqual(produce_bootstrap_output(500, {}), expected_other_error_result)
         self.assertEqual(produce_bootstrap_output(500, {"api_key": ""}), expected_other_error_result)
@@ -289,7 +287,7 @@ class TestJsonWebToken(TestCase):
         decoder = JWTDecoder("audience", self.secret_key)
 
         exp = timedelta(hours=5)
-        current_datetime = datetime.now(tz=timezone.utc)
+        current_datetime = datetime.now(tz=UTC)
         expected_exp = int((current_datetime + exp).timestamp())
         expected_iat = int(current_datetime.timestamp())
 
@@ -311,7 +309,7 @@ class TestJsonWebToken(TestCase):
         decoder = JWTDecoder("audience", self.secret_key)
 
         exp = timedelta(hours=5)
-        current_datetime = datetime.now(tz=timezone.utc)
+        current_datetime = datetime.now(tz=UTC)
         expected_exp = int((current_datetime + exp).timestamp())
         expected_iat = int(current_datetime.timestamp())
 
@@ -347,7 +345,7 @@ class TestJsonWebToken(TestCase):
 
         self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
 
-        current_datetime = datetime.now(tz=timezone.utc)
+        current_datetime = datetime.now(tz=UTC)
         self.assert_bootstrap_jwt_is_valid(payload, current_datetime)
 
     def test_token_generator_invalid_verification_secret(self):
@@ -373,7 +371,7 @@ class TestJsonWebToken(TestCase):
         decoder = JWTDecoder(DEFAULT_AUDIENCE, self.secret_key)
         payload = decoder.decode_token(bootstrap_token)
 
-        current_datetime = datetime.now(tz=timezone.utc)
+        current_datetime = datetime.now(tz=UTC)
         self.assert_bootstrap_jwt_is_valid(payload, current_datetime)
 
         # BEGIN ACTUAL TEST
@@ -394,7 +392,7 @@ class TestJsonWebToken(TestCase):
             # decode the token
             test_payload = decoder.decode_token(test_bootstrap_token)
 
-            test_datetime = datetime.now(tz=timezone.utc)
+            test_datetime = datetime.now(tz=UTC)
 
             # assert we have a valid token
             self.assert_bootstrap_jwt_is_valid(test_payload, test_datetime)

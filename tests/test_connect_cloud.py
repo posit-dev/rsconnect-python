@@ -8,7 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
-from typing import Any, Dict, Optional
+from typing import Any
 from unittest import mock
 
 import click
@@ -380,9 +380,9 @@ def _json_body(request):
     return json.loads(request.body.decode("utf-8"))
 
 
-def _validate_options(ctx: Optional[click.Context] = None, **overrides: Any) -> None:
+def _validate_options(ctx: click.Context | None = None, **overrides: Any) -> None:
     """validate_connection_options with --connect-cloud set and everything else absent."""
-    options: Dict[str, Any] = dict(
+    options: dict[str, Any] = dict(
         url=None,
         api_key=None,
         insecure=False,
@@ -419,12 +419,12 @@ class FakeKeyring:
             pass
 
     def __init__(self):
-        self.passwords: Dict[Any, str] = {}
+        self.passwords: dict[Any, str] = {}
 
     def set_password(self, service: str, username: str, password: str) -> None:
         self.passwords[(service, username)] = password
 
-    def get_password(self, service: str, username: str) -> Optional[str]:
+    def get_password(self, service: str, username: str) -> str | None:
         return self.passwords.get((service, username))
 
     def delete_password(self, service: str, username: str) -> None:
@@ -1084,7 +1084,7 @@ class TestConnectCloudStreamBodyRetry(unittest.TestCase):
     """The retry-once skeleton is shared with the Posit Connect client, so a streamed
     body is rewound before the retry here too rather than arriving empty."""
 
-    def _attempt_bodies(self, body: Any, server: Optional[ConnectCloudServer] = None, read: bool = True) -> list[Any]:
+    def _attempt_bodies(self, body: Any, server: ConnectCloudServer | None = None, read: bool = True) -> list[Any]:
         """The body each attempt was given, read out when `read`, with refresh stubbed."""
         client = ConnectCloudClient(server or ConnectCloudServer("acme", access_token="stale", refresh_token="rt"))
         seen: list[Any] = []
@@ -3039,7 +3039,7 @@ class TestConnectCloudMigrate(unittest.TestCase):
         store = self._store()
         store.set(server_url, self.app_dir, "https://acme.shinyapps.io/my-app", app_id, None, "My App", app_mode)
 
-    def _executor(self, account_name: str = "acme", account_id: Optional[str] = "acct-1") -> RSConnectExecutor:
+    def _executor(self, account_name: str = "acme", account_id: str | None = "acct-1") -> RSConnectExecutor:
         executor = RSConnectExecutor.__new__(RSConnectExecutor)
         executor.remote_server = ConnectCloudServer(account_name, access_token="at", account_id=account_id)
         executor.client = mock.MagicMock(spec=ConnectCloudClient)
@@ -4196,7 +4196,7 @@ class TestConnectCloudKeyringStorage(CliTestCase):
         store_patch.start()
         self.addCleanup(store_patch.stop)
 
-    def _stored(self, field: str, nickname: str = "cloud") -> Optional[str]:
+    def _stored(self, field: str, nickname: str = "cloud") -> str | None:
         return self.keyring.get_password("rsconnect-python", "%s#%s:%s" % (API, nickname, field))
 
     def _store_in_keyring(self, field: str, value: str, nickname: str = "cloud") -> None:
@@ -4343,7 +4343,7 @@ class TestConnectCloudKeyringStorage(CliTestCase):
         secret_username = "%s#cloud:%s" % (API, "client_secret")
         stored = self.keyring.get_password
 
-        def failing_read(service: str, username: str) -> Optional[str]:
+        def failing_read(service: str, username: str) -> str | None:
             if username == secret_username:
                 raise Exception("keychain locked")
             return stored(service, username)

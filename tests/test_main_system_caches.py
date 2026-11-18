@@ -21,13 +21,13 @@ def register_server_validation_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/server_settings",
-        body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+        body=open("tests/testdata/connect-responses/server_settings.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/user",
-        body=open("tests/testdata/connect-responses/me.json", "r").read(),
+        body=open("tests/testdata/connect-responses/me.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
 

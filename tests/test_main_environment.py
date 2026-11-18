@@ -15,37 +15,37 @@ def register_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/server_settings",
-        body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+        body=open("tests/testdata/connect-responses/server_settings.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/user",
-        body=open("tests/testdata/connect-responses/me.json", "r").read(),
+        body=open("tests/testdata/connect-responses/me.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/environments",
-        body=open("tests/testdata/connect-responses/list-environments.json", "r").read(),
+        body=open("tests/testdata/connect-responses/list-environments.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/environments/{ENVIRONMENT_GUID}",
-        body=open("tests/testdata/connect-responses/get-environment.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-environment.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.POST,
         f"{connect_server}/__api__/v1/environments",
-        body=open("tests/testdata/connect-responses/get-environment.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-environment.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.PUT,
         f"{connect_server}/__api__/v1/environments/{ENVIRONMENT_GUID}",
-        body=open("tests/testdata/connect-responses/get-environment.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-environment.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
@@ -57,13 +57,13 @@ def register_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/environments/{ENVIRONMENT_GUID}/permissions",
-        body=open("tests/testdata/connect-responses/list-environment-permissions.json", "r").read(),
+        body=open("tests/testdata/connect-responses/list-environment-permissions.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.POST,
         f"{connect_server}/__api__/v1/environments/{ENVIRONMENT_GUID}/permissions",
-        body=open("tests/testdata/connect-responses/get-environment-permission.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-environment-permission.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
@@ -104,13 +104,13 @@ class TestEnvironmentSubcommand(unittest.TestCase):
         httpretty.register_uri(
             httpretty.GET,
             f"{self.connect_server}/__api__/server_settings",
-            body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+            body=open("tests/testdata/connect-responses/server_settings.json").read(),
             adding_headers={"Content-Type": "application/json"},
         )
         httpretty.register_uri(
             httpretty.GET,
             f"{self.connect_server}/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            body=open("tests/testdata/connect-responses/me.json").read(),
             adding_headers={"Content-Type": "application/json"},
         )
         httpretty.register_uri(

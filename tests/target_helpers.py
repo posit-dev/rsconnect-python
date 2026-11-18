@@ -13,7 +13,7 @@ import json
 import os
 import pathlib
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any
 from unittest import mock
 
 import click
@@ -47,9 +47,9 @@ def _ctx(**sources: ParameterSource) -> click.Context:
     return ctx
 
 
-def _deploy_option_flags() -> Dict[str, set[frozenset[str]]]:
+def _deploy_option_flags() -> dict[str, set[frozenset[str]]]:
     """The flags each `deploy` subcommand option is spelled with, by parameter name."""
-    flags: Dict[str, set[frozenset[str]]] = {}
+    flags: dict[str, set[frozenset[str]]] = {}
     for command in cli.commands["deploy"].commands.values():
         for param in command.params:
             if isinstance(param, click.Option) and param.name:
@@ -128,12 +128,12 @@ def _store_with_cloud_entry(**fields: Any) -> ServerStore:
 
 
 def _setup_remote_server(
-    ctx: Optional[click.Context] = None,
-    store: Optional[ServerStore] = None,
-    resolve: Optional[ServerData] = None,
-    default: Optional[ServerData] = None,
-    has_cloud_account: Optional[bool] = None,
-    environ: Optional[Dict[str, str]] = None,
+    ctx: click.Context | None = None,
+    store: ServerStore | None = None,
+    resolve: ServerData | None = None,
+    default: ServerData | None = None,
+    has_cloud_account: bool | None = None,
+    environ: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> RSConnectExecutor:
     """Run setup_remote_server on a bare executor with the store interactions mocked.

@@ -2,7 +2,8 @@ import threading
 import time
 from contextlib import ExitStack, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer as _TestHTTPServer
-from typing import Any, Generator, cast
+from typing import Any, cast
+from collections.abc import Generator
 from unittest import TestCase
 
 from rsconnect.http_support import (
@@ -307,7 +308,7 @@ class TestHTTPSupport(TestCase):
         self.assertEqual(server._headers["Authorization"], "Connect-Bootstrap my.jwt.token")
 
 
-class FakeSetCookieResponse(object):
+class FakeSetCookieResponse:
     def __init__(self, data):
         self._data = [("Set-Cookie", term) for term in data]
 

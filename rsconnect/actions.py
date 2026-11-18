@@ -15,7 +15,8 @@ import traceback
 import typing
 from os.path import basename, exists, isdir, join, relpath
 from pathlib import PurePath
-from typing import NotRequired, Optional, Sequence, TypedDict, cast
+from typing import NotRequired, TypedDict, cast
+from collections.abc import Sequence
 from urllib.parse import urlparse
 from warnings import warn
 
@@ -187,7 +188,7 @@ def test_rstudio_server(server: api.PositServer):
         try:
             client.get_current_user()
         except RSConnectException as exc:
-            raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
+            raise RSConnectException(f"Failed to verify with {server.remote_name} ({exc}).")
 
 
 def test_spcs_server(server: api.SPCSConnectServer):
@@ -195,7 +196,7 @@ def test_spcs_server(server: api.SPCSConnectServer):
         try:
             client.me()
         except RSConnectException as exc:
-            raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
+            raise RSConnectException(f"Failed to verify with {server.remote_name} ({exc}).")
 
 
 def test_api_key(connect_server: api.RSConnectServer) -> str:
@@ -210,7 +211,7 @@ def test_api_key(connect_server: api.RSConnectServer) -> str:
     return api.verify_api_key(connect_server)
 
 
-def which_quarto(quarto: Optional[str] = None) -> str:
+def which_quarto(quarto: str | None = None) -> str:
     """
     Identify a valid Quarto executable. When a Quarto location is not provided
     as input, an attempt is made to discover Quarto from the PATH and other
@@ -342,7 +343,7 @@ def validate_extra_files(directory: str, extra_files: Sequence[str]):
     return result
 
 
-def validate_entry_point(entry_point: Optional[str], directory: str):
+def validate_entry_point(entry_point: str | None, directory: str):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -364,31 +365,31 @@ def validate_entry_point(entry_point: Optional[str], directory: str):
 
 
 def deploy_app(
-    name: Optional[str] = None,
-    server: Optional[str] = None,
-    api_key: Optional[str] = None,
-    insecure: Optional[bool] = None,
-    cacert: Optional[typing.IO[str]] = None,
-    ca_data: Optional[str] = None,
-    entry_point: Optional[str] = None,
-    excludes: Optional[list[str]] = None,
+    name: str | None = None,
+    server: str | None = None,
+    api_key: str | None = None,
+    insecure: bool | None = None,
+    cacert: typing.IO[str] | None = None,
+    ca_data: str | None = None,
+    entry_point: str | None = None,
+    excludes: list[str] | None = None,
     new: bool = False,
-    app_id: Optional[str] = None,
-    title: Optional[str] = None,
-    python: Optional[str] = None,
+    app_id: str | None = None,
+    title: str | None = None,
+    python: str | None = None,
     force_generate: bool = False,
-    verbose: Optional[bool] = None,
-    directory: Optional[str] = None,
-    extra_files: Optional[list[str]] = None,
-    env_vars: Optional[dict[str, str]] = None,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    account: Optional[str] = None,
-    token: Optional[str] = None,
-    secret: Optional[str] = None,
-    app_mode: Optional[AppMode] = None,
-    connect_server: Optional[api.TargetableServer] = None,
+    verbose: bool | None = None,
+    directory: str | None = None,
+    extra_files: list[str] | None = None,
+    env_vars: dict[str, str] | None = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    account: str | None = None,
+    token: str | None = None,
+    secret: str | None = None,
+    app_mode: AppMode | None = None,
+    connect_server: api.TargetableServer | None = None,
     **kws: object,
 ):
     kwargs = locals()
@@ -480,8 +481,8 @@ def deploy_app(
 def deploy_python_fastapi(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
@@ -490,9 +491,9 @@ def deploy_python_fastapi(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable[..., None],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
 ):
     """
     A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
@@ -531,11 +532,11 @@ def create_quarto_deployment_bundle(
     excludes: Sequence[str],
     app_mode: AppMode,
     inspect: QuartoInspectResult,
-    environment: Optional[Environment],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-    r_environment: Optional[REnvironment] = None,
+    environment: Environment | None,
+    image: str | None = None,
+    env_management_py: bool | None = None,
+    env_management_r: bool | None = None,
+    r_environment: REnvironment | None = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.

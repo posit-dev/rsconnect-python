@@ -1,7 +1,7 @@
 import contextlib
 import sys
 import types
-from typing import Generator, Iterator
+from collections.abc import Generator, Iterator
 
 import pytest
 

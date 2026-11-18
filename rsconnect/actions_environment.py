@@ -4,7 +4,6 @@ Public API for managing execution environments on Posit Connect.
 
 from __future__ import annotations
 
-from typing import Optional, Union
 
 from .api import RSConnectClient, RSConnectServer, SPCSConnectServer
 from .models import (
@@ -20,14 +19,14 @@ from .models import (
 
 
 def list_environments(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
 ) -> list[EnvironmentV1]:
     with RSConnectClient(connect_server) as client:
         return client.environment_list()
 
 
 def get_environment(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
 ) -> EnvironmentV1:
     with RSConnectClient(connect_server) as client:
@@ -35,19 +34,19 @@ def get_environment(
 
 
 def create_environment(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     image: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    matching: Optional[str] = None,
-    supervisor: Optional[str] = None,
-    python: Optional[list[EnvironmentInstallation]] = None,
-    quarto: Optional[list[EnvironmentInstallation]] = None,
-    r: Optional[list[EnvironmentInstallation]] = None,
-    tensorflow: Optional[list[EnvironmentInstallation]] = None,
-    volume_mounts: Optional[list[EnvironmentVolumeMount]] = None,
-    user_guids: Optional[list[str]] = None,
-    group_guids: Optional[list[str]] = None,
+    title: str | None = None,
+    description: str | None = None,
+    matching: str | None = None,
+    supervisor: str | None = None,
+    python: list[EnvironmentInstallation] | None = None,
+    quarto: list[EnvironmentInstallation] | None = None,
+    r: list[EnvironmentInstallation] | None = None,
+    tensorflow: list[EnvironmentInstallation] | None = None,
+    volume_mounts: list[EnvironmentVolumeMount] | None = None,
+    user_guids: list[str] | None = None,
+    group_guids: list[str] | None = None,
 ) -> EnvironmentV1:
     body: EnvironmentCreateInput = {
         "cluster_name": "Kubernetes",
@@ -80,19 +79,19 @@ def create_environment(
 
 
 def update_environment(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    matching: Optional[str] = None,
-    supervisor: Optional[str] = None,
-    python: Optional[list[EnvironmentInstallation]] = None,
-    quarto: Optional[list[EnvironmentInstallation]] = None,
-    r: Optional[list[EnvironmentInstallation]] = None,
-    tensorflow: Optional[list[EnvironmentInstallation]] = None,
-    volume_mounts: Optional[list[EnvironmentVolumeMount]] = None,
-    user_guids: Optional[list[str]] = None,
-    group_guids: Optional[list[str]] = None,
+    title: str | None = None,
+    description: str | None = None,
+    matching: str | None = None,
+    supervisor: str | None = None,
+    python: list[EnvironmentInstallation] | None = None,
+    quarto: list[EnvironmentInstallation] | None = None,
+    r: list[EnvironmentInstallation] | None = None,
+    tensorflow: list[EnvironmentInstallation] | None = None,
+    volume_mounts: list[EnvironmentVolumeMount] | None = None,
+    user_guids: list[str] | None = None,
+    group_guids: list[str] | None = None,
 ) -> EnvironmentV1:
     with RSConnectClient(connect_server) as client:
         existing = client.environment_get(guid)
@@ -119,7 +118,7 @@ def update_environment(
 
 
 def delete_environment(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
+    connect_server: RSConnectServer | SPCSConnectServer,
     guid: str,
 ) -> None:
     with RSConnectClient(connect_server) as client:
@@ -133,8 +132,8 @@ def _make_installations(items: list[EnvironmentInstallation]) -> EnvironmentInst
 def _sync_permissions(
     client: RSConnectClient,
     env_guid: str,
-    user_guids: Optional[list[str]],
-    group_guids: Optional[list[str]],
+    user_guids: list[str] | None,
+    group_guids: list[str] | None,
 ) -> list[EnvironmentPermissionV1]:
     existing = client.environment_permission_list(env_guid)
 

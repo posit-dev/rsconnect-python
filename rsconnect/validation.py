@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import click
 
@@ -16,7 +16,7 @@ def require_posix(feature: str) -> None:
 
 def get_parameter_source_name_from_ctx(
     var_or_param_name: str,
-    ctx: Optional[click.Context],
+    ctx: click.Context | None,
 ) -> str:
     if ctx:
         varName = var_or_param_name.replace("-", "_")
@@ -26,7 +26,7 @@ def get_parameter_source_name_from_ctx(
     return "<source unknown>"
 
 
-def effective_connect_cloud_account(ctx: Optional[click.Context], account_name: Optional[str]) -> Optional[str]:
+def effective_connect_cloud_account(ctx: click.Context | None, account_name: str | None) -> str | None:
     """The -A value to use when the target is Posit Connect Cloud.
 
     -A/--account is shared with shinyapps.io, whose environment variable is
@@ -41,8 +41,8 @@ def effective_connect_cloud_account(ctx: Optional[click.Context], account_name: 
 
 
 def _get_present_options(
-    options: dict[str, Optional[Any]],
-    ctx: Optional[click.Context],
+    options: dict[str, Any | None],
+    ctx: click.Context | None,
     ignore_sources: tuple[str, ...] = (),
 ) -> list[str]:
     """The options that have a value, labelled with where each came from.
@@ -79,7 +79,7 @@ _CONNECT_ONLY_DEPLOY_OPTIONS: dict[str, str] = {
 }
 
 
-def typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]:
+def typed_connect_only_deploy_options(ctx: click.Context | None) -> list[str]:
     """The Connect-only deploy options this command line passed.
 
     Judged by parameter source rather than by value: --disable-env-management-py
@@ -100,12 +100,12 @@ def typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]
 
 
 def _reject_options_the_target_has_no_use_for(
-    ctx: Optional[click.Context],
+    ctx: click.Context | None,
     target: str,
-    api_key: Optional[str],
+    api_key: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    snowflake_connection_name: Optional[str],
+    cacert: str | None,
+    snowflake_connection_name: str | None,
     reject_connect_only_deploy_options: bool,
 ):
     """Reject typed Posit Connect and SPCS options for another target.
@@ -144,11 +144,11 @@ alongside {target}. See command help for further details."
 
 
 def validate_connect_cloud_incompatible_options(
-    ctx: Optional[click.Context],
-    api_key: Optional[str],
+    ctx: click.Context | None,
+    api_key: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    snowflake_connection_name: Optional[str],
+    cacert: str | None,
+    snowflake_connection_name: str | None,
 ):
     """Reject options that have no meaning on Posit Connect Cloud.
 
@@ -167,11 +167,11 @@ def validate_connect_cloud_incompatible_options(
 
 
 def validate_shinyapps_incompatible_options(
-    ctx: Optional[click.Context],
-    api_key: Optional[str],
+    ctx: click.Context | None,
+    api_key: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    snowflake_connection_name: Optional[str],
+    cacert: str | None,
+    snowflake_connection_name: str | None,
 ):
     """Reject options that have no meaning on shinyapps.io.
 
@@ -191,9 +191,9 @@ def validate_shinyapps_incompatible_options(
 
 
 def validate_connect_cloud_credential_options(
-    ctx: Optional[click.Context],
-    client_id: Optional[str],
-    client_secret: Optional[str],
+    ctx: click.Context | None,
+    client_id: str | None,
+    client_secret: str | None,
 ):
     """Reject typed Connect Cloud credentials when the target is not Connect Cloud.
 
@@ -215,19 +215,19 @@ def validate_connect_cloud_credential_options(
 
 
 def validate_connection_options(
-    ctx: Optional[click.Context],
-    url: Optional[str],
-    api_key: Optional[str],
+    ctx: click.Context | None,
+    url: str | None,
+    api_key: str | None,
     insecure: bool,
-    cacert: Optional[str],
-    account_name: Optional[str],
-    token: Optional[str],
-    secret: Optional[str],
-    name: Optional[str] = None,
-    snowflake_connection_name: Optional[str] = None,
+    cacert: str | None,
+    account_name: str | None,
+    token: str | None,
+    secret: str | None,
+    name: str | None = None,
+    snowflake_connection_name: str | None = None,
     has_default_server: bool = False,
-    client_id: Optional[str] = None,
-    client_secret: Optional[str] = None,
+    client_id: str | None = None,
+    client_secret: str | None = None,
     connect_cloud: bool = False,
     has_saved_connect_cloud_account: bool = False,
 ):
@@ -427,7 +427,7 @@ for shinyapps.io. See command help for further details."
 class PythonVersionParamType(click.ParamType):
     name = "python-version"
 
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]):
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None):
         try:
             parts = list(map(int, value.split(".")))
             if len(parts) in (2, 3):

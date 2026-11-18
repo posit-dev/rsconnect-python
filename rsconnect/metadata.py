@@ -13,21 +13,18 @@ import shutil
 import stat
 import sys
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
 from typing import (
     TYPE_CHECKING,
-    Callable,
     Generic,
-    Mapping,
     NotRequired,
-    Optional,
     TypedDict,
     TypeVar,
-    Union,
 )
+from collections.abc import Callable, Mapping
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -120,7 +117,7 @@ class DataStore(Generic[T]):
     def __init__(
         self,
         primary_path: str,
-        secondary_path: Optional[str] = None,
+        secondary_path: str | None = None,
         chmod: bool = False,
         *,
         autoload: bool = True,
@@ -404,23 +401,23 @@ class ServerData:
         name: str,
         url: str,
         from_store: bool,
-        api_key: Optional[str] = None,
-        snowflake_connection_name: Optional[str] = None,
-        insecure: Optional[bool] = None,
-        ca_data: Optional[str] = None,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-        oauth_client_id: Optional[str] = None,
-        oauth_access_token: Optional[str] = None,
-        oauth_refresh_token: Optional[str] = None,
-        oauth_token_expiry: Optional[float] = None,
-        connect_cloud_account_name: Optional[str] = None,
-        connect_cloud_account_id: Optional[str] = None,
-        connect_cloud_client_id: Optional[str] = None,
-        connect_cloud_client_secret: Optional[str] = None,
-        connect_cloud_access_token: Optional[str] = None,
-        connect_cloud_refresh_token: Optional[str] = None,
+        api_key: str | None = None,
+        snowflake_connection_name: str | None = None,
+        insecure: bool | None = None,
+        ca_data: str | None = None,
+        account_name: str | None = None,
+        token: str | None = None,
+        secret: str | None = None,
+        oauth_client_id: str | None = None,
+        oauth_access_token: str | None = None,
+        oauth_refresh_token: str | None = None,
+        oauth_token_expiry: float | None = None,
+        connect_cloud_account_name: str | None = None,
+        connect_cloud_account_id: str | None = None,
+        connect_cloud_client_id: str | None = None,
+        connect_cloud_client_secret: str | None = None,
+        connect_cloud_access_token: str | None = None,
+        connect_cloud_refresh_token: str | None = None,
     ):
         self.name = name
         self.url = url
@@ -480,7 +477,7 @@ class ServerStore(DataStore[ServerDataDict]):
             return self._get_connect_cloud_server(target)
         return self._get_by_value_attr("url", target)
 
-    def saved_entry(self, name: Optional[str], url: str) -> Optional[ServerDataDict]:
+    def saved_entry(self, name: str | None, url: str) -> ServerDataDict | None:
         """The entry a server in hand came from: by its nickname, else by its URL.
 
         A one-shot target has no nickname, and neither does one resolved before the
@@ -491,7 +488,7 @@ class ServerStore(DataStore[ServerDataDict]):
             entry = self.get_by_url(url)
         return entry
 
-    def has_connect_cloud_account(self, url: Optional[str]) -> bool:
+    def has_connect_cloud_account(self, url: str | None) -> bool:
         """Whether any Posit Connect Cloud credential is saved for this URL.
 
         Callers use this to decide whether the account has to be supplied on the
@@ -540,7 +537,7 @@ class ServerStore(DataStore[ServerDataDict]):
             "use client credentials directly." % saved
         )
 
-    def _connect_cloud_secrets(self, entry: ServerDataDict) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    def _connect_cloud_secrets(self, entry: ServerDataDict) -> tuple[str | None, str | None, str | None]:
         """A Posit Connect Cloud entry's secrets, as (access, refresh, client secret).
 
         `rsconnect add` and token refresh store these in the system keyring when
@@ -571,7 +568,7 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         return self._get_sorted_values(lambda s: s.get("name") or "")
 
-    def get_default(self) -> Optional[ServerDataDict]:
+    def get_default(self) -> ServerDataDict | None:
         """Return the entry marked as default, or None."""
         for entry in self._data.values():
             if entry.get("default"):
@@ -596,23 +593,23 @@ class ServerStore(DataStore[ServerDataDict]):
         self,
         name: str,
         url: str,
-        api_key: Optional[str] = None,
-        snowflake_connection_name: Optional[str] = None,
-        insecure: Optional[bool] = False,
-        ca_data: Optional[str] = None,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-        oauth_client_id: Optional[str] = None,
-        oauth_access_token: Optional[str] = None,
-        oauth_refresh_token: Optional[str] = None,
-        oauth_token_expiry: Optional[float] = None,
-        connect_cloud_account_name: Optional[str] = None,
-        connect_cloud_account_id: Optional[str] = None,
-        connect_cloud_client_id: Optional[str] = None,
-        connect_cloud_client_secret: Optional[str] = None,
-        connect_cloud_access_token: Optional[str] = None,
-        connect_cloud_refresh_token: Optional[str] = None,
+        api_key: str | None = None,
+        snowflake_connection_name: str | None = None,
+        insecure: bool | None = False,
+        ca_data: str | None = None,
+        account_name: str | None = None,
+        token: str | None = None,
+        secret: str | None = None,
+        oauth_client_id: str | None = None,
+        oauth_access_token: str | None = None,
+        oauth_refresh_token: str | None = None,
+        oauth_token_expiry: float | None = None,
+        connect_cloud_account_name: str | None = None,
+        connect_cloud_account_id: str | None = None,
+        connect_cloud_client_id: str | None = None,
+        connect_cloud_client_secret: str | None = None,
+        connect_cloud_access_token: str | None = None,
+        connect_cloud_refresh_token: str | None = None,
         set_as_default: bool = False,
     ):
         """
@@ -723,9 +720,9 @@ class ServerStore(DataStore[ServerDataDict]):
     def update_oauth_tokens(
         self,
         name: str,
-        access_token: Optional[str],
-        refresh_token: Optional[str],
-        expiry: Optional[float],
+        access_token: str | None,
+        refresh_token: str | None,
+        expiry: float | None,
     ) -> None:
         """Update (or clear) stored OAuth token fields for an existing server entry."""
         entry = self._get_by_key(name)
@@ -742,7 +739,7 @@ class ServerStore(DataStore[ServerDataDict]):
             updated.pop("oauth_token_expiry", None)  # type: ignore[misc]
         self._set(name, updated)
 
-    def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData:
+    def resolve(self, name: str | None, url: str | None) -> ServerData:
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -819,7 +816,7 @@ class AppMetadata(TypedDict):
     app_url: str
     app_id: str
     # Posit Connect Cloud and shinyapps.io identify content by id alone.
-    app_guid: Optional[str]
+    app_guid: str | None
     title: str
     app_mode: str
     app_store_version: int
@@ -853,7 +850,7 @@ class AppStore(DataStore[AppMetadata]):
 
     def __init__(self, app_file: str, version: int = 1, *, autoload: bool = True, strict_read: bool = False):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
-        super(AppStore, self).__init__(
+        super().__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
             autoload=autoload,
@@ -881,7 +878,7 @@ class AppStore(DataStore[AppMetadata]):
         filename: str,
         app_url: str,
         app_id: str,
-        app_guid: Optional[str],
+        app_guid: str | None,
         title: str,
         app_mode: AppMode | str,
     ):
@@ -920,7 +917,7 @@ class AppStore(DataStore[AppMetadata]):
         """
         return self._remove_by_key(server_url)
 
-    def resolve(self, server: str, app_id: Optional[str], app_mode: Optional[AppMode]):
+    def resolve(self, server: str, app_id: str | None, app_mode: AppMode | None):
         metadata = self.get(server)
         if metadata is None:
             logger.debug("No previous deployment to this server was found; this will be a new deployment.")
@@ -991,7 +988,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
 
     def __init__(
         self,
-        server: Union[RSConnectServer, SPCSConnectServer],
+        server: RSConnectServer | SPCSConnectServer,
         base_dir: str = os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR),
     ):
         # This type declaration is a bit of a hack. It is needed because data model used
@@ -1001,7 +998,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
         self._base_dir = os.path.abspath(base_dir)
         self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
         self._build_state_file = join(self._base_dir, "%s.json" % _normalize_server_url(server.url))
-        super(ContentBuildStore, self).__init__(self._build_state_file, chmod=True)
+        super().__init__(self._build_state_file, chmod=True)
 
     def aborted(self) -> bool:
         return ContentBuildStore._BUILD_ABORTED
@@ -1015,7 +1012,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
         if self._chmod:
             os.chmod(log_dir, 0o700)
 
-    def get_build_log(self, guid: str, task_id: Optional[str] = None) -> str | None:
+    def get_build_log(self, guid: str, task_id: str | None = None) -> str | None:
         """
         Returns the path to the build log file. This method does not check
         whether the file exists if a task_id is provided.
@@ -1039,7 +1036,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
         history: list[dict[str, str]] = []
         for f in log_files:
             task_id = basename(f).split(".log")[0]
-            t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S%z")
+            t = datetime.fromtimestamp(os.path.getctime(f), tz=UTC).strftime("%Y-%m-%d %H:%M:%S%z")
             history.append({"time": t, "task_id": task_id})
         history.sort(key=lambda x: x["time"])
         return history
@@ -1127,7 +1124,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
         """
         with self._lock:
             content = self.get_content_item(guid)
-            content["rsconnect_last_build_time"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            content["rsconnect_last_build_time"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             if not defer_save:
                 self.save()
 
@@ -1161,7 +1158,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def get_content_items(self, status: Optional[str] = None) -> list[ContentItemWithBuildState]:
+    def get_content_items(self, status: str | None = None) -> list[ContentItemWithBuildState]:
         """
         Get all the content items that are tracked for build in the state-file.
         :param status: Filter results by build status

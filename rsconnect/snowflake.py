@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from subprocess import CalledProcessError, CompletedProcess, run
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .exception import RSConnectException
 from .log import logger
@@ -30,7 +30,7 @@ def ensure_snow_installed() -> None:
             raise RSConnectException("snow cannot be found.")
 
 
-def list_connections() -> List[Dict[str, Any]]:
+def list_connections() -> list[dict[str, Any]]:
 
     try:
         res = snow("connection", "list", "--format", "json")
@@ -40,7 +40,7 @@ def list_connections() -> List[Dict[str, Any]]:
         raise RSConnectException("Could not list snowflake connections.")
 
 
-def get_parameters(name: Optional[str] = None) -> Dict[str, Any]:
+def get_parameters(name: str | None = None) -> dict[str, Any]:
     """Get Snowflake connection parameters.
     Args:
         name: The name of the connection to retrieve. If None, returns the default connection.
@@ -74,7 +74,7 @@ def get_parameters(name: Optional[str] = None) -> Dict[str, Any]:
         raise RSConnectException(f"Could not get Snowflake connection: {e}")
 
 
-def generate_jwt(name: Optional[str] = None) -> str:
+def generate_jwt(name: str | None = None) -> str:
 
     _ = get_parameters(name)
     connection_name = "" if name is None else name

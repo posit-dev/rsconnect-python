@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
@@ -34,7 +34,7 @@ def _live_client(server_url: str, api_key: str) -> RSConnectClient:
     return RSConnectClient(RSConnectServer(server_url, api_key, insecure=_insecure(), ca_data=ca_data))
 
 
-def _cli_environment(home: Path, api_key: str) -> Dict[str, str]:
+def _cli_environment(home: Path, api_key: str) -> dict[str, str]:
     home.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
     for name in (
@@ -96,7 +96,7 @@ def _run_preflight(
     )
 
 
-def _report(result: subprocess.CompletedProcess[str]) -> Dict[str, Any]:
+def _report(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
     try:
         report = json.loads(result.stdout)
     except json.JSONDecodeError as err:
@@ -107,7 +107,7 @@ def _report(result: subprocess.CompletedProcess[str]) -> Dict[str, Any]:
     return report
 
 
-def _files(project: Path) -> Dict[str, bytes]:
+def _files(project: Path) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in project.iterdir()}
 
 
@@ -158,7 +158,7 @@ def test_live_nodejs_preflight_checks_server_settings_without_writing_project_fi
 
     installations = settings.get("installations")
     assert isinstance(installations, list), settings
-    versions: List[str] = [
+    versions: list[str] = [
         item["version"] for item in installations if isinstance(item, dict) and isinstance(item.get("version"), str)
     ]
     publishable_versions = [

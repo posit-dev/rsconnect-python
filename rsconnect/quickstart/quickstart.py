@@ -49,9 +49,9 @@ def run_quickstart(
     app_type: str,
     name: str,
     *,
-    python_version: typing.Optional[str] = None,
-    server_python_settings: typing.Optional[typing.Callable[[], typing.Optional[typing.Tuple[object, str]]]] = None,
-    cwd: typing.Optional[pathlib.Path] = None,
+    python_version: str | None = None,
+    server_python_settings: typing.Callable[[], tuple[object, str] | None] | None = None,
+    cwd: pathlib.Path | None = None,
 ) -> pathlib.Path:
     """Scaffold a new Connect project of ``app_type`` named ``name``.
 
@@ -94,7 +94,7 @@ def run_quickstart(
     # verbatim. A bare version is padded to at most three segments so the
     # ``.*`` wildcard appears only when a patch level is omitted: ``3.10`` ->
     # ``==3.10.*`` (any 3.10.x), ``3.11.14`` -> ``==3.11.14`` (exact).
-    venv_python: typing.Optional[str] = None
+    venv_python: str | None = None
     if python_version is None:
         requires_python = _REQUIRES_PYTHON
         venv_python = sys.executable
@@ -142,7 +142,7 @@ def _newest_publishable_python(settings: object) -> str:
     )
     versions: list[tuple[int, ...]] = []
     if isinstance(installations, list):
-        for item in typing.cast(typing.List[object], installations):
+        for item in typing.cast(list[object], installations):
             if not isinstance(item, dict):
                 continue
             installation = typing.cast(typing.Mapping[str, object], item)
@@ -271,9 +271,9 @@ class TemplateSpec:
 
     pyproject_template: str
     readme_template: str
-    local_run_command: typing.Tuple[str, ...]
-    source_files: typing.Tuple[FileSpec, ...]
-    notes: typing.Tuple[str, ...] = ()
+    local_run_command: tuple[str, ...]
+    source_files: tuple[FileSpec, ...]
+    notes: tuple[str, ...] = ()
 
 
 # Registry key: the canonical :class:`AppMode` singleton. The CLI alias
@@ -349,7 +349,7 @@ _REGISTRY: typing.Mapping[AppMode, TemplateSpec] = {
 }
 
 
-def _supported_aliases() -> typing.Tuple[str, ...]:
+def _supported_aliases() -> tuple[str, ...]:
     """CLI aliases whose :class:`AppMode` has a quickstart template.
 
     Derived from :data:`AppModes._cli_aliases` and :data:`_REGISTRY`: an
@@ -470,7 +470,7 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _install_venv(target: pathlib.Path, python: typing.Optional[str] = None) -> None:
+def _install_venv(target: pathlib.Path, python: str | None = None) -> None:
     """Populate ``.venv/`` via ``uv venv`` + ``uv sync``.
 
     ``python`` is passed to ``uv venv --python``; when omitted, uv chooses an

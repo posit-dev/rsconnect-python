@@ -11,7 +11,6 @@ import json
 import locale
 import os
 import subprocess
-from typing import Optional
 
 from .exception import RSConnectException
 from .log import logger
@@ -44,7 +43,7 @@ class NodeEnvironment:
     def create(
         cls,
         directory: str,
-        node_executable: Optional[str] = None,
+        node_executable: str | None = None,
     ) -> NodeEnvironment:
         """Detect Node.js environment from a project directory.
 

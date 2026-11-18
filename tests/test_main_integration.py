@@ -15,37 +15,37 @@ def register_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/server_settings",
-        body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+        body=open("tests/testdata/connect-responses/server_settings.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/user",
-        body=open("tests/testdata/connect-responses/me.json", "r").read(),
+        body=open("tests/testdata/connect-responses/me.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/oauth/integrations",
-        body=open("tests/testdata/connect-responses/list-integrations.json", "r").read(),
+        body=open("tests/testdata/connect-responses/list-integrations.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/oauth/integrations/{INTEGRATION_GUID}",
-        body=open("tests/testdata/connect-responses/get-integration.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-integration.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.POST,
         f"{connect_server}/__api__/v1/oauth/integrations",
-        body=open("tests/testdata/connect-responses/get-integration.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-integration.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.PATCH,
         f"{connect_server}/__api__/v1/oauth/integrations/{INTEGRATION_GUID}",
-        body=open("tests/testdata/connect-responses/get-integration.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-integration.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
@@ -57,13 +57,13 @@ def register_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/oauth/templates",
-        body=open("tests/testdata/connect-responses/list-templates.json", "r").read(),
+        body=open("tests/testdata/connect-responses/list-templates.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/oauth/templates/custom",
-        body=open("tests/testdata/connect-responses/get-template.json", "r").read(),
+        body=open("tests/testdata/connect-responses/get-template.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
 
