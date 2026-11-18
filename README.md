@@ -4,6 +4,8 @@ The command-line interface for [Posit Connect](https://docs.posit.co/connect/) a
 
 ## Installation
 
+rsconnect-python requires Python 3.11 or later to run.
+
 ### uv
 
 ```bash
@@ -17,6 +19,8 @@ pipx install rsconnect-python
 ```
 
 ### into your project
+
+Your project's Python must be version 3.11 or later.
 
 ```bash
 python -m pip install rsconnect-python

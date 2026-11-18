@@ -7,7 +7,7 @@ from __future__ import annotations
 import fnmatch
 import pathlib
 import re
-from typing import Callable, Literal, Optional, TypedDict, cast
+from typing import Callable, Literal, NotRequired, Optional, TypedDict, cast
 
 import click
 import semver
@@ -610,6 +610,7 @@ class PyInstallation(TypedDict):
     version: str
     cluster_name: str
     image_name: str
+    publishable: NotRequired[bool]
 
 
 class BuildOutputDTO(TypedDict):
