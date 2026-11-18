@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#notebook-deployment-options" class="md-skip">
+        <a href="#choosing-the-content-python" class="md-skip">
           Skip to content
         </a>
       
@@ -388,6 +388,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-the-content-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the content Python
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#notebook-deployment-options" class="md-nav__link">
@@ -1528,6 +1539,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#choosing-the-content-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing the content Python
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notebook-deployment-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1923,6 +1945,17 @@
 
   <h1>Deploying Content</h1>
 
+<h3 id="choosing-the-content-python">Choosing the content Python<a class="headerlink" href="#choosing-the-content-python" title="Permanent link">#</a></h3>
+<p>The Python that runs rsconnect-python (the CLI Python) can differ from the Python
+you use to run your notebook, API, or application (the content Python). You do
+not need to install rsconnect-python in the content Python environment.</p>
+<p>rsconnect-python uses the content Python to inspect its version and, when
+generating requirements, its packages. To select the content Python, pass its
+executable with <code>--python</code> or use an active or project environment. The selection
+order is <code>--python</code>, <code>VIRTUAL_ENV</code>, a non-base <code>CONDA_PREFIX</code>, a project
+environment (<code>.venv</code> in the content directory or any parent directory), and a
+base <code>CONDA_PREFIX</code>. If none is available, rsconnect-python falls back to the
+CLI Python.</p>
 <h3 id="notebook-deployment-options">Notebook Deployment Options<a class="headerlink" href="#notebook-deployment-options" title="Permanent link">#</a></h3>
 <p>There are a variety of options available to you when deploying a Jupyter notebook to
 Posit Connect.</p>
@@ -1936,16 +1969,11 @@ after the notebook file:</p>
 <p>Dependency sources are selected using the same rules as for Python applications;
 see <a href="#python-dependency-sources">Python dependency sources</a>.</p>
 <p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
-selected Python environment. It checks <code>--python</code>, <code>VIRTUAL_ENV</code>, a non-base
-<code>CONDA_PREFIX</code>, a project environment (<code>.venv</code> in the
-content directory or any parent directory), and a base <code>CONDA_PREFIX</code>, in that order,
-like <code>uv pip</code>. If none is available, it uses the Python interpreter running
-rsconnect-python.</p>
+content Python environment.</p>
 <p>To select a Python executable explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-notebook.ipynb
 </code></pre></div>
-<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
-ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
+<p>To see the package list, run <code>pip list --format=freeze</code> with the content Python:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
 <p>If the environment does not have pip 20.3 or later, rsconnect uses uv to generate
@@ -1966,10 +1994,10 @@ that requires Python 3.8.</p>
        In such case the requirement specified in the field will be used
        if <strong>1</strong> or <strong>2</strong> were not already satisfied.
     4. If no other source of version requirement was found, then
-       the interpreter in use is considered the one required to run the content.</p>
+       the content Python is considered the one required to run the content.</p>
 <p>On Posit Connect <code>&gt;=2025.03.0</code> the requirement detected by <code>rsconnect</code> is
 always respected. Older Connect versions will instead rely only on the
-python version used to deploy the content to determine the requirement.</p>
+content Python version to determine the requirement.</p>
 <p>For more information see the <a href="https://docs.posit.co/connect/admin/python/#python-version-matching">Posit Connect Admin Guide chapter titled Python Version
 Matching</a>.</p>
 <p>We recommend providing a <code>pyproject.toml</code> with a <code>project.requires-python</code> field
@@ -2066,11 +2094,10 @@ venv
 <p>Dependency sources are selected using the same rules as for notebooks; see
 <a href="#python-dependency-sources">Python dependency sources</a>.</p>
 <p>With <code>--force-generate</code>, rsconnect-python determines package dependencies from the
-selected Python environment. Use <code>--python</code> to select an interpreter explicitly:</p>
+content Python environment. Use <code>--python</code> to select an interpreter explicitly:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-api/
 </code></pre></div>
-<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
-ensuring that you use the same Python that you use to run your API or application:</p>
+<p>To see the package list, run <code>pip list --format=freeze</code> with the content Python:</p>
 <div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
 </code></pre></div>
 <p>If the environment does not have pip, use <code>uv pip freeze --python /path/to/python</code> instead.</p>
