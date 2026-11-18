@@ -5,18 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.34.0] - 2026-11-18
 
 ### Added
 
-- Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning.
+- Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning. [#976](https://github.com/posit-dev/rsconnect-python/pull/976)
 
 ### Removed
 
-- **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions [#972](https://github.com/posit-dev/rsconnect-python/pull/972).
+- **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions: install the CLI in its own environment with `uv tool install rsconnect-python` ([Installation](index.md#installation)), and select the content Python with `--python` ([Choosing the content Python](deploying.md#choosing-the-content-python)) [#972](https://github.com/posit-dev/rsconnect-python/pull/972).
 
 ### Fixed
 
+- `rsconnect quickstart` without `--python` targets the newest Python available on the configured Connect server, instead of the CLI Python. It falls back to the CLI Python with a warning when the server is unavailable. [#978](https://github.com/posit-dev/rsconnect-python/pull/978)
 - Follows symlinks when bundling content: linked files are archived with their target contents and linked directories are included, instead of archiving broken links or omitting the directories. [#955](https://github.com/posit-dev/rsconnect-python/pull/955)
 - Passes `--package-installer` through in `write-manifest <framework>` and `deploy quarto`. The option was accepted but ignored, so the manifest always recorded `pip`. [#877](https://github.com/posit-dev/rsconnect-python/pull/877)
 - `system caches delete` exits with status 1 when the Connect task that deletes the cache fails. [#876](https://github.com/posit-dev/rsconnect-python/pull/876)
