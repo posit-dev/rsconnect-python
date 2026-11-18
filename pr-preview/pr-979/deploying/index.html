@@ -2252,8 +2252,10 @@ and prepare the lock and uv cache before retrying.</p>
 using a dependency source. It cannot be combined with <code>--requirements-file</code>.
 When dependencies come from anything other than an unchanged requirements
 file (<code>uv.lock</code>, <code>pyproject.toml</code>, or <code>--force-generate</code>), <code>write-manifest</code>
-writes them to <code>requirements.txt</code>, <strong>overwriting any existing file</strong> at that
-path. rsconnect-python prints a warning before it overwrites the file.</p>
+writes them to <code>requirements-connect.txt</code> and leaves user-managed files
+unchanged. If that generated filename is already in use, it uses
+<code>requirements-connect-generated.txt</code>. If both names contain user-managed files,
+the command asks you to move one or select a different source.</p>
 <h3 id="options-for-all-types-of-deployments">Options for All Types of Deployments<a class="headerlink" href="#options-for-all-types-of-deployments" title="Permanent link">#</a></h3>
 <p>These options apply to any type of content deployment.</p>
 <h4 id="title">Title<a class="headerlink" href="#title" title="Permanent link">#</a></h4>

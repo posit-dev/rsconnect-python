@@ -3454,7 +3454,7 @@ contents before deployment.</p>
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-quarto">deploy quarto<a class="headerlink" href="#deploy-quarto" title="Permanent link">#</a></h2>
-<p>Deploy a Quarto document or project to Posit Connect or Posit Connect Cloud. Should the content use the Quarto Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one does not already exist.</p>
+<p>Deploy a Quarto document or project to Posit Connect or Posit Connect Cloud. Should the content use the Quarto Jupyter engine, a generated environment file ("requirements-connect.txt") is created and included in the deployment if one does not already exist.</p>
 <p>FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy quarto [OPTIONS] FILE_OR_DIRECTORY [EXTRA_FILES]...
