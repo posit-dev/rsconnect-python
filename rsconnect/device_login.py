@@ -13,7 +13,8 @@ import stat
 import tempfile
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, Mapping, Optional, cast
+from typing import Any, cast
+from collections.abc import Generator, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from . import api, connect_cloud
@@ -151,7 +152,7 @@ def _validate_url_policy(parts: Any, label: str, allow_query: bool, allow_fragme
         raise RSConnectException("%s must not contain a query or fragment." % label)
 
 
-def _format_authority(host: str, port: Optional[int], scheme: str) -> str:
+def _format_authority(host: str, port: int | None, scheme: str) -> str:
     host = host.lower()
     authority = "[%s]" % host if ":" in host else host
     if port is not None and port != (443 if scheme == "https" else 80):
@@ -168,7 +169,7 @@ def _normalize_server_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), authority, path, "", ""))
 
 
-def _cloud_server_url(url: Optional[str]) -> str:
+def _cloud_server_url(url: str | None) -> str:
     if url is not None and not connect_cloud.is_connect_cloud_url(_identifier(url, "Connect Cloud URL")):
         raise RSConnectException("Connect Cloud URL must identify a supported environment.")
     return _normalize_server_url(connect_cloud.resolve_url(url))
@@ -290,7 +291,7 @@ def _open_state_file(path: str, flags: int, mode: int, purpose: str) -> int:
 def _open_state_lock(kind: str, name: str) -> int:
     path = _state_path(kind, name) + ".lock"
     directory = os.path.dirname(path)
-    descriptor: Optional[int] = None
+    descriptor: int | None = None
     try:
         os.makedirs(directory, mode=0o700, exist_ok=True)
         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
@@ -413,7 +414,7 @@ def _validate_state_identity(kind: str, name: str, raw: Any) -> dict[str, Any]:
     for key in _STATE_REQUIRED:
         if key not in raw:
             raise RSConnectException("Pending device login state is invalid.")
-    state = cast(Dict[str, Any], raw)
+    state = cast(dict[str, Any], raw)
     if type(state["version"]) is not int or state["version"] != 1 or state["kind"] != kind or state["name"] != name:
         raise RSConnectException("Pending device login state does not match the requested login.")
     _identifier(state["name"], "Nickname")
@@ -481,7 +482,7 @@ def _validate_state(kind: str, name: str, raw: Any) -> dict[str, Any]:
     return state
 
 
-def _read_state(kind: str, name: str) -> Optional[dict[str, Any]]:
+def _read_state(kind: str, name: str) -> dict[str, Any] | None:
     path = _state_path(kind, name)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
@@ -528,7 +529,7 @@ def _remove_state(state: dict[str, Any]) -> None:
         raise
 
 
-def _ca_values(ca_data: Optional[str | bytes]) -> tuple[Optional[str], Optional[str]]:
+def _ca_values(ca_data: str | bytes | None) -> tuple[str | None, str | None]:
     if ca_data is None:
         return None, None
     if isinstance(ca_data, str):
@@ -538,7 +539,7 @@ def _ca_values(ca_data: Optional[str | bytes]) -> tuple[Optional[str], Optional[
     raise RSConnectException("CA data must be text or bytes.")
 
 
-def _state_ca(state: dict[str, Any]) -> Optional[str | bytes]:
+def _state_ca(state: dict[str, Any]) -> str | bytes | None:
     if state["ca_data_b64"] is not None:
         return base64.b64decode(state["ca_data_b64"].encode("ascii"), validate=True)
     return state["ca_data"]
@@ -553,9 +554,7 @@ def _same_server(value: Any, server: str) -> bool:
         return False
 
 
-def _assert_nickname_target(
-    store: ServerStore, kind: str, name: str, server: str, account: Optional[str] = None
-) -> None:
+def _assert_nickname_target(store: ServerStore, kind: str, name: str, server: str, account: str | None = None) -> None:
     entry = store.get_by_name(name)
     if entry is None:
         return
@@ -574,7 +573,7 @@ def _saved_server_kind(entry: Mapping[str, Any]) -> str:
     return "connect"
 
 
-def _saved_connect_entry(store: ServerStore, name: str, server: str) -> Optional[ServerDataDict]:
+def _saved_connect_entry(store: ServerStore, name: str, server: str) -> ServerDataDict | None:
     named = store.get_by_name(name)
     if named is not None:
         return named
@@ -585,8 +584,8 @@ def _saved_connect_entry(store: ServerStore, name: str, server: str) -> Optional
 
 
 def _resolve_tls(
-    saved: Optional[ServerDataDict], insecure: bool, ca_data: Optional[str | bytes], client_id: Optional[str]
-) -> tuple[bool, Optional[str | bytes], Optional[str]]:
+    saved: ServerDataDict | None, insecure: bool, ca_data: str | bytes | None, client_id: str | None
+) -> tuple[bool, str | bytes | None, str | None]:
     tls_insecure, tls_ca = _tls_settings(saved, insecure, ca_data)
     saved_id = saved.get("oauth_client_id") if saved else None
     resolved_client_id = client_id if client_id is not None else (str(saved_id) if saved_id else None)
@@ -596,8 +595,8 @@ def _resolve_tls(
 
 
 def _tls_settings(
-    saved: Optional[ServerDataDict], insecure: bool, ca_data: Optional[str | bytes]
-) -> tuple[bool, Optional[str | bytes]]:
+    saved: ServerDataDict | None, insecure: bool, ca_data: str | bytes | None
+) -> tuple[bool, str | bytes | None]:
     if insecure and ca_data is not None:
         raise RSConnectException("Cannot combine insecure TLS with a custom CA certificate.")
     if insecure or ca_data is not None:
@@ -615,10 +614,10 @@ def _check_pending_target(
     state: dict[str, Any],
     kind: str,
     server: str,
-    account: Optional[str],
-    client_id: Optional[str],
+    account: str | None,
+    client_id: str | None,
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
 ) -> None:
     matches = state["server"] == server
     if kind == "cloud":
@@ -642,9 +641,9 @@ def _post_form(
     endpoint: str,
     fields: dict[str, str],
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
     request_timeout: float,
-    request_deadline: Optional[float] = None,
+    request_deadline: float | None = None,
 ) -> Any:
     base, path = _endpoint_location(endpoint)
     return _post_oauth_form_request(
@@ -672,7 +671,7 @@ def _register_device_client(
     metadata: dict[str, Any],
     server: str,
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
     deadline: float,
 ) -> str:
     request_timeout = _remaining(deadline)
@@ -697,9 +696,9 @@ def _start_device_request(
     metadata: dict[str, Any],
     server: str,
     client_id: str,
-    scope: Optional[str],
+    scope: str | None,
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
     deadline: float,
 ) -> tuple[str, dict[str, Any]]:
     client_id = _identifier(client_id, "OAuth client ID")
@@ -739,11 +738,11 @@ def _make_state(
     metadata: dict[str, Any],
     response: dict[str, Any],
     client_id: str,
-    scope: Optional[str],
+    scope: str | None,
     set_default: bool,
     insecure: bool,
-    ca_data: Optional[str | bytes],
-    account: Optional[str],
+    ca_data: str | bytes | None,
+    account: str | None,
 ) -> dict[str, Any]:
     client_id = _identifier(client_id, "OAuth client ID")
     device_code = response.get("device_code")
@@ -802,9 +801,9 @@ def start_connect_login(
     url: str,
     name: str,
     insecure: bool = False,
-    ca_data: Optional[str | bytes] = None,
+    ca_data: str | bytes | None = None,
     set_default: bool = True,
-    client_id: Optional[str] = None,
+    client_id: str | None = None,
 ) -> dict[str, Any]:
     require_posix("Resumable device login")
     name = _identifier(name, "Nickname")
@@ -819,9 +818,9 @@ def _start_connect_login(
     url: str,
     name: str,
     insecure: bool,
-    ca_data: Optional[str | bytes],
+    ca_data: str | bytes | None,
     set_default: bool,
-    client_id: Optional[str],
+    client_id: str | None,
 ) -> dict[str, Any]:
     server = _normalize_server_url(url)
     store = _store()
@@ -863,7 +862,7 @@ def _start_connect_login(
 def start_cloud_login(
     account: str,
     name: str,
-    url: Optional[str] = None,
+    url: str | None = None,
     set_default: bool = False,
 ) -> dict[str, Any]:
     require_posix("Resumable device login")
@@ -876,7 +875,7 @@ def start_cloud_login(
 def _start_cloud_login(
     account: str,
     name: str,
-    url: Optional[str],
+    url: str | None,
     set_default: bool,
 ) -> dict[str, Any]:
     account = _identifier(account, "Connect Cloud account")
@@ -923,7 +922,7 @@ def _raise_device_error(code: Any) -> None:
     raise error_type()
 
 
-def _response_data(response: Any) -> tuple[dict[str, Any], Optional[int]]:
+def _response_data(response: Any) -> tuple[dict[str, Any], int | None]:
     data, status = _oauth_response_data(response)
     if data is None:
         raise RSConnectException("Device token request returned an unexpected response.")
@@ -938,7 +937,7 @@ def _device_token_response(response: Any) -> dict[str, Any]:
     return data
 
 
-def _validate_token_success(data: dict[str, Any], status: Optional[int]) -> None:
+def _validate_token_success(data: dict[str, Any], status: int | None) -> None:
     if status is None or status < 200 or status >= 300:
         if status is None:
             raise RSConnectException("OAuth device token request failed.")
@@ -948,7 +947,7 @@ def _validate_token_success(data: dict[str, Any], status: Optional[int]) -> None
         raise RSConnectException("Device token request returned no access token.")
 
 
-def _poll_timeout(state: dict[str, Any], deadline: float) -> Optional[float]:
+def _poll_timeout(state: dict[str, Any], deadline: float) -> float | None:
     remaining = deadline - time.monotonic()
     device_remaining = state["expires_at"] - time.time()
     if device_remaining <= 0:
@@ -974,7 +973,7 @@ def _record_poll_error(state: dict[str, Any], error: Exception) -> None:
     _write_state(state)
 
 
-def _poll_for_token(state: dict[str, Any], deadline: float) -> Optional[dict[str, Any]]:
+def _poll_for_token(state: dict[str, Any], deadline: float) -> dict[str, Any] | None:
     while True:
         request_timeout = _poll_timeout(state, deadline)
         if request_timeout is None:
@@ -1042,7 +1041,7 @@ def _checkpoint_key(state: dict[str, Any]) -> str:
     return "device-login:" + digest
 
 
-def _read_keyring_checkpoint(state: dict[str, Any]) -> Optional[dict[str, Any]]:
+def _read_keyring_checkpoint(state: dict[str, Any]) -> dict[str, Any] | None:
     readable, value = keyring_read_value(_checkpoint_key(state), "tokens")
     if not readable:
         raise RSConnectException("Could not read pending login tokens from the keyring. Unlock it and retry.")
@@ -1055,7 +1054,7 @@ def _read_keyring_checkpoint(state: dict[str, Any]) -> Optional[dict[str, Any]]:
     _validate_tokens(tokens)
     if tokens is None:
         raise RSConnectException("Pending login tokens in the keyring are invalid.")
-    return cast(Dict[str, Any], tokens)
+    return cast(dict[str, Any], tokens)
 
 
 def _approved_tokens(state: dict[str, Any]) -> dict[str, Any]:
@@ -1204,7 +1203,7 @@ def _finalize_cloud(state: dict[str, Any], deadline: float) -> dict[str, Any]:
 
 
 def _invalid_grant_error(error: BaseException) -> bool:
-    current: Optional[BaseException] = error
+    current: BaseException | None = error
     while current is not None:
         if isinstance(current, InvalidGrantError):
             return True

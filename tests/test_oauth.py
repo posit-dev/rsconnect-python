@@ -779,7 +779,7 @@ class TestRefreshTokenFallback:
         mock_keyring_store: MagicMock,
         mock_keyring_get: MagicMock,
         mock_http_server_cls: MagicMock,
-        server_name: "str | None",
+        server_name: str | None,
         get_by_name_rv: Any,
         get_by_url_rv: Any,
     ):

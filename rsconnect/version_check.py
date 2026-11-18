@@ -18,7 +18,7 @@ import threading
 import time
 from http.client import HTTPSConnection
 from os.path import join
-from typing import NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
@@ -36,7 +36,7 @@ _CACHE_FILENAME = "version_check.json"
 
 class _Release(NamedTuple):
     version: str
-    requires_python: Optional[str]
+    requires_python: str | None
 
 
 def _is_check_disabled() -> bool:
@@ -55,7 +55,7 @@ def _cache_path() -> str:
     return join(config_dirname(), _CACHE_FILENAME)
 
 
-def _read_cache() -> Tuple[bool, Optional[_Release]]:
+def _read_cache() -> tuple[bool, _Release | None]:
     """Return freshness and the cached release, retaining stale data for the hint."""
     try:
         with open(_cache_path()) as f:
@@ -73,7 +73,7 @@ def _read_cache() -> Tuple[bool, Optional[_Release]]:
         return (False, None)
 
 
-def _write_cache(release: Optional[_Release]) -> None:
+def _write_cache(release: _Release | None) -> None:
     """Cache failures too, so they do not trigger another request until the TTL expires."""
     try:
         path = _cache_path()
@@ -91,7 +91,7 @@ def _write_cache(release: Optional[_Release]) -> None:
         pass
 
 
-def _fetch_latest_version() -> Optional[_Release]:
+def _fetch_latest_version() -> _Release | None:
     conn = None
     try:
         conn = HTTPSConnection(_PYPI_HOST, timeout=_PYPI_TIMEOUT_SECONDS)
@@ -112,7 +112,7 @@ def _fetch_latest_version() -> Optional[_Release]:
             conn.close()
 
 
-def _update_message(release: Optional[_Release]) -> Optional[str]:
+def _update_message(release: _Release | None) -> str | None:
     """Return an upgrade warning if the release is newer than the running version."""
     try:
         if release is None or Version(release.version) <= Version(VERSION):
@@ -144,8 +144,8 @@ class BackgroundVersionCheck:
     """Resolves the latest available version, using a cache and a background fetch."""
 
     def __init__(self) -> None:
-        self._thread: Optional[threading.Thread] = None
-        self._release: Optional[_Release] = None
+        self._thread: threading.Thread | None = None
+        self._release: _Release | None = None
 
     def start(self) -> None:
         if _is_check_disabled() or _is_dev_version(VERSION):
@@ -162,7 +162,7 @@ class BackgroundVersionCheck:
         if release is not None:
             self._release = release
 
-    def get_warning_message(self) -> Optional[str]:
+    def get_warning_message(self) -> str | None:
         # Only a cold cache waits briefly for the background fetch.
         if self._release is None and self._thread is not None:
             self._thread.join(timeout=_PYPI_TIMEOUT_SECONDS)

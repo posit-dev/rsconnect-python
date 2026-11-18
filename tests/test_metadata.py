@@ -180,7 +180,7 @@ class TestServerMetadata(TestCase):
 
         self.assertTrue(exists(path))
 
-        with open(path, "r") as f:
+        with open(path) as f:
             data = f.read()
 
         self.assertIn("foo", data)
@@ -467,7 +467,7 @@ class TestServerMetadata(TestCase):
         self.assertEqual(store.get_path(), secondary)
         self.assertFalse(exists(primary))
         self.assertEqual(set(os.listdir(os.path.dirname(primary))), set())
-        with open(secondary, "r", encoding="utf-8") as metadata_file:
+        with open(secondary, encoding="utf-8") as metadata_file:
             self.assertEqual(json.load(metadata_file), store._data)
 
     def test_private_store_updates_symlink_target_in_place(self):
@@ -565,7 +565,7 @@ class TestServerMetadata(TestCase):
 
         self.assertEqual(os.stat(path).st_ino, previous_inode)
         self.assertEqual(set(os.listdir(parent)), files_before)
-        with open(path, "r", encoding="utf-8") as metadata_file:
+        with open(path, encoding="utf-8") as metadata_file:
             self.assertEqual(json.load(metadata_file), store._data)
 
     def test_save_rewrites_when_data_changed(self):
@@ -649,7 +649,7 @@ class TestAppMetadata(TestCase):
         path = join(self.tempdir, "rsconnect-python", "notebook.json")
         self.assertTrue(exists(path))
 
-        with open(path, "r") as f:
+        with open(path) as f:
             data = f.read()
 
         self.assertIn("http://dev", data)

@@ -30,7 +30,7 @@ def register_uris(connect_server: str):
         httpretty.register_uri(
             httpretty.GET,
             f"{connect_server}/__api__/v1/content/{guid}",
-            body=open(f"tests/testdata/connect-responses/describe-content-{i}.json", "r").read(),
+            body=open(f"tests/testdata/connect-responses/describe-content-{i}.json").read(),
             adding_headers={"Content-Type": "application/json"},
         )
         httpretty.register_uri(
@@ -61,19 +61,19 @@ def register_uris(connect_server: str):
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/server_settings",
-        body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+        body=open("tests/testdata/connect-responses/server_settings.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/user",
-        body=open("tests/testdata/connect-responses/me.json", "r").read(),
+        body=open("tests/testdata/connect-responses/me.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
         f"{connect_server}/__api__/v1/content",
-        body=open("tests/testdata/connect-responses/list-content.json", "r").read(),
+        body=open("tests/testdata/connect-responses/list-content.json").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(

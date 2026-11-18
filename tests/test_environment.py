@@ -1158,7 +1158,7 @@ class TestEnvironmentDeprecations:
         )
 
     def test_python_interpreter(self):
-        current_python_version = ".".join((str(v) for v in sys.version_info[:3]))
+        current_python_version = ".".join(str(v) for v in sys.version_info[:3])
 
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
             result = Environment.create_python_environment(get_dir("pip1"))

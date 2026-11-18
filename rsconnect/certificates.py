@@ -35,7 +35,7 @@ def read_certificate_file(location: str) -> str | bytes:
                 return bFile.read()
 
         if suffix in TEXT_ENCODED_FILETYPES:
-            with open(path, "r") as tFile:
+            with open(path) as tFile:
                 return tFile.read()
     except OSError as exc:
         raise RSConnectException("The certificate file %s could not be read: %s" % (location, exc)) from exc

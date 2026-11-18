@@ -23,7 +23,7 @@ PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
 VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"
 
 
-def local_python_mismatch(constraint: typing.Optional[str], version: str) -> typing.Optional[str]:
+def local_python_mismatch(constraint: str | None, version: str) -> str | None:
     if constraint is None:
         return None
     try:
@@ -37,7 +37,7 @@ def local_python_mismatch(constraint: typing.Optional[str], version: str) -> typ
     )
 
 
-def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]) -> typing.Optional[str]:
+def detect_python_version_requirement(directory: str | pathlib.Path) -> str | None:
     """Detect the python version requirement for a project.
 
     The directory should contain a metadata file such as pyproject.toml,
@@ -59,7 +59,7 @@ def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]
     return None
 
 
-def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.List[typing.Tuple[str, pathlib.Path]]:
+def lookup_metadata_file(directory: str | pathlib.Path) -> list[tuple[str, pathlib.Path]]:
     """Given the directory of a project return the path of a usable metadata file.
 
     The returned value is either a list of tuples [(filename, path)] or
@@ -81,7 +81,7 @@ def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.L
 
 def get_python_version_requirement_parser(
     metadata_file: pathlib.Path,
-) -> typing.Callable[[pathlib.Path], typing.Optional[str]]:
+) -> typing.Callable[[pathlib.Path], str | None]:
     """Given the metadata file, return the appropriate parser function.
 
     The returned function takes a pathlib.Path and returns the parsed value.
@@ -96,7 +96,7 @@ def get_python_version_requirement_parser(
         raise NotImplementedError(f"Unknown metadata file type: {metadata_file.name}")
 
 
-def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Optional[str]:
+def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> str | None:
     """Parse the project.requires-python field from a pyproject.toml file.
 
     Assumes that the pyproject.toml file exists, is accessible and well formatted.
@@ -109,7 +109,7 @@ def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Opti
     return pyproject.get("project", {}).get("requires-python", None)
 
 
-def parse_setupcfg_python_requires(setupcfg_file: pathlib.Path) -> typing.Optional[str]:
+def parse_setupcfg_python_requires(setupcfg_file: pathlib.Path) -> str | None:
     """Parse the options.python_requires field from a setup.cfg file.
 
     Assumes that the setup.cfg file exists, is accessible and well formatted.
@@ -122,7 +122,7 @@ def parse_setupcfg_python_requires(setupcfg_file: pathlib.Path) -> typing.Option
     return config.get("options", "python_requires", fallback=None)
 
 
-def parse_pyversion_python_requires(pyversion_file: pathlib.Path) -> typing.Optional[str]:
+def parse_pyversion_python_requires(pyversion_file: pathlib.Path) -> str | None:
     """Parse the python version from a .python-version file.
 
     Assumes that the .python-version file exists, is accessible and well formatted.
@@ -144,7 +144,7 @@ def adapt_python_requires(
     """
     current_contraints = python_requires.split(",")
 
-    def _adapt_contraint(constraints: typing.List[str]) -> typing.Generator[str, None, None]:
+    def _adapt_contraint(constraints: list[str]) -> typing.Generator[str, None, None]:
         for constraint in constraints:
             constraint = constraint.strip()
             if "@" in constraint or "-" in constraint or "/" in constraint:
@@ -209,7 +209,7 @@ def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typ
     return _read_deployment_config(pyproject_file)[1]
 
 
-def _read_deployment_config(pyproject_file: pathlib.Path) -> typing.Tuple[str, typing.Mapping[str, typing.Any]]:
+def _read_deployment_config(pyproject_file: pathlib.Path) -> tuple[str, typing.Mapping[str, typing.Any]]:
     content = pyproject_file.read_text(encoding="utf-8-sig")
     pyproject = tomllib.loads(content)
     tool = pyproject.get("tool")
@@ -263,13 +263,13 @@ class PyprojectDeployTarget:
     configured_app_mode: str
     entrypoint: str
     requirements_file: str
-    title: typing.Optional[str]
+    title: str | None
 
 
 def resolve_pyproject_deploy_target(
     pyproject_file: pathlib.Path,
-    requirements_file: typing.Optional[str] = None,
-    title_override: typing.Optional[str] = None,
+    requirements_file: str | None = None,
+    title_override: str | None = None,
 ) -> PyprojectDeployTarget:
     """Resolve the deployment target described in pyproject.toml.
 
@@ -305,5 +305,5 @@ def resolve_pyproject_deploy_target(
         configured_app_mode=configured_app_mode,
         entrypoint=typing.cast(str, config["entrypoint"]),
         requirements_file=typing.cast(str, requirements_file or config.get("requirements_file") or "pyproject.toml"),
-        title=typing.cast(typing.Optional[str], config.get("title")) or title_override,
+        title=typing.cast(str | None, config.get("title")) or title_override,
     )

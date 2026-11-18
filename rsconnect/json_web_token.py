@@ -7,8 +7,8 @@ from __future__ import annotations
 import base64
 import binascii
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import datetime, timedelta, UTC
+from typing import Any
 
 import jwt
 
@@ -25,7 +25,7 @@ BOOTSTRAP_EXP = timedelta(minutes=15)
 SECRET_KEY_ENV = "CONNECT_BOOTSTRAP_SECRETKEY"
 
 
-def read_secret_key(keypath: Optional[str]) -> bytes:
+def read_secret_key(keypath: str | None) -> bytes:
     """
     Reads a secret key as bytes given a path to a file containing a base64-encoded key.
 
@@ -53,7 +53,7 @@ def read_secret_key(keypath: Optional[str]) -> bytes:
     if not os.path.exists(keypath):
         raise RSConnectException("Keypath does not exist.")
 
-    with open(keypath, "r") as f:
+    with open(keypath) as f:
         raw_data = f.read()
         if raw_data is None:
             raise RSConnectException("Secret key cannot be 'None'")
@@ -153,7 +153,7 @@ class JWTEncoder:
 
     def new_token(self, custom_claims: dict[str, Any], exp: timedelta) -> str:
 
-        standard_claims = self.generate_standard_claims(datetime.now(tz=timezone.utc), exp)
+        standard_claims = self.generate_standard_claims(datetime.now(tz=UTC), exp)
 
         claims: dict[str, Any] = {}
         for c in [standard_claims, custom_claims]:
