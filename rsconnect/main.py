@@ -115,7 +115,13 @@ from .bundle import (
 )
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
-from .environment import Environment, PackageInstaller, fake_module_file_from_directory, which_python
+from .environment import (
+    Environment,
+    PackageInstaller,
+    fake_module_file_from_directory,
+    prepare_generated_requirements_filename,
+    which_python,
+)
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
 from .json_web_token import (
@@ -3091,7 +3097,7 @@ def deploy_git(
     short_help="Deploy Quarto content to Posit Connect or Posit Connect Cloud.",
     help=(
         "Deploy a Quarto document or project to Posit Connect or Posit Connect Cloud. Should the "
-        'content use the Quarto Jupyter engine, an environment file ("requirements.txt") is created '
+        'content use the Quarto Jupyter engine, a generated environment file ("requirements-connect.txt") is created '
         "and included in the deployment if one does not already exist."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
@@ -4271,7 +4277,7 @@ def write_manifest_voila(
     help=(
         "Create a manifest.json file for a Quarto document or project for later "
         "deployment. Should the content use the Quarto Jupyter engine, "
-        'an environment file ("requirements.txt") is created if one does '
+        'a generated environment file ("requirements-connect.txt") is created if one does '
         "not already exist. All files are created in the same directory "
         "as the project."
         "\n\n"
@@ -4529,6 +4535,7 @@ def write_manifest_pyproject(
                 ),
                 override_python_version=None,
             )
+        prepare_generated_requirements_filename(environment, str(manifest_dir))
         destination = manifest_dir / environment.filename
         source = Path(directory) / environment.filename
         if environment.source == "file" and destination.resolve() != source.resolve():

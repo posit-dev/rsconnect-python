@@ -5,6 +5,7 @@ import subprocess
 import pytest
 from click.testing import CliRunner
 
+from rsconnect.environment import GENERATED_REQUIREMENTS_FILENAME
 from rsconnect.main import cli
 from scripts.content_python_versions import content_python_versions
 
@@ -38,8 +39,8 @@ def test_manifest_uses_content_python_environment(version, tmp_path):
     assert result.exit_code == 0, result.output
     manifest = json.loads((project / "manifest.json").read_text())
     assert manifest["python"]["version"] == expected_version
-    assert manifest["python"]["package_manager"]["package_file"] == "requirements.txt"
-    assert "idna==3.10" in (project / "requirements.txt").read_text().splitlines()
+    assert manifest["python"]["package_manager"]["package_file"] == GENERATED_REQUIREMENTS_FILENAME
+    assert "idna==3.10" in (project / GENERATED_REQUIREMENTS_FILENAME).read_text().splitlines()
 
     (project / "pyproject.toml").write_text('[project]\ndependencies = ["idna==3.10"]\n')
     result = CliRunner().invoke(
@@ -59,5 +60,5 @@ def test_manifest_uses_content_python_environment(version, tmp_path):
     assert result.exit_code == 0, result.output
     manifest = json.loads((project / "manifest.json").read_text())
     assert manifest["python"]["version"] == expected_version
-    assert manifest["python"]["package_manager"]["package_file"] == "requirements.txt"
-    assert "idna==3.10" in (project / "requirements.txt").read_text().splitlines()
+    assert manifest["python"]["package_manager"]["package_file"] == GENERATED_REQUIREMENTS_FILENAME
+    assert "idna==3.10" in (project / GENERATED_REQUIREMENTS_FILENAME).read_text().splitlines()

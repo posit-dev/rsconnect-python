@@ -13,7 +13,12 @@ from unittest import mock
 
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
-from rsconnect.environment import Environment, PackageInstaller, which_python
+from rsconnect.environment import (
+    GENERATED_REQUIREMENTS_FILENAME,
+    Environment,
+    PackageInstaller,
+    which_python,
+)
 from rsconnect.subprocesses.inspect_environment import (
     EnvironmentException,
     detect_environment,
@@ -87,7 +92,7 @@ class TestEnvironment(TestCase):
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
-            assert result.filename == "requirements.txt"
+            assert result.filename == GENERATED_REQUIREMENTS_FILENAME
             assert result.contents.endswith("foo==1.0\nbar>=2.0\n")
             assert result.source == "derived_file"
 
@@ -106,7 +111,7 @@ class TestEnvironment(TestCase):
         expected = Environment.from_dict(
             dict(
                 contents=result.contents,
-                filename="requirements.txt",
+                filename=GENERATED_REQUIREMENTS_FILENAME,
                 locale=result.locale,
                 package_manager="pip",
                 pip=result.pip,
@@ -445,7 +450,7 @@ requires-dist = [
     }[lock_location]
     env = Environment.create_python_environment(dirname, requirements_file=lock_file, python=str(python))
 
-    assert env.filename == "requirements.txt"
+    assert env.filename == GENERATED_REQUIREMENTS_FILENAME
     assert "aiofiles==24.1.0" in env.contents
     assert "annotated-doc==0.0.4" in env.contents
     assert "annotated-types==0.7.0" in env.contents
@@ -1186,6 +1191,7 @@ class TestRequirementsFileRequired:
         """Force-generate ignores the existing requirements.txt and uses pip freeze."""
         result = Environment.create_python_environment(get_dir("pip1"), requirements_file=None)
         assert result.source == "pip_freeze"
+        assert result.filename == GENERATED_REQUIREMENTS_FILENAME
 
     def test_force_generate_and_file_missing(self):
         """Force-generate works even without requirements.txt."""

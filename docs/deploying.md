@@ -417,8 +417,10 @@ Use `--force-generate` to snapshot the selected Python environment instead of
 using a dependency source. It cannot be combined with `--requirements-file`.
 When dependencies come from anything other than an unchanged requirements
 file (`uv.lock`, `pyproject.toml`, or `--force-generate`), `write-manifest`
-writes them to `requirements.txt`, **overwriting any existing file** at that
-path. rsconnect-python prints a warning before it overwrites the file.
+writes them to `requirements-connect.txt` and leaves user-managed files
+unchanged. If that generated filename is already in use, it uses
+`requirements-connect-generated.txt`. If both names contain user-managed files,
+the command asks you to move one or select a different source.
 
 ### Options for All Types of Deployments
 
