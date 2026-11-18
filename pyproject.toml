@@ -83,3 +83,7 @@ typeCheckingMode = "strict"
 reportPrivateUsage = "none"
 reportUnnecessaryIsInstance = "none"
 reportUnnecessaryComparison = "none"
+
+[tool.uv]
+# Patched soupsieve (a test-only dependency) requires Python 3.11.5+; this limits the lockfile, not users.
+environments = ["python_full_version >= '3.11.5'"]
