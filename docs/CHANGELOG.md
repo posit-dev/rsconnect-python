@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions [#972](https://github.com/posit-dev/rsconnect-python/pull/972).
+- **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions: install the CLI in its own environment with `uv tool install rsconnect-python` ([Installation](index.md#installation)), and select the content Python with `--python` ([Choosing the content Python](deploying.md#choosing-the-content-python)) [#972](https://github.com/posit-dev/rsconnect-python/pull/972).
 
 ### Fixed
 
