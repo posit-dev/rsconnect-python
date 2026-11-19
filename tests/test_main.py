@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -2671,6 +2672,58 @@ def test_document_commands_export_uv_lock_for_bare_and_relative_paths(tmp_path, 
         assert result.exit_code == 0, result.output
         assert (tmp_path / "manifest.json").exists()
         assert (tmp_path / "requirements-connect.txt").exists()
+
+
+@pytest.mark.parametrize("command", ["notebook", "voila", "quarto", "api", "pyproject"])
+@pytest.mark.parametrize("requirements_file", ["uv.lock", "requirements.txt.lock", "custom.txt"])
+def test_write_manifest_requirements_overwrite(tmp_path, monkeypatch, command, requirements_file):
+    monkeypatch.chdir(tmp_path)
+    filename = {"notebook": "nb.ipynb", "voila": "nb.ipynb", "quarto": "doc.qmd"}.get(command, "app.py")
+    (tmp_path / filename).write_text('{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}')
+    generated = requirements_file == "uv.lock"
+    project = "[project]\nname='demo'\nversion='0.0.0'\n"
+    if command == "pyproject":
+        project += '\n[tool.rsconnect]\napp_mode = "python-api"\nentrypoint = "app:app"\n'
+    (tmp_path / "pyproject.toml").write_text(project)
+    if generated:
+        subprocess.run([sys.executable, "-m", "uv", "lock", "--offline"], check=True)
+    else:
+        supplied_contents = b"# Publisher requirements\r\nexample==1.0\r\n"
+        (tmp_path / requirements_file).write_bytes(supplied_contents)
+
+    args = ["write-manifest", command, "-r", requirements_file, "." if filename == "app.py" else filename]
+    runner = CliRunner()
+    with (
+        mock.patch("rsconnect.main.which_quarto", return_value="quarto"),
+        mock.patch("rsconnect.main.quarto_inspect", return_value={"engines": ["jupyter"]}),
+    ):
+        result = runner.invoke(cli, args)
+        assert result.exit_code == 0, result.output
+        manifest_path = tmp_path / "manifest.json"
+        original_manifest = manifest_path.read_bytes()
+        output = tmp_path / ("requirements-connect.txt" if generated else requirements_file)
+        original_contents = output.read_bytes()
+        result = runner.invoke(cli, args)
+        assert result.exit_code != 0
+        assert "Use --overwrite" in result.output
+        assert manifest_path.read_bytes() == original_manifest
+        assert output.read_bytes() == original_contents
+
+        if generated:
+            output.write_bytes(original_contents + b"# stale generated content\n")
+
+        for _ in range(2):
+            result = runner.invoke(cli, [*args, "--overwrite"])
+            assert result.exit_code == 0, result.output
+            manifest = json.loads(manifest_path.read_bytes())
+            package_file = manifest["python"]["package_manager"]["package_file"]
+            assert package_file == output.name
+            contents = (tmp_path / package_file).read_bytes()
+            assert manifest["files"][package_file]["checksum"] == hashlib.md5(contents).hexdigest()
+            if generated:
+                assert b"# stale generated content" not in contents
+            else:
+                assert contents == supplied_contents
 
 
 class TestWriteManifestNodeJS:
