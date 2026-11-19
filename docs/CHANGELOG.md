@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reads deployment settings from `[tool.posit.connect]` in `pyproject.toml` and generates it in quickstart projects. The legacy `[tool.rsconnect]` name remains supported with a deprecation warning. [#976](https://github.com/posit-dev/rsconnect-python/pull/976)
 
+### Changed
+
+- Selects Python dependencies consistently for deploy and write-manifest: explicit and configured sources take precedence, followed by `uv.lock`, static `pyproject.toml` dependencies, and `requirements.txt`. Lockfiles are validated offline; generated requirements use `requirements-connect.txt` (or `requirements-connect-generated.txt` when needed) to preserve user-managed files.
+
 ### Removed
 
 - **Breaking:** Removes support for running the CLI on Python 3.8–3.10. Installing on those versions resolves to 1.33.2, the last compatible release. Content can still target those versions: install the CLI in its own environment with `uv tool install rsconnect-python` ([Installation](index.md#installation)), and select the content Python with `--python` ([Choosing the content Python](deploying.md#choosing-the-content-python)) [#972](https://github.com/posit-dev/rsconnect-python/pull/972).

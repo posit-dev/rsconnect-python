@@ -209,7 +209,9 @@ def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typ
     return _read_deployment_config(pyproject_file)[1]
 
 
-def _read_deployment_config(pyproject_file: pathlib.Path) -> tuple[str, typing.Mapping[str, typing.Any]]:
+def _read_deployment_config(
+    pyproject_file: pathlib.Path, required: bool = True
+) -> tuple[str, typing.Mapping[str, typing.Any]]:
     content = pyproject_file.read_text(encoding="utf-8-sig")
     pyproject = tomllib.loads(content)
     tool = pyproject.get("tool")
@@ -233,6 +235,8 @@ def _read_deployment_config(pyproject_file: pathlib.Path) -> tuple[str, typing.M
         table = "[tool.rsconnect]"
         config = tool["rsconnect"]
     else:
+        if not required:
+            return "", {}
         raise InvalidPyprojectConfigError(
             f"The [tool.posit.connect] section is missing; [tool.rsconnect] is also accepted. "
             f"Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
@@ -243,13 +247,24 @@ def _read_deployment_config(pyproject_file: pathlib.Path) -> tuple[str, typing.M
             f"{table} is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
         )
     config = typing.cast(typing.Mapping[str, typing.Any], config)
-    for field in ("app_mode", "entrypoint"):
-        value = config.get(field)
-        if not isinstance(value, str) or not value:
-            raise InvalidPyprojectConfigError(
-                f"The {table} field {field} must be a non-empty string. Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
-            )
+    if required:
+        for field in ("app_mode", "entrypoint"):
+            value = config.get(field)
+            if not isinstance(value, str) or not value:
+                raise InvalidPyprojectConfigError(
+                    f"The {table} field {field} must be a non-empty string. "
+                    f"Add at least:\n\n{_MINIMUM_VALID_TOOL_SNIPPET}"
+                )
     return table, config
+
+
+def optional_deployment_config(
+    pyproject_file: pathlib.Path, warn_legacy: bool = True
+) -> typing.Mapping[str, typing.Any]:
+    table, config = _read_deployment_config(pyproject_file, required=False)
+    if warn_legacy and table == "[tool.rsconnect]":
+        logger.warning("[tool.rsconnect] is deprecated. Rename it to [tool.posit.connect].")
+    return config
 
 
 @dataclasses.dataclass(frozen=True)
@@ -278,8 +293,6 @@ def resolve_pyproject_deploy_target(
     a known app mode.
 
     :param pathlib.Path pyproject_file: path to the project's pyproject.toml.
-    :param typing.Optional[str] requirements_file: caller override for the
-        requirements source; wins over the configured ``requirements_file``.
     :param typing.Optional[str] title_override: fallback title used when the
         config declares none.
     """
@@ -293,12 +306,6 @@ def resolve_pyproject_deploy_target(
     if table == "[tool.rsconnect]":
         logger.warning("[tool.rsconnect] is deprecated. Rename it to [tool.posit.connect].")
 
-    # Requirements source precedence: caller override (the ``-r`` flag) >
-    # configured ``requirements_file`` > built-in default ``pyproject.toml``
-    # (top-level deps; Connect resolves transitive). An explicit default keeps the
-    # inspector from falling back to a ``pip freeze`` of the caller's interpreter.
-    # Malformed TOML values (wrong type, missing file) are surfaced by the
-    # inspector / file existence check.
     return PyprojectDeployTarget(
         table=table,
         app_mode=app_mode,
