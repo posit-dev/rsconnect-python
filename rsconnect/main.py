@@ -4105,7 +4105,7 @@ def write_manifest_notebook(
             r_environment,
         )
 
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and not generate_env and environment.source != "uv_lock":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
@@ -4229,7 +4229,7 @@ def write_manifest_voila(
 
     environment_file_exists = exists(join(base_dir, environment.filename))
     generate_env = requirements_file is None
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and not generate_env and environment.source != "uv_lock":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
@@ -4390,7 +4390,7 @@ def write_manifest_quarto(
             )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
-        if environment_file_exists and not generate_env:
+        if environment_file_exists and not generate_env and environment.source != "uv_lock":
             click.secho(
                 "    Warning: %s already exists and will not be overwritten." % environment.filename,
                 fg="yellow",
@@ -4974,7 +4974,7 @@ def _write_framework_manifest(
         )
 
     generate_env = requirements_file is None
-    if environment_file_exists and not generate_env:
+    if environment_file_exists and not generate_env and environment.source != "uv_lock":
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
