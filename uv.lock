@@ -2190,7 +2190,7 @@ wheels = [
 
 [[package]]
 name = "rsconnect-python"
-version = "1.34.1"
+version = "1.34.2.dev1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
