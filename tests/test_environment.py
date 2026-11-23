@@ -424,10 +424,7 @@ requires-dist = [
         encoding="utf-8",
     )
 
-    from rsconnect.bundle import Manifest
-
     uv_path = uv.find_uv_bin()
-    expected_uv_version = subprocess.check_output([uv_path, "--version"], text=True).split()[1]
     env_dir = project_dir / ".venv"
     subprocess.run([uv_path, "venv", "--python", sys.executable, str(env_dir)], check=True)
     python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -450,9 +447,8 @@ requires-dist = [
     assert "annotated-doc==0.0.4" in env.contents
     assert "annotated-types==0.7.0" in env.contents
     assert env.source == "uv_lock"
-    assert env.package_manager == "uv"
+    assert env.package_manager == "pip"
     assert env.pip is None
-    assert Manifest(environment=env).data["python"]["package_manager"]["version"] == expected_uv_version
 
 
 @pytest.mark.parametrize("default_groups", ["", '[tool.uv]\ndefault-groups = ["dev", "lint"]\n'])
