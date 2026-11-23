@@ -315,8 +315,7 @@ def uv_export(dirname: str, lock_filename: str, uv_path: str = "uv"):
         "filename": "requirements.txt.lock",
         "contents": requirements,
         "source": "uv_lock",
-        "package_manager": "uv",
-        "pip": None,
+        "package_manager": "pip",
     }
 
 
