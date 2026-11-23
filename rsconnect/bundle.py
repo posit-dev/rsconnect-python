@@ -43,7 +43,12 @@ from urllib.parse import urlsplit
 
 from . import metadata
 
-from .environment import Environment, list_environment_dirs, is_environment_dir
+from .environment import (
+    Environment,
+    list_environment_dirs,
+    is_environment_dir,
+    prepare_generated_requirements_filename,
+)
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
 from .exception import RSConnectException
@@ -616,11 +621,12 @@ def write_manifest(
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
-    A requirements.txt file will be created if one does not exist.
+    A generated requirements file will be created when dependencies are derived.
 
     Returns the list of filenames written.
     """
     _check_single_notebook_editables(environment)
+    prepare_generated_requirements_filename(environment, output_dir)
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(
         AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image, env_management_py, env_management_r
@@ -710,6 +716,7 @@ def make_notebook_source_bundle(
     if extra_files is None:
         extra_files = []
     base_dir = dirname(file)
+    prepare_generated_requirements_filename(environment, base_dir)
     nb_name = basename(file)
     config_dir = _resolved_config_dir()
     _ensure_content_root_is_safe(base_dir, config_dir)
@@ -1145,6 +1152,7 @@ def make_api_manifest(
     :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the manifest and a list of the files involved.
     """
+    prepare_generated_requirements_filename(environment, directory)
     if is_environment_dir(directory):
         excludes = list(excludes or []) + ["bin/", "lib/", "Lib/", "Scripts/", "Include/"]
 
@@ -1849,10 +1857,13 @@ def make_quarto_manifest(
     :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the manifest and a list of the files involved.
     """
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
     if environment:
+        prepare_generated_requirements_filename(environment, base_dir)
         extra_files = list(extra_files or [])
 
-    base_dir = file_or_directory
     if isdir(file_or_directory):
         # Directory as a Quarto project.
         excludes = list(excludes or []) + [".quarto"]
@@ -1875,7 +1886,7 @@ def make_quarto_manifest(
             t, _ = splitext(os.path.relpath(each, file_or_directory))
             excludes = excludes + [t + ".html", t + "_files/**/*"]
 
-        # relevant files don't need to include requirements.txt file because it is
+        # relevant files don't need to include the requirements file because it is
         # always added to the manifest (as a buffer) from the environment contents
         if environment:
             excludes.append(environment.filename)
@@ -2208,6 +2219,7 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
+    prepare_generated_requirements_filename(environment, directory)
     manifest_data = make_source_manifest(
         app_mode,
         environment,
@@ -2307,6 +2319,7 @@ def create_voila_manifest(
             raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
         _warn_on_ignored_entrypoint(entrypoint)
         deploy_dir = entrypoint = abspath(path)
+    prepare_generated_requirements_filename(environment, deploy_dir)
     extra_files = validate_extra_files(deploy_dir, extra_files, use_abspath=True)
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
@@ -2535,6 +2548,14 @@ def write_nodejs_manifest_json(
     write_manifest_json(manifest_path, manifest)
 
 
+_GENERATED_SOURCE_DESCRIPTIONS = {
+    "pip_freeze": "snapshotted from the Python environment (--force-generate)",
+    "uv_lock": "exported from uv.lock",
+    "pyproject_toml": "generated from pyproject.toml [project].dependencies",
+    "derived_file": "normalized from the selected requirements file",
+}
+
+
 def write_environment_file(
     environment: Environment,
     directory: str,
@@ -2547,7 +2568,18 @@ def write_environment_file(
     returned by the inspect_environment() function.
     :param directory: the directory where the file should be written.
     """
+    if environment.source == "file":
+        return
+
+    prepare_generated_requirements_filename(environment, directory)
     environment_file_path = join(directory, environment.filename)
+    if os.path.islink(environment_file_path):
+        raise RSConnectException(f"Cannot overwrite symlink at generated requirements path {environment_file_path}.")
+    description = _GENERATED_SOURCE_DESCRIPTIONS.get(environment.source, environment.source)
+    if exists(environment_file_path):
+        logger.info(f"Refreshing generated requirements at {environment_file_path} with requirements {description}.")
+    else:
+        logger.info(f"Writing {environment_file_path} with requirements {description}.")
     # Write bytes so that the file matches the manifest checksum on all platforms.
     # Text mode changes line endings and encoding on Windows.
     with open(environment_file_path, "wb") as f:

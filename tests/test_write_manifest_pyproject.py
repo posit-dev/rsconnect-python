@@ -19,6 +19,7 @@ import pytest
 from click.testing import CliRunner
 
 from rsconnect.bundle import make_manifest_bundle
+from rsconnect.environment import GENERATED_REQUIREMENTS_FILENAME, GENERATED_REQUIREMENTS_HEADER
 from rsconnect.main import cli
 
 
@@ -51,9 +52,7 @@ def _read_manifest(project: pathlib.Path) -> dict[str, typing.Any]:
 def _fake_python_environment(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
     """Replace subprocess-based environment inspection with a canned Environment.
 
-    Mirrors the real inspector's filename behavior: a pyproject.toml source
-    yields a generated virtual ``requirements.txt``, a ``uv.lock`` source yields
-    ``requirements.txt.lock``, and any other requirements file is read as-is.
+    Mirrors the real inspector's filename and source behavior.
     Captures the ``requirements_file`` handed to ``create_python_environment``
     so tests can assert the requirements-source precedence without running pip.
     """
@@ -67,14 +66,17 @@ def _fake_python_environment(monkeypatch: pytest.MonkeyPatch) -> dict[str, typin
         captured["directory"] = directory
         captured["requirements_file"] = requirements_file
         if requirements_file == "uv.lock":
-            filename = "requirements.txt.lock"
-            contents = "# requirements.txt.lock generated from uv.lock by rsconnect-python\nflask==2.0.0\n"
+            filename = GENERATED_REQUIREMENTS_FILENAME
+            contents = GENERATED_REQUIREMENTS_HEADER + "# generated from uv.lock\nflask==2.0.0\n"
+            source = "uv_lock"
         elif requirements_file in (None, "pyproject.toml"):
-            filename = "requirements.txt"
-            contents = "# requirements.txt generated from pyproject.toml by rsconnect-python\nflask\n"
+            filename = GENERATED_REQUIREMENTS_FILENAME
+            contents = GENERATED_REQUIREMENTS_HEADER + "# generated from pyproject.toml\nflask\n"
+            source = "pyproject_toml"
         else:
             filename = requirements_file
             contents = "flask\n"
+            source = "file"
         return Environment.from_dict(
             {
                 "contents": contents,
@@ -83,7 +85,7 @@ def _fake_python_environment(monkeypatch: pytest.MonkeyPatch) -> dict[str, typin
                 "package_manager": "pip",
                 "pip": "23.0.1",
                 "python": "3.11.0",
-                "source": "file",
+                "source": source,
             }
         )
 
@@ -169,10 +171,8 @@ def test_write_manifest_pyproject_writes_manifest_per_app_mode(
     manifest = _read_manifest(project_dir)
     assert manifest["metadata"]["appmode"] == app_mode
     assert manifest["metadata"]["entrypoint"] == expected_entrypoint
-    # The inspector turns pyproject.toml's dependencies into a virtual
-    # requirements.txt, which must also land on disk next to the manifest.
-    assert manifest["python"]["package_manager"]["package_file"] == "requirements.txt"
-    assert "generated from pyproject.toml" in (project_dir / "requirements.txt").read_text()
+    assert manifest["python"]["package_manager"]["package_file"] == GENERATED_REQUIREMENTS_FILENAME
+    assert "generated from pyproject.toml" in (project_dir / GENERATED_REQUIREMENTS_FILENAME).read_text()
     # Closed loop: deploying from the written manifest must find every file.
     with make_manifest_bundle(str(project_dir / "manifest.json")):
         pass
@@ -212,7 +212,7 @@ def test_write_manifest_pyproject_quarto_jupyter_engine_inspects_python(
     manifest = _read_manifest(project_dir)
     assert manifest["metadata"]["appmode"] == "quarto-static"
     assert "python" in manifest
-    assert (project_dir / "requirements.txt").exists()
+    assert (project_dir / GENERATED_REQUIREMENTS_FILENAME).exists()
 
 
 def test_write_manifest_pyproject_shiny_express_entrypoint_is_rewritten(
@@ -258,8 +258,7 @@ def test_write_manifest_pyproject_requirements_file_flag_overrides_default(
     result = runner.invoke(cli, ["write-manifest", "pyproject", "-r", "uv.lock", str(project_dir)])
     assert result.exit_code == 0, result.output
     assert captured["requirements_file"] == "uv.lock"
-    # uv.lock is exported to a virtual requirements.txt.lock, which must land on disk.
-    assert (project_dir / "requirements.txt.lock").exists()
+    assert (project_dir / GENERATED_REQUIREMENTS_FILENAME).exists()
     with make_manifest_bundle(str(project_dir / "manifest.json")):
         pass
 
@@ -307,7 +306,7 @@ def test_write_manifest_pyproject_writes_env_file_next_to_subdir_manifest(
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
-    assert (project_dir / "nb" / "requirements.txt").exists()
+    assert (project_dir / "nb" / GENERATED_REQUIREMENTS_FILENAME).exists()
     assert not (project_dir / "requirements.txt").exists()
     with make_manifest_bundle(str(project_dir / "nb" / "manifest.json")):
         pass
@@ -319,24 +318,21 @@ def test_write_manifest_pyproject_regenerates_stale_env_file(
     """A stale generated env file is rewritten so deployments ship current dependencies."""
     _fake_python_environment(monkeypatch)
     _write_pyproject(project_dir, _REQ_PYPROJECT)
-    (project_dir / "requirements.txt").write_text("stale-dependency==0.1\n")
+    generated = project_dir / GENERATED_REQUIREMENTS_FILENAME
+    generated.write_text(GENERATED_REQUIREMENTS_HEADER + "stale-dependency==0.1\n")
 
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
-    contents = (project_dir / "requirements.txt").read_text()
+    contents = generated.read_text()
     assert "stale-dependency" not in contents
     assert "flask" in contents
 
 
-def test_write_manifest_pyproject_never_rewrites_explicit_requirements_source(
+def test_write_manifest_pyproject_preserves_normalized_explicit_requirements_source(
     runner: CliRunner, project_dir: pathlib.Path
 ):
-    """When requirements.txt IS the configured source, it must stay untouched.
-
-    Unmocked on purpose: the real inspector strips rsconnect lines from the
-    contents it returns, so a wrongful rewrite would corrupt the user's file.
-    """
+    """The real inspector strips rsconnect lines into a generated file without changing the source."""
     _write_pyproject(
         project_dir,
         """
@@ -358,7 +354,10 @@ def test_write_manifest_pyproject_never_rewrites_explicit_requirements_source(
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
+    generated = project_dir / GENERATED_REQUIREMENTS_FILENAME
     assert (project_dir / "requirements.txt").read_text() == source
+    assert "flask" in generated.read_text()
+    assert "rsconnect-python==1.25.0" not in generated.read_text()
     with make_manifest_bundle(str(project_dir / "manifest.json")):
         pass
 
@@ -379,8 +378,8 @@ def test_write_manifest_pyproject_unmocked_end_to_end(
 
     assert result.exit_code == 0, result.output
     manifest = _read_manifest(project_dir)
-    assert manifest["python"]["package_manager"]["package_file"] == "requirements.txt"
-    assert "flask" in (project_dir / "requirements.txt").read_text()
+    assert manifest["python"]["package_manager"]["package_file"] == GENERATED_REQUIREMENTS_FILENAME
+    assert "flask" in (project_dir / GENERATED_REQUIREMENTS_FILENAME).read_text()
     with make_manifest_bundle(str(project_dir / "manifest.json")):
         pass
 

@@ -57,7 +57,7 @@ from rsconnect.bundle import (
 )
 from rsconnect.shiny_express import escape_to_var_name
 from rsconnect.environment_node import NodeEnvironment
-from rsconnect.environment import Environment, PackageInstaller
+from rsconnect.environment import GENERATED_REQUIREMENTS_FILENAME, Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
 
@@ -407,19 +407,19 @@ class TestBundle(TestCase):
                     "data.csv",
                     "dummy.ipynb",
                     "manifest.json",
-                    "requirements.txt",
+                    GENERATED_REQUIREMENTS_FILENAME,
                 ],
             )
 
-            reqs = tar.extractfile("requirements.txt").read()
+            reqs = tar.extractfile(GENERATED_REQUIREMENTS_FILENAME).read()
 
             # these are the dependencies declared in our setup.py
             self.assertIn(b"six", reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
-            # don't check requirements.txt since we don't know the checksum
-            del manifest["files"]["requirements.txt"]
+            # don't check generated requirements since we don't know the checksum
+            del manifest["files"][GENERATED_REQUIREMENTS_FILENAME]
 
             # also don't check locale value, just require it be present
             del manifest["locale"]
@@ -445,7 +445,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements.txt",
+                            "package_file": GENERATED_REQUIREMENTS_FILENAME,
                         },
                     },
                     "environment": {
@@ -640,11 +640,11 @@ class TestBundle(TestCase):
                     "_quarto.yml",
                     "manifest.json",
                     "myquarto.qmd",
-                    "requirements.txt",
+                    GENERATED_REQUIREMENTS_FILENAME,
                 ],
             )
 
-            reqs = tar.extractfile("requirements.txt").read()
+            reqs = tar.extractfile(GENERATED_REQUIREMENTS_FILENAME).read()
             self.assertIsNotNone(reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
@@ -660,7 +660,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements.txt",
+                            "package_file": GENERATED_REQUIREMENTS_FILENAME,
                             "version": mock.ANY,
                         },
                     },
@@ -668,7 +668,7 @@ class TestBundle(TestCase):
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
-                        "requirements.txt": {"checksum": mock.ANY},
+                        GENERATED_REQUIREMENTS_FILENAME: {"checksum": mock.ANY},
                     },
                 },
             )
@@ -750,11 +750,11 @@ class TestBundle(TestCase):
                     "about.qmd",
                     "index.qmd",
                     "manifest.json",
-                    "requirements.txt",
+                    GENERATED_REQUIREMENTS_FILENAME,
                 ],
             )
 
-            reqs = tar.extractfile("requirements.txt").read()
+            reqs = tar.extractfile(GENERATED_REQUIREMENTS_FILENAME).read()
             self.assertIsNotNone(reqs)
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
@@ -773,7 +773,7 @@ class TestBundle(TestCase):
                         "version": self.python_version(),
                         "package_manager": {
                             "name": "pip",
-                            "package_file": "requirements.txt",
+                            "package_file": GENERATED_REQUIREMENTS_FILENAME,
                             "version": mock.ANY,
                         },
                     },
@@ -785,7 +785,7 @@ class TestBundle(TestCase):
                         "_quarto.yml": {"checksum": mock.ANY},
                         "index.qmd": {"checksum": mock.ANY},
                         "about.qmd": {"checksum": mock.ANY},
-                        "requirements.txt": {"checksum": mock.ANY},
+                        GENERATED_REQUIREMENTS_FILENAME: {"checksum": mock.ANY},
                     },
                 },
             )
@@ -4296,7 +4296,9 @@ def test_write_api_manifest_checksum_matches_environment_file(tmp_path: Path, wi
     write_environment_file(environment, str(tmp_path))
 
     manifest = json.loads((tmp_path / "manifest.json").read_text())
-    assert manifest["files"]["requirements.txt"]["checksum"] == file_checksum(tmp_path / "requirements.txt")
+    generated = tmp_path / GENERATED_REQUIREMENTS_FILENAME
+    assert manifest["files"][GENERATED_REQUIREMENTS_FILENAME]["checksum"] == file_checksum(generated)
+    assert generated.read_bytes() == to_bytes(environment.contents)
 
 
 def test_write_notebook_manifest_keeps_environment_file_bytes(tmp_path: Path, windows_text_mode: None):
@@ -4304,7 +4306,7 @@ def test_write_notebook_manifest_keeps_environment_file_bytes(tmp_path: Path, wi
 
     write_manifest(".", "notebook.ipynb", environment, str(tmp_path))
 
-    assert (tmp_path / "requirements.txt").read_bytes() == to_bytes(environment.contents)
+    assert (tmp_path / GENERATED_REQUIREMENTS_FILENAME).read_bytes() == to_bytes(environment.contents)
 
 
 def test_write_api_manifest_checksum_matches_crlf_requirements_file(tmp_path: Path):

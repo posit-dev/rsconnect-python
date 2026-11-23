@@ -29,10 +29,8 @@ rsconnect deploy notebook my-notebook.ipynb data.csv
 
 #### Package Dependencies
 
-If a `requirements.txt` file exists in the same directory as the notebook file, it will
-be included in the bundle. It must specify the package dependencies needed to execute
-the notebook. Posit Connect will reconstruct the Python environment using the
-specified package list.
+Dependency sources are selected using the same rules as for Python applications;
+see [Python dependency sources](#python-dependency-sources).
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
 content Python environment.
@@ -108,9 +106,8 @@ Install `nbconvert` in the selected Python environment to render static notebook
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
 in a later deployment. Use the `write-manifest` command to do this.
 
-The `write-manifest` command also creates a `requirements.txt` file if it does
-not already exist or if you specify `--force-generate`. It contains package
-dependencies from the content Python environment.
+When dependencies are generated, `write-manifest` writes a separate requirements
+file alongside the manifest. See [Python dependency sources](#python-dependency-sources).
 
 Here is an example of the `write-manifest` command:
 
@@ -209,10 +206,8 @@ Any directory that appears to be a Python virtual environment (by containing
 
 #### Package Dependencies
 
-If a `requirements.txt` file exists in the API/application directory, it will be
-included in the bundle. It must specify the package dependencies needed to execute
-the API or application. Posit Connect will reconstruct the Python environment using
-the specified package list.
+Dependency sources are selected using the same rules as for notebooks; see
+[Python dependency sources](#python-dependency-sources).
 
 With `--force-generate`, rsconnect-python determines package dependencies from the
 content Python environment. Use `--python` to select an interpreter explicitly:
@@ -298,9 +293,8 @@ RENV_PATHS_LOCKFILE=/path/to/renv.lock rsconnect deploy api my-api/
 You can create a `manifest.json` file for an API or application, then use that
 manifest in a later deployment. Use the `write-manifest` command to do this.
 
-The `write-manifest` command also creates a `requirements.txt` file if it does
-not already exist or if you specify `--force-generate`. It contains package
-dependencies from the content Python environment.
+When dependencies are generated, `write-manifest` writes a separate requirements
+file alongside the manifest. See [Python dependency sources](#python-dependency-sources).
 
 Here is an example of the `write-manifest` command:
 
@@ -400,10 +394,33 @@ rsconnect deploy pyproject my_app/
 ```
 
 The directory passed to `deploy pyproject` must contain `pyproject.toml`.
-Dependencies follow the same resolution rules as the other deploy commands:
-`[project.dependencies]` from `pyproject.toml` provides the dependency
-snapshot, and `uv.lock` or `requirements.txt` may be supplied via
-`--requirements-file` when a pinned environment is needed.
+Dependencies follow the same resolution rules as the other deploy commands.
+
+### Python dependency sources
+
+Python deployment and manifest commands choose a dependency source in this order:
+`--requirements-file`, `requirements_file` in `[tool.posit.connect]` (or the
+legacy `[tool.rsconnect]` table), then `uv.lock`, `pyproject.toml`, and
+`requirements.txt`. Automatic selection uses `pyproject.toml` only when
+`[project].dependencies` is explicitly declared as a static list; an empty list
+is valid. A selected source must be valid and readable: rsconnect-python will
+not fall back to another source if it fails.
+
+A selected `uv.lock` must be current with its companion `pyproject.toml`.
+rsconnect-python validates and exports it offline without updating it. If the
+lock is stale, run `uv lock` before retrying. If offline validation cannot
+complete, ensure uv can find a Python interpreter compatible with the project's
+`requires-python` (for example, run `uv python install <version>` while online)
+and prepare the lock and uv cache before retrying.
+
+Use `--force-generate` to snapshot the selected Python environment instead of
+using a dependency source. It cannot be combined with `--requirements-file`.
+When dependencies come from anything other than an unchanged requirements
+file (`uv.lock`, `pyproject.toml`, or `--force-generate`), `write-manifest`
+writes them to `requirements-connect.txt` and leaves user-managed files
+unchanged. If that generated filename is already in use, it uses
+`requirements-connect-generated.txt`. If both names contain user-managed files,
+the command asks you to move one or select a different source.
 
 ### Options for All Types of Deployments
 

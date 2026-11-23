@@ -3734,6 +3734,8 @@ class TestConnectCloudCliPolish(CliTestCase):
         notebook = os.path.join(project_dir, "notebook.ipynb")
         with open(notebook, "w") as f:
             f.write("{}")
+        with open(os.path.join(project_dir, "requirements.txt"), "w") as f:
+            f.write("")
         page = os.path.join(project_dir, "index.html")
         with open(page, "w") as f:
             f.write("<html></html>")
